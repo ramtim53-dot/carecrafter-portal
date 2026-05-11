@@ -577,6 +577,92 @@ textarea.field-input{resize:vertical;min-height:80px}
             </div>
           </div>
         </div>
+        <!-- ── RATE CALCULATOR ── -->
+        <div style="margin-top:2.5rem;padding-top:2rem;border-top:1px solid var(--border)">
+          <div style="font-size:18px;font-weight:700;margin-bottom:4px">🧮 Pay Rate Calculator</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:1.75rem">Enter hours and bill rate — get the exact pay rate to enter into ADP</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+            <!-- INPUTS -->
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem">
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1.25rem">INPUT</div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                <div>
+                  <label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Standard Hours (BiW)</label>
+                  <input type="number" id="rc-stdHrs" value="176" oninput="rcCalc()"
+                    style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:15px;font-weight:700;outline:none;text-align:center"/>
+                </div>
+                <div>
+                  <label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Standard Rate (Bill Rate $)</label>
+                  <input type="number" id="rc-stdRate" value="15.00" step="0.01" oninput="rcCalc()"
+                    style="width:100%;padding:10px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);color:var(--amber);font-size:15px;font-weight:700;outline:none;text-align:center"/>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                <div>
+                  <label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Regular Hours</label>
+                  <input type="number" id="rc-regHrs" value="80" oninput="rcCalc()"
+                    style="width:100%;padding:10px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:var(--radius);color:var(--blue2);font-size:15px;font-weight:700;outline:none;text-align:center"/>
+                </div>
+                <div>
+                  <label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">OT Hours</label>
+                  <input type="number" id="rc-otHrs" value="96" oninput="rcCalc()"
+                    style="width:100%;padding:10px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);color:var(--red);font-size:15px;font-weight:700;outline:none;text-align:center"/>
+                </div>
+              </div>
+
+              <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 14px;margin-top:8px">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Total Amount (Standard Hrs × Standard Rate)</div>
+                <div id="rc-totalAmt" style="font-size:20px;font-weight:800;color:var(--green)">$2,640.00</div>
+              </div>
+            </div>
+
+            <!-- OUTPUT -->
+            <div style="display:flex;flex-direction:column;gap:12px">
+
+              <!-- THE BIG NUMBER -->
+              <div style="background:rgba(0,212,170,0.1);border:2px solid var(--teal);border-radius:var(--radius-lg);padding:1.5rem;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">✅ Caregiver Pay Rate — Enter into ADP</div>
+                <div id="rc-payRate" style="font-size:52px;font-weight:900;color:var(--teal);line-height:1;margin-bottom:4px">$11.79</div>
+                <div style="font-size:11px;color:var(--text3)">Formula: Total ÷ (Reg Hrs + OT Hrs × 1.5)</div>
+              </div>
+
+              <!-- BREAKDOWN -->
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">
+                <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1rem">BREAKDOWN</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Run Rate (Pay Rate)</div>
+                    <div id="rc-runRate" style="font-size:16px;font-weight:700;color:var(--teal)">$11.79</div>
+                  </div>
+                  <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">OT Rate (×1.5)</div>
+                    <div id="rc-otRate" style="font-size:16px;font-weight:700;color:var(--amber)">$17.68</div>
+                  </div>
+                  <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Reg Amt (Reg × Run)</div>
+                    <div id="rc-runAmt" style="font-size:16px;font-weight:700;color:var(--blue2)">$942.86</div>
+                  </div>
+                  <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">OT Amt (OT × OT Rate)</div>
+                    <div id="rc-otAmt" style="font-size:16px;font-weight:700;color:var(--red)">$1,697.14</div>
+                  </div>
+                </div>
+                <div style="margin-top:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+                  <div style="font-size:11px;font-weight:700;color:var(--text2)">Total Verification</div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div id="rc-total" style="font-size:18px;font-weight:800;color:var(--green)">$2,640.00</div>
+                    <div id="rc-match" style="font-size:11px;font-weight:700;color:var(--green)">✅ MATCH</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ADMIN PANEL -->
@@ -1560,6 +1646,39 @@ function pvSetFilter(f,btn){pvFilter=f;document.querySelectorAll('#pv-toolbar .p
 function pvRenderTable(){const q=(document.getElementById('pv-search')?.value||'').toLowerCase();let data=pvData.filter(r=>{if(pvFilter==='both'&&!(r.inW1&&r.inW2))return false;if(pvFilter==='w1only'&&!(r.inW1&&!r.inW2))return false;if(pvFilter==='w2only'&&!(!r.inW1&&r.inW2))return false;if(pvFilter==='bigdiff'&&Math.abs(r.diff1||0)<1&&Math.abs(r.diff2||0)<1)return false;if(q&&!r.name.toLowerCase().includes(q)&&!r.ssn.includes(q))return false;return true;});data.sort((a,b)=>{let va=a[pvSortCol],vb=b[pvSortCol];if(pvSortCol==='name'){va=a.name;vb=b.name;}if(va===null&&vb===null)return 0;if(va===null)return 1;if(vb===null)return -1;const c=va<vb?-1:va>vb?1:0;return pvSortDir==='asc'?c:-c;});document.getElementById('pv-count').textContent=data.length+' caregivers';const fn=(v,warn)=>{if(v===null)return '<span style="color:var(--text3)">—</span>';let col='var(--text)';if(warn&&Math.abs(v)>=1)col=v>0?'var(--red)':'var(--green)';return '<span style="color:'+col+'">'+v.toFixed(2)+'</span>';};document.getElementById('pv-tbody').innerHTML=data.map(r=>'<tr style="'+((!r.inW1||!r.inW2)?'background:rgba(245,158,11,0.04)':'')+'"><td style="font-weight:600">'+r.name+((!r.inW1||!r.inW2)?'<span style="font-size:9px;font-weight:700;margin-left:6px;color:var(--amber)">'+(r.inW1?'W1 ONLY':'W2 ONLY')+'</span>':'')+'</td><td style="font-family:var(--mono);font-size:11px;color:var(--text3)">'+r.ssn+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.vsd1,false)+'</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">'+fn(r.phd1,false)+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.diff1,true)+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.vsd2,false)+'</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--blue2)">'+fn(r.phd2,false)+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.diff2,true)+'</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--green)">'+fn(r.total,false)+'</td></tr>').join('');const t1=data.reduce((s,r)=>s+(r.phd1||0),0),t2=data.reduce((s,r)=>s+(r.phd2||0),0),tA=data.reduce((s,r)=>s+(r.total||0),0);document.getElementById('pv-tfoot').innerHTML='<tr style="background:var(--bg3);font-weight:800;font-size:12px"><td colspan="3" style="padding:10px 14px;color:var(--text2)">TOTALS — '+data.length+' caregivers</td><td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">'+t1.toFixed(2)+'</td><td></td><td></td><td style="text-align:right;font-family:var(--mono);color:var(--blue2);padding:10px 14px">'+t2.toFixed(2)+'</td><td></td><td style="text-align:right;font-family:var(--mono);color:var(--green);padding:10px 14px">'+tA.toFixed(2)+'</td></tr>';}
 function pvExport(){const hdr=['Caregiver Name','SSN','W1 VSD','W1 PHD','W1 DIFF','W2 VSD','W2 PHD','W2 DIFF','Grand Total PHD'];const rows=pvData.map(r=>[r.name,r.ssn,r.vsd1?.toFixed(2)||'',r.phd1?.toFixed(2)||'',r.diff1?.toFixed(2)||'',r.vsd2?.toFixed(2)||'',r.phd2?.toFixed(2)||'',r.diff2?.toFixed(2)||'',r.total.toFixed(2)]);const csv=[hdr,...rows].map(r=>r.map(v=>'"'+v+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='payroll-comparison-'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
 
+
+// ─── RATE CALCULATOR ───
+function rcCalc(){
+  const stdHrs = parseFloat(document.getElementById('rc-stdHrs').value)||0;
+  const stdRate = parseFloat(document.getElementById('rc-stdRate').value)||0;
+  const regHrs  = parseFloat(document.getElementById('rc-regHrs').value)||0;
+  const otHrs   = parseFloat(document.getElementById('rc-otHrs').value)||0;
+
+  const totalAmt = stdHrs * stdRate;
+  // Pay Rate = Total / (RegHrs + OTHrs * 1.5)
+  const divisor = regHrs + otHrs * 1.5;
+  const payRate = divisor > 0 ? totalAmt / divisor : 0;
+  const otRate  = payRate * 1.5;
+  const runAmt  = regHrs * payRate;
+  const otAmt   = otHrs * otRate;
+  const total   = runAmt + otAmt;
+  const diff    = Math.abs(total - totalAmt);
+  const match   = diff < 0.02;
+
+  const fmt = (n) => '$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+
+  document.getElementById('rc-totalAmt').textContent = fmt(totalAmt);
+  document.getElementById('rc-payRate').textContent  = fmt(payRate);
+  document.getElementById('rc-runRate').textContent  = fmt(payRate);
+  document.getElementById('rc-otRate').textContent   = fmt(otRate);
+  document.getElementById('rc-runAmt').textContent   = fmt(runAmt);
+  document.getElementById('rc-otAmt').textContent    = fmt(otAmt);
+  document.getElementById('rc-total').textContent    = fmt(total);
+  document.getElementById('rc-match').textContent    = match ? '✅ MATCH' : '⚠ DIFF: '+fmt(diff);
+  document.getElementById('rc-match').style.color    = match ? 'var(--green)' : 'var(--red)';
+}
+// Init on load
+document.addEventListener('DOMContentLoaded', rcCalc);
 
 const ADMIN_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>CC Admin</title><style>
 :root{--bg:#0a0c10;--surface:#111318;--surface2:#1a1d24;--border:#252830;--accent:#00d4aa;--fraud:#ff4757;--warn:#ffa502;--safe:#2ed573;--blue:#3b82f6;--text:#e8eaed;--text2:#8b8fa8;--text3:#5a5f75;--mono:'Courier New',monospace}
