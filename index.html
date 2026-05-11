@@ -594,12 +594,12 @@ textarea.field-input{resize:vertical;min-height:80px}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
               <div>
                 <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Standard Hrs (BiW)</label>
-                <input type="number" id="rc-stdHrs" value="176" oninput="rcCalc()"
+                <input type="number" id="rc-stdHrs" value="176" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
                   style="width:100%;padding:12px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);color:var(--amber);font-size:22px;font-weight:800;outline:none;text-align:center"/>
               </div>
               <div>
                 <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Standard Rate (Bill Rate $)</label>
-                <input type="number" id="rc-stdRate" value="15.00" step="0.01" oninput="rcCalc()"
+                <input type="number" id="rc-stdRate" value="15.00" step="0.01" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
                   style="width:100%;padding:12px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);color:var(--amber);font-size:22px;font-weight:800;outline:none;text-align:center"/>
               </div>
             </div>
@@ -607,12 +607,12 @@ textarea.field-input{resize:vertical;min-height:80px}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
               <div>
                 <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Regular Hours</label>
-                <input type="number" id="rc-regHrs" value="80" oninput="rcCalc()"
+                <input type="number" id="rc-regHrs" value="80" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
                   style="width:100%;padding:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.4);border-radius:var(--radius);color:var(--blue2);font-size:22px;font-weight:800;outline:none;text-align:center"/>
               </div>
               <div>
                 <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">OT Hours</label>
-                <input type="number" id="rc-otHrs" value="96" oninput="rcCalc()"
+                <input type="number" id="rc-otHrs" value="96" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
                   style="width:100%;padding:12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:var(--radius);color:var(--red);font-size:22px;font-weight:800;outline:none;text-align:center"/>
               </div>
             </div>
@@ -889,7 +889,7 @@ function showView(id) {
   if (id === 'codes') renderCodes();
   if (id === 'extension') { renderVersionTable(); renderChangelog(); }
   if (id === 'payroll') initPayrollView();
-  if (id === 'ratecalc') setTimeout(rcCalc, 50);
+  if (id === 'ratecalc') { setTimeout(rcCalc, 100); }
 }
 
 // ─── EXTENSION MANAGER ───
@@ -1651,32 +1651,42 @@ function pvExport(){const hdr=['Caregiver Name','SSN','W1 VSD','W1 PHD','W1 DIFF
 
 // ─── RATE CALCULATOR ───
 function rcCalc(){
-  const stdHrs  = parseFloat(document.getElementById('rc-stdHrs').value)||0;
-  const stdRate = parseFloat(document.getElementById('rc-stdRate').value)||0;
-  const regHrs  = parseFloat(document.getElementById('rc-regHrs').value)||0;
-  const otHrs   = parseFloat(document.getElementById('rc-otHrs').value)||0;
+  const stdHrs  = parseFloat(document.getElementById('rc-stdHrs').value) || 0;
+  const stdRate = parseFloat(document.getElementById('rc-stdRate').value) || 0;
+  const regHrs  = parseFloat(document.getElementById('rc-regHrs').value) || 0;
+  const otHrs   = parseFloat(document.getElementById('rc-otHrs').value)  || 0;
 
+  // Total amount = what client pays
   const totalAmt = stdHrs * stdRate;
-  const divisor  = regHrs + (otHrs * 1.5);
-  const payRate  = divisor > 0 ? totalAmt / divisor : 0;
-  const otRate   = payRate * 1.5;
-  const runAmt   = regHrs * payRate;
-  const otAmt    = otHrs * otRate;
-  const total    = runAmt + otAmt;
-  const diff     = Math.abs(total - totalAmt);
-  const match    = diff < 0.02;
+
+  // Pay rate = total / (reg + ot*1.5) — this is what goes into ADP
+  const divisor = regHrs + (otHrs * 1.5);
+  const payRate = divisor > 0 ? totalAmt / divisor : 0;
+
+  const otRate = payRate * 1.5;
+  const runAmt = regHrs * payRate;
+  const otAmt  = otHrs  * otRate;
+  const total  = runAmt + otAmt;
+  const diff   = Math.abs(total - totalAmt);
+  const match  = diff < 0.05;
 
   const fmt = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-  document.getElementById('rc-totalAmt').textContent = fmt(totalAmt);
-  document.getElementById('rc-payRate').textContent  = fmt(payRate);
-  document.getElementById('rc-runRate').textContent  = fmt(payRate);
-  document.getElementById('rc-otRate').textContent   = fmt(otRate);
-  document.getElementById('rc-runAmt').textContent   = fmt(runAmt);
-  document.getElementById('rc-otAmt').textContent    = fmt(otAmt);
-  document.getElementById('rc-total').textContent    = fmt(total);
-  document.getElementById('rc-match').textContent    = match ? '✅ MATCH' : '⚠ DIFF: '+fmt(diff);
-  document.getElementById('rc-match').style.color    = match ? 'var(--green)' : 'var(--red)';
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+
+  set('rc-totalAmt', fmt(totalAmt));
+  set('rc-payRate',  fmt(payRate));
+  set('rc-runRate',  fmt(payRate));
+  set('rc-otRate',   fmt(otRate));
+  set('rc-runAmt',   fmt(runAmt));
+  set('rc-otAmt',    fmt(otAmt));
+  set('rc-total',    fmt(total));
+
+  const matchEl = document.getElementById('rc-match');
+  if(matchEl){
+    matchEl.textContent = match ? '✅ MATCH' : '⚠ DIFF: '+fmt(diff);
+    matchEl.style.color = match ? 'var(--green)' : 'var(--red)';
+  }
 }
 // rcCalc called from showView when ratecalc tab is opened
 
