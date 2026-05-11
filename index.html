@@ -583,7 +583,7 @@ textarea.field-input{resize:vertical;min-height:80px}
       <!-- RATE CALCULATOR VIEW -->
       <div class="view" id="v-ratecalc">
         <div class="view-title">🧮 Pay Rate Calculator</div>
-        <div class="view-sub">Enter standard hours, bill rate, reg hours and OT hours — get the exact caregiver pay rate to enter into ADP</div>
+        <div class="view-sub">Enter bi-weekly hours and bill rate — get the exact caregiver pay rate to type into ADP</div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;max-width:1100px">
 
@@ -591,35 +591,35 @@ textarea.field-input{resize:vertical;min-height:80px}
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.75rem">
             <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:1.25rem">INPUT</div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:20px">
               <div>
-                <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Standard Hrs (BiW)</label>
-                <input type="number" id="rc-stdHrs" value="176" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
-                  style="width:100%;padding:12px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);color:var(--amber);font-size:22px;font-weight:800;outline:none;text-align:center"/>
+                <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:8px">Bi-Weekly Hours</label>
+                <input type="number" id="rc-biwHrs" value="224"
+                  oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
+                  style="width:100%;padding:16px;background:rgba(245,158,11,0.12);border:2px solid rgba(245,158,11,0.5);border-radius:var(--radius);color:var(--amber);font-size:36px;font-weight:900;outline:none;text-align:center"/>
               </div>
               <div>
-                <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Standard Rate (Bill Rate $)</label>
-                <input type="number" id="rc-stdRate" value="15.00" step="0.01" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
-                  style="width:100%;padding:12px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);color:var(--amber);font-size:22px;font-weight:800;outline:none;text-align:center"/>
-              </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-              <div>
-                <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Regular Hours</label>
-                <input type="number" id="rc-regHrs" value="80" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
-                  style="width:100%;padding:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.4);border-radius:var(--radius);color:var(--blue2);font-size:22px;font-weight:800;outline:none;text-align:center"/>
-              </div>
-              <div>
-                <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">OT Hours</label>
-                <input type="number" id="rc-otHrs" value="96" oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
-                  style="width:100%;padding:12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:var(--radius);color:var(--red);font-size:22px;font-weight:800;outline:none;text-align:center"/>
+                <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:8px">Standard Rate (Bill Rate $)</label>
+                <input type="number" id="rc-rate" value="16.00" step="0.01"
+                  oninput="rcCalc()" onchange="rcCalc()" onkeyup="rcCalc()"
+                  style="width:100%;padding:16px;background:rgba(245,158,11,0.12);border:2px solid rgba(245,158,11,0.5);border-radius:var(--radius);color:var(--amber);font-size:36px;font-weight:900;outline:none;text-align:center"/>
               </div>
             </div>
 
-            <div style="background:var(--bg3);border-radius:var(--radius);padding:12px 16px">
-              <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Total Amount = Standard Hrs × Standard Rate</div>
-              <div id="rc-totalAmt" style="font-size:24px;font-weight:800;color:var(--green)">$2,640.00</div>
+            <!-- Auto calculated breakdown -->
+            <div style="background:var(--bg3);border-radius:var(--radius);padding:14px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Total Amount</div>
+                <div id="rc-totalAmt" style="font-size:18px;font-weight:800;color:var(--green)">$3,584.00</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Reg Hrs (fixed)</div>
+                <div style="font-size:18px;font-weight:800;color:var(--blue2)">80</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px">OT Hrs (BiW − 80)</div>
+                <div id="rc-otHrs" style="font-size:18px;font-weight:800;color:var(--red)">144</div>
+              </div>
             </div>
           </div>
 
@@ -628,9 +628,9 @@ textarea.field-input{resize:vertical;min-height:80px}
 
             <!-- BIG ADP NUMBER -->
             <div style="background:rgba(0,212,170,0.08);border:2px solid var(--teal);border-radius:var(--radius-lg);padding:2rem;text-align:center">
-              <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">✅ CAREGIVER PAY RATE — TYPE THIS INTO ADP</div>
-              <div id="rc-payRate" style="font-size:64px;font-weight:900;color:var(--teal);line-height:1;margin-bottom:6px">$11.79</div>
-              <div style="font-size:11px;color:var(--text3)">= Total Amount ÷ (Reg Hrs + OT Hrs × 1.5)</div>
+              <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">✅ TYPE THIS INTO ADP</div>
+              <div id="rc-payRate" style="font-size:72px;font-weight:900;color:var(--teal);line-height:1;margin-bottom:8px">$12.11</div>
+              <div style="font-size:11px;color:var(--text3)">= (BiW Hrs × Rate) ÷ (80 + OT Hrs × 1.5)</div>
             </div>
 
             <!-- BREAKDOWN -->
@@ -638,26 +638,26 @@ textarea.field-input{resize:vertical;min-height:80px}
               <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem">BREAKDOWN</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
                 <div style="background:var(--bg3);border-radius:8px;padding:12px">
-                  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Run Rate (same as Pay Rate)</div>
-                  <div id="rc-runRate" style="font-size:20px;font-weight:700;color:var(--teal)">$11.79</div>
-                </div>
-                <div style="background:var(--bg3);border-radius:8px;padding:12px">
                   <div style="font-size:10px;color:var(--text3);margin-bottom:4px">OT Rate (Pay Rate × 1.5)</div>
-                  <div id="rc-otRate" style="font-size:20px;font-weight:700;color:var(--amber)">$17.68</div>
+                  <div id="rc-otRate" style="font-size:20px;font-weight:700;color:var(--amber)">$18.16</div>
                 </div>
                 <div style="background:var(--bg3);border-radius:8px;padding:12px">
-                  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Reg Amt (Reg Hrs × Run Rate)</div>
-                  <div id="rc-runAmt" style="font-size:20px;font-weight:700;color:var(--blue2)">$942.86</div>
+                  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Reg Amt (80 × Pay Rate)</div>
+                  <div id="rc-runAmt" style="font-size:20px;font-weight:700;color:var(--blue2)">$968.65</div>
                 </div>
                 <div style="background:var(--bg3);border-radius:8px;padding:12px">
-                  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">OT Amt (OT Hrs × OT Rate)</div>
-                  <div id="rc-otAmt" style="font-size:20px;font-weight:700;color:var(--red)">$1,697.14</div>
+                  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">OT Amt (OT × OT Rate)</div>
+                  <div id="rc-otAmt" style="font-size:20px;font-weight:700;color:var(--red)">$2,615.35</div>
+                </div>
+                <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Divisor</div>
+                  <div id="rc-divisor" style="font-size:20px;font-weight:700;color:var(--text2)">296</div>
                 </div>
               </div>
               <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
                 <div style="font-size:12px;font-weight:700;color:var(--text2)">Total Verification</div>
                 <div style="display:flex;align-items:center;gap:12px">
-                  <div id="rc-total" style="font-size:20px;font-weight:800;color:var(--green)">$2,640.00</div>
+                  <div id="rc-total" style="font-size:20px;font-weight:800;color:var(--green)">$3,584.00</div>
                   <div id="rc-match" style="font-size:11px;font-weight:700;color:var(--green)">✅ MATCH</div>
                 </div>
               </div>
@@ -665,6 +665,7 @@ textarea.field-input{resize:vertical;min-height:80px}
           </div>
         </div>
       </div>
+
 
       <!-- ADMIN PANEL -->
       <div class="view" id="v-admin">
@@ -1651,36 +1652,32 @@ function pvExport(){const hdr=['Caregiver Name','SSN','W1 VSD','W1 PHD','W1 DIFF
 
 // ─── RATE CALCULATOR ───
 function rcCalc(){
-  const stdHrs  = parseFloat(document.getElementById('rc-stdHrs').value) || 0;
-  const stdRate = parseFloat(document.getElementById('rc-stdRate').value) || 0;
-  const regHrs  = parseFloat(document.getElementById('rc-regHrs').value) || 0;
-  const otHrs   = parseFloat(document.getElementById('rc-otHrs').value)  || 0;
+  const biwHrs = parseFloat(document.getElementById('rc-biwHrs').value) || 0;
+  const rate   = parseFloat(document.getElementById('rc-rate').value)   || 0;
 
-  // Total amount = what client pays
-  const totalAmt = stdHrs * stdRate;
-
-  // Pay rate = total / (reg + ot*1.5) — this is what goes into ADP
-  const divisor = regHrs + (otHrs * 1.5);
-  const payRate = divisor > 0 ? totalAmt / divisor : 0;
-
-  const otRate = payRate * 1.5;
-  const runAmt = regHrs * payRate;
-  const otAmt  = otHrs  * otRate;
-  const total  = runAmt + otAmt;
-  const diff   = Math.abs(total - totalAmt);
-  const match  = diff < 0.05;
+  const regHrs   = 80;
+  const otHrs    = Math.max(0, biwHrs - regHrs);
+  const totalAmt = biwHrs * rate;
+  const divisor  = regHrs + (otHrs * 1.5);
+  const payRate  = divisor > 0 ? totalAmt / divisor : 0;
+  const otRate   = payRate * 1.5;
+  const runAmt   = regHrs * payRate;
+  const otAmt    = otHrs  * otRate;
+  const total    = runAmt + otAmt;
+  const diff     = Math.abs(total - totalAmt);
+  const match    = diff < 0.05;
 
   const fmt = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
 
   set('rc-totalAmt', fmt(totalAmt));
+  set('rc-otHrs',    otHrs);
   set('rc-payRate',  fmt(payRate));
-  set('rc-runRate',  fmt(payRate));
   set('rc-otRate',   fmt(otRate));
   set('rc-runAmt',   fmt(runAmt));
   set('rc-otAmt',    fmt(otAmt));
   set('rc-total',    fmt(total));
+  set('rc-divisor',  divisor.toFixed(1));
 
   const matchEl = document.getElementById('rc-match');
   if(matchEl){
