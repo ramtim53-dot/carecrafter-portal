@@ -889,6 +889,7 @@ function showView(id) {
   if (id === 'codes') renderCodes();
   if (id === 'extension') { renderVersionTable(); renderChangelog(); }
   if (id === 'payroll') initPayrollView();
+  if (id === 'ratecalc') setTimeout(rcCalc, 50);
 }
 
 // ─── EXTENSION MANAGER ───
@@ -1677,7 +1678,7 @@ function rcCalc(){
   document.getElementById('rc-match').textContent    = match ? '✅ MATCH' : '⚠ DIFF: '+fmt(diff);
   document.getElementById('rc-match').style.color    = match ? 'var(--green)' : 'var(--red)';
 }
-document.addEventListener('DOMContentLoaded', rcCalc);
+// rcCalc called from showView when ratecalc tab is opened
 
 
 const ADMIN_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>CC Admin</title><style>
