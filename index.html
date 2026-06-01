@@ -760,14 +760,14 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div class="view-sub">Latest home care, Medicaid &amp; caregiving headlines</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem">
           <select id="news-topic" class="select-field" style="width:260px" onchange="loadNews()">
-            <option>Home Care / Home Health</option>
-            <option>Medicaid &amp; Waiver</option>
-            <option>Healthcare Workforce</option>
-            <option>Senior Care &amp; Aging</option>
-            <option>Grants &amp; Funding</option>
-            <option>Agency Grants</option>
-            <option>Federal Grants (HRSA/CMS)</option>
-            <option>Caregiver Workforce Funding</option>
+             <option>Home Health Care News</option>
+             <option>Home Care Magazine</option>
+             <option>PA Home Care</option>
+             <option>HCAOA News</option>
+             <option>Medicaid &amp; Waiver</option>
+             <option>Grants &amp; Funding</option>
+             <option>Workforce &amp; Caregiver</option>
+             <option>Federal Health Policy</option>
           </select>
           <button onclick="loadNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
           <span id="news-ts" style="font-size:11px;color:var(--text3)"></span>
@@ -1783,41 +1783,139 @@ loadAll();setInterval(loadAll,120000);
 
 // ─── INDUSTRY NEWS ───────────────────────────────────────────────────────────
 var _newsCache = {data: null, topic: '', ts: 0};
-var NEWS_QUERIES = ['home care OR home health', 'medicaid waiver caregiving', 'healthcare workforce', 'senior care aging', 'home care grant funding', 'home health agency grant', 'HRSA grant health', 'caregiver workforce funding'];
+var _newsCache = {data: null, src: '', ts: 0};
+
+/* RSS feeds via rss2json proxy (CORS-friendly, no key needed) */
+var NEWS_SOURCES = [
+  {
+    label: 'Home Health Care News',
+    type:  'rss',
+    url:   'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fhomehealthcarenews.com%2Ffeed%2F&count=15'
+  },
+  {
+    label: 'Home Care Magazine',
+    type:  'rss',
+    url:   'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.homecaremag.com%2Frss.xml&count=15'
+  },
+  {
+    label: 'PA Home Care',
+    type:  'rss',
+    url:   'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fpahomecare.org%2Ffeed%2F&count=15'
+  },
+  {
+    label: 'HCAOA News',
+    type:  'guardian',
+    query: 'home care association'
+  },
+  {
+    label: 'Medicaid & Waiver',
+    type:  'guardian',
+    query: 'medicaid waiver home care'
+  },
+  {
+    label: 'Grants & Funding',
+    type:  'guardian',
+    query: 'home care grant funding 2025'
+  },
+  {
+    label: 'Workforce & Caregiver',
+    type:  'guardian',
+    query: 'caregiver home health workforce'
+  },
+  {
+    label: 'Federal Health Policy',
+    type:  'guardian',
+    query: 'HRSA CMS home health policy'
+  }
+];
+
 function loadNews(force) {
-  var sel = document.getElementById('news-topic');
-  var idx = sel ? sel.selectedIndex : 0;
-  var query = NEWS_QUERIES[idx] || NEWS_QUERIES[0];
-  var grid = document.getElementById('news-grid');
+  var sel    = document.getElementById('news-topic');
+  var idx    = sel ? sel.selectedIndex : 0;
+  var src    = NEWS_SOURCES[idx] || NEWS_SOURCES[0];
+  var grid   = document.getElementById('news-grid');
   var status = document.getElementById('news-status');
-  if (!grid) return;
-  var now = Date.now();
-  if (!force && _newsCache.data && _newsCache.topic === query && (now - _newsCache.ts) < 300000) { renderNewsGrid(_newsCache.data); return; }
+  var now    = Date.now();
+
+  if (!force && _newsCache.data && _newsCache.src === src.label && (now - _newsCache.ts) < 300000) {
+    renderNewsGrid(_newsCache.data, _newsCache.src);
+    return;
+  }
+
   grid.innerHTML = '';
-  status.textContent = 'Loading headlines...';
-  var url = 'https://content.guardianapis.com/search?q=' + encodeURIComponent(query) + '&api-key=test&show-fields=thumbnail,trailText&page-size=15&order-by=newest';
-  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data.response || data.response.status !== 'ok') { status.textContent = 'Could not load news.'; return; }
-    var articles = data.response.results || [];
-    _newsCache = {data: articles, topic: query, ts: Date.now()};
-    renderNewsGrid(articles);
-  }).catch(function(e) { status.textContent = 'Error: ' + e.message; });
+  status.textContent = 'Loading headlines from ' + src.label + '...';
+
+  if (src.type === 'rss') {
+    fetch(src.url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status !== 'ok') {
+          /* RSS feed failed — fall back to Guardian */
+          loadGuardian(src.label, 'home care health', grid, status);
+          return;
+        }
+        var articles = (data.items || []).map(function(a) {
+          return {
+            webTitle:           a.title || '',
+            webUrl:             a.link  || '#',
+            webPublicationDate: a.pubDate || '',
+            sectionName:        src.label,
+            fields: {
+              thumbnail:  a.thumbnail || (a.enclosure && a.enclosure.link ? a.enclosure.link : ''),
+              trailText:  (a.description || '').replace(/<[^>]+>/g, '').substring(0, 180)
+            }
+          };
+        });
+        _newsCache = {data: articles, src: src.label, ts: Date.now()};
+        renderNewsGrid(articles, src.label);
+      })
+      .catch(function() {
+        loadGuardian(src.label, 'home care health', grid, status);
+      });
+  } else {
+    loadGuardian(src.label, src.query, grid, status);
+  }
 }
-function renderNewsGrid(articles) {
-  var grid = document.getElementById('news-grid');
+
+function loadGuardian(label, query, grid, status) {
+  var url = 'https://content.guardianapis.com/search?q=' + encodeURIComponent(query)
+          + '&api-key=test&show-fields=thumbnail,trailText&page-size=15&order-by=newest';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.response || data.response.status !== 'ok') {
+        status.textContent = 'Could not load news for ' + label + '.';
+        return;
+      }
+      var articles = data.response.results || [];
+      _newsCache = {data: articles, src: label, ts: Date.now()};
+      renderNewsGrid(articles, label);
+    })
+    .catch(function(e) { status.textContent = 'Error: ' + e.message; });
+}
+
+function renderNewsGrid(articles, sourceLabel) {
+  var grid   = document.getElementById('news-grid');
   var status = document.getElementById('news-status');
   if (!articles || !articles.length) { status.textContent = 'No articles found.'; return; }
   status.textContent = '';
-  document.getElementById('news-ts').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  document.getElementById('news-ts').textContent = 'Source: ' + (sourceLabel || '') + ' · Updated ' + new Date().toLocaleTimeString();
   grid.innerHTML = articles.map(function(a) {
-    var f = a.fields || {};
-    var date = a.webPublicationDate ? new Date(a.webPublicationDate).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '';
-    var src = a.sectionName || 'The Guardian';
+    var f    = a.fields || {};
+    var date = a.webPublicationDate ? new Date(a.webPublicationDate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
+    var src  = a.sectionName || sourceLabel || '';
     var desc = (f.trailText || '').replace(/<[^>]+>/g, '').substring(0, 180);
-    var img = f.thumbnail || '';
-    var imgHtml = img ? '<div style="height:160px;overflow:hidden;border-radius:8px 8px 0 0;background:#1a1d24"><img src="' + img + '" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>' : '';
-    var card = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;height:100%;display:flex;flex-direction:column">' + imgHtml + '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:6px"><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px">' + src + (date ? ' &middot; ' + date : '') + '</div><div style="font-size:14px;font-weight:700;line-height:1.4;color:var(--text)">' + (a.webTitle||'') + '</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">' + desc + '</div><div style="font-size:11px;color:var(--blue2);margin-top:4px;font-weight:600">Read more &rarr;</div></div></div>';
-    return '<a href="' + (a.webUrl||'#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">' + card + '</a>';
+    var img  = f.thumbnail || '';
+    var imgH = img ? '<div style="height:160px;overflow:hidden;border-radius:8px 8px 0 0;background:#1a1d24"><img src="' + img + '" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>' : '';
+    var card = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;height:100%;display:flex;flex-direction:column">'
+             + imgH
+             + '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:6px">'
+             + '<div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px">' + src + (date ? ' &middot; ' + date : '') + '</div>'
+             + '<div style="font-size:14px;font-weight:700;line-height:1.4;color:var(--text)">' + (a.webTitle || '') + '</div>'
+             + '<div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">' + desc + '</div>'
+             + '<div style="font-size:11px;color:var(--blue2);margin-top:4px;font-weight:600">Read more &rarr;</div>'
+             + '</div></div>';
+    return '<a href="' + (a.webUrl || '#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">' + card + '</a>';
   }).join('');
 }
 </script>
