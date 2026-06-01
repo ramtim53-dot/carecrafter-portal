@@ -1909,7 +1909,7 @@ function loadNews() {
   grid.innerHTML = "";
   status.textContent = "Loading headlines...";
   var url = "https://gnews.io/api/v4/search?q=" + encodeURIComponent(topic)
-          + "&lang=en&max=10&apikey=f5aedeed49d74955a25474198fabee25";
+          + "&lang=en&max=10&apikey=a723cdac5b58152c8dcc197d1b1da964";
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(data) {
