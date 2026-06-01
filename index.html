@@ -764,10 +764,10 @@ textarea.field-input{resize:vertical;min-height:80px}
              <option>Home Care Magazine</option>
              <option>PA Home Care</option>
              <option>HCAOA</option>
-             <option>HCHB News</option>
              <option>McKnight's Home Care</option>
-             <option>Caregiver Workforce</option>
-             <option>All Home Care</option>
+             <option>HCHB News</option>
+             <option>Home Care Pulse</option>
+             <option>NAHC News</option>
              <option>Federal Health Policy</option>
           </select>
           <button onclick="loadNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
@@ -1789,16 +1789,34 @@ var _newsCache = {data: null, src: '', ts: 0};
 /* RSS feeds via rss2json proxy (CORS-friendly, no key needed) */
 var _newsCache = {data: null, src: '', ts: 0};
 
+var _newsCache = {data: null, src: '', ts: 0};
+
 var NEWS_FEEDS = [
   {label: 'Home Health Care News', url: 'https://homehealthcarenews.com/feed/'},
   {label: 'Home Care Magazine',    url: 'https://www.homecaremag.com/rss.xml'},
   {label: 'PA Home Care',          url: 'https://pahomecare.org/feed/'},
   {label: 'HCAOA',                 url: 'https://www.hcaoa.org/feed/'},
+  {label: "McKnight's Home Care",  url: 'https://www.mcknightshomecare.com/feed/'},
   {label: 'HCHB News',             url: 'https://hchb.com/feed/'},
-  {label: 'McKnight\'s Home Care', url: 'https://www.mcknightshomecare.com/feed/'},
-  {label: 'Caregiver Workforce',   url: 'https://homehealthcarenews.com/feed/'},
-  {label: 'All Home Care',         url: 'https://homehealthcarenews.com/feed/'}
+  {label: 'Home Care Pulse',       url: 'https://www.homecarepulse.com/feed/'},
+  {label: 'NAHC News',             url: 'https://www.nahc.org/feed/'}
 ];
+
+function fetchRSS(feedUrl, onSuccess, onFail) {
+  /* Try corsproxy.io first, then allorigins as backup */
+  fetch('https://corsproxy.io/?' + feedUrl)
+    .then(function(r) {
+      if (!r.ok) throw new Error('bad status');
+      return r.text();
+    })
+    .then(onSuccess)
+    .catch(function() {
+      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl))
+        .then(function(r) { return r.text(); })
+        .then(onSuccess)
+        .catch(onFail);
+    });
+}
 
 function loadNews(force) {
   var sel    = document.getElementById('news-topic');
@@ -1816,100 +1834,94 @@ function loadNews(force) {
   grid.innerHTML = '';
   status.textContent = 'Loading ' + feed.label + '...';
 
-  /* Use allorigins.win CORS proxy to fetch RSS directly */
-  var proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(feed.url);
-
-  fetch(proxy)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.contents) { status.textContent = 'Feed unavailable. Try another source.'; return; }
-      parseRSS(data.contents, feed.label, grid, status);
-    })
-    .catch(function(e) {
-      status.textContent = 'Could not reach ' + feed.label + '. Try refreshing.';
-    });
+  fetchRSS(
+    feed.url,
+    function(xmlStr) { parseAndRender(xmlStr, feed.label, grid, status); },
+    function()       { status.textContent = feed.label + ' is currently unavailable. Try another source or refresh.'; }
+  );
 }
 
-function parseRSS(xmlStr, label, grid, status) {
+function parseAndRender(xmlStr, label, grid, status) {
   try {
-    var parser = new DOMParser();
-    var xml = parser.parseFromString(xmlStr, 'text/xml');
+    var parser   = new DOMParser();
+    var xml      = parser.parseFromString(xmlStr, 'text/xml');
+    var parseErr = xml.querySelector('parsererror');
+    if (parseErr) { status.textContent = 'Feed format error for ' + label + '.'; return; }
+
     var items = Array.from(xml.querySelectorAll('item')).slice(0, 15);
     if (!items.length) { status.textContent = 'No articles found in ' + label + '.'; return; }
 
     var articles = items.map(function(item) {
-      var t = function(tag) {
+      /* Get text content of a tag */
+      function gt(tag) {
         var el = item.getElementsByTagName(tag)[0];
-        return el ? (el.textContent || el.innerText || '').trim() : '';
-      };
+        if (!el) return '';
+        return (el.textContent || '').trim();
+      }
 
-      var title   = t('title');
-      var link    = t('link') || t('guid');
-      var pubDate = t('pubDate');
-      var desc    = (t('description') || t('content:encoded') || '').replace(/<[^>]+>/g, '').trim().substring(0, 180);
+      var title   = gt('title');
+      /* <link> in RSS is tricky — it's between CDATA or a text node */
+      var linkEl  = item.getElementsByTagName('link')[0];
+      var link    = linkEl ? (linkEl.textContent || linkEl.getAttribute('href') || '').trim() : '';
+      if (!link) link = gt('guid');
 
-      /* Try multiple image sources */
+      var pubDate = gt('pubDate') || gt('dc:date') || gt('updated');
+      var rawDesc = gt('description') || gt('content:encoded') || gt('summary') || '';
+      var desc    = rawDesc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').trim().substring(0, 200);
+
+      /* Extract image */
       var img = '';
       var enc = item.getElementsByTagName('enclosure')[0];
       if (enc && /image/i.test(enc.getAttribute('type') || '')) img = enc.getAttribute('url') || '';
       if (!img) {
-        var mc = item.getElementsByTagName('media:content')[0] || item.getElementsByTagName('media:thumbnail')[0];
+        var mc = item.getElementsByTagName('media:thumbnail')[0] || item.getElementsByTagName('media:content')[0];
         if (mc) img = mc.getAttribute('url') || '';
       }
       if (!img) {
-        /* Look for img tag inside description HTML */
-        var m = (t('description') || '').match(/<img[^>]+src=["']([^"']+)["']/i);
+        var m = rawDesc.match(/<img[^>]+src=["']([^"'>]+)["']/i);
         if (m) img = m[1];
       }
 
-      return {
-        webTitle:           title,
-        webUrl:             link,
-        webPublicationDate: pubDate,
-        sectionName:        label,
-        fields: { thumbnail: img, trailText: desc }
-      };
-    }).filter(function(a) { return a.webTitle; });
+      return { title: title, link: link, pubDate: pubDate, desc: desc, img: img };
+    }).filter(function(a) { return a.title && a.link; });
+
+    if (!articles.length) { status.textContent = 'No readable articles in ' + label + '.'; return; }
 
     _newsCache = {data: articles, src: label, ts: Date.now()};
     renderNewsGrid(articles, label);
   } catch(e) {
-    status.textContent = 'Error parsing feed: ' + e.message;
+    status.textContent = 'Parse error: ' + e.message;
   }
 }
 
-function renderNewsGrid(articles, sourceLabel) {
+function renderNewsGrid(articles, label) {
   var grid   = document.getElementById('news-grid');
   var status = document.getElementById('news-status');
-  if (!articles || !articles.length) { status.textContent = 'No articles found.'; return; }
   status.textContent = '';
-  document.getElementById('news-ts').textContent = sourceLabel + ' · ' + new Date().toLocaleTimeString();
+  document.getElementById('news-ts').textContent = label + ' · ' + new Date().toLocaleTimeString();
 
   grid.innerHTML = articles.map(function(a) {
-    var f    = a.fields || {};
     var date = '';
-    if (a.webPublicationDate) {
-      try { date = new Date(a.webPublicationDate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}); } catch(e){}
+    if (a.pubDate) {
+      try { date = new Date(a.pubDate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}); } catch(e) {}
     }
-    var title = a.webTitle || '';
-    var desc  = (f.trailText || '').replace(/<[^>]+>/g, '').substring(0, 180);
-    var img   = f.thumbnail || '';
-    var imgH  = img ? ('<div style="height:160px;overflow:hidden;border-radius:8px 8px 0 0;background:#1a1d24">'
-                    + '<img src="' + img + '" style="width:100%;height:100%;object-fit:cover" loading="lazy" '
-                    + 'onerror="this.parentNode.style.display=\'none\'">'
-                    + '</div>') : '';
-    var card  = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;'
-              + 'overflow:hidden;height:100%;display:flex;flex-direction:column">'
-              + imgH
-              + '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:6px">'
-              + '<div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px">'
-              + (a.sectionName || '') + (date ? ' &middot; ' + date : '')
-              + '</div>'
-              + '<div style="font-size:14px;font-weight:700;line-height:1.4;color:var(--text)">' + title + '</div>'
-              + '<div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">' + desc + '</div>'
-              + '<div style="font-size:11px;color:var(--blue2);margin-top:4px;font-weight:600">Read more &rarr;</div>'
-              + '</div></div>';
-    return '<a href="' + (a.webUrl || '#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">' + card + '</a>';
+    var imgH = a.img
+      ? '<div style="height:160px;overflow:hidden;border-radius:8px 8px 0 0;background:#1a1d24">'
+        + '<img src="' + a.img + '" style="width:100%;height:100%;object-fit:cover" loading="lazy" '
+        + 'onerror="this.parentNode.style.display=\'none\'">'
+        + '</div>'
+      : '';
+    var card = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;'
+             + 'overflow:hidden;height:100%;display:flex;flex-direction:column">'
+             + imgH
+             + '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:6px">'
+             + '<div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px">'
+             + label + (date ? ' &middot; ' + date : '') + '</div>'
+             + '<div style="font-size:14px;font-weight:700;line-height:1.4;color:var(--text)">' + a.title + '</div>'
+             + '<div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">' + a.desc + '</div>'
+             + '<div style="font-size:11px;color:var(--blue2);margin-top:4px;font-weight:600">Read more &rarr;</div>'
+             + '</div></div>';
+    return '<a href="' + a.link + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">' + card + '</a>';
   }).join('');
 }
 </script>
