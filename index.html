@@ -1901,39 +1901,56 @@ loadAll();setInterval(loadAll,120000);
 <\/script></body></html>`;
 
 
-// ─── INDUSTRY NEWS ────────────────────────────────────────────────────────────
-const NEWS_KEY = 'f5aedeed49d74955a25474198fabee25';
+// --- INDUSTRY NEWS ---
+var NEWS_KEY = "f5aedeed49d74955a25474198fabee25";
 function loadNews() {
-  var topic = document.getElementById('news-topic').value;
-  var grid   = document.getElementById('news-grid');
-  var status = document.getElementById('news-status');
-  grid.innerHTML = '';
-  status.textContent = 'Loading headlines...';
-  var url = 'https://newsapi.org/v2/everything?q=' + encodeURIComponent(topic)
-    + '&language=en&sortBy=publishedAt&pageSize=20&apiKey=' + NEWS_KEY;
+  var topic  = document.getElementById("news-topic").value;
+  var grid   = document.getElementById("news-grid");
+  var status = document.getElementById("news-status");
+  grid.innerHTML = "";
+  status.textContent = "Loading headlines...";
+  var url = "https://newsapi.org/v2/everything?q=" + encodeURIComponent(topic)
+          + "&language=en&sortBy=publishedAt&pageSize=20&apiKey=" + NEWS_KEY;
   fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data.status !== 'ok') { status.textContent = 'Error: ' + (data.message || 'API error'); return; }
-      var articles = (data.articles || []).filter(function(a){ return a.title && a.title !== '[Removed]'; });
-      if (!articles.length) { status.textContent = 'No articles found.'; return; }
-      status.textContent = '';
-      document.getElementById('news-ts').textContent = 'Updated ' + new Date().toLocaleTimeString();
-      grid.innerHTML = articles.map(function(a){
-        var date = a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
-        var img = a.urlToImage ? '<img src=' + JSON.stringify(a.urlToImage) + ' style="width:100%;height:160px;object-fit:cover;border-radius:8px 8px 0 0;display:block" onerror="this.style.display=\\'none\\'" loading="lazy">' : '';
-        var card = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;height:100%;display:flex;flex-direction:column;transition:border-color 0.15s">'
-          + img
-          + '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:6px">'
-          + '<div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px">' + (a.source ? a.source.name : '') + ' &nbsp;&middot;&nbsp; ' + date + '</div>'
-          + '<div style="font-size:14px;font-weight:700;line-height:1.4;color:var(--text)">' + a.title + '</div>'
-          + '<div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">' + (a.description || '') + '</div>'
-          + '<div style="font-size:11px;color:var(--blue2);margin-top:4px;font-weight:600">Read more &rarr;</div>'
-          + '</div></div>';
-        return '<a href=' + JSON.stringify(a.url) + ' target="_blank" rel="noopener" style="text-decoration:none;color:inherit">' + card + '</a>';
-      }).join('');
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== "ok") {
+        status.textContent = "Error: " + (data.message || "API error");
+        return;
+      }
+      var articles = (data.articles || []).filter(function(a) {
+        return a.title && a.title !== "[Removed]";
+      });
+      if (!articles.length) { status.textContent = "No articles found."; return; }
+      status.textContent = "";
+      document.getElementById("news-ts").textContent = "Updated " + new Date().toLocaleTimeString();
+      grid.innerHTML = articles.map(function(a) {
+        var date = a.publishedAt
+          ? new Date(a.publishedAt).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"})
+          : "";
+        var src  = (a.source && a.source.name) ? a.source.name : "";
+        var desc = a.description || "";
+        var imgHtml = "";
+        if (a.urlToImage) {
+          imgHtml = "<div style=\"height:160px;overflow:hidden;border-radius:8px 8px 0 0;background:#1a1d24\">"
+                  + "<img src=\"" + a.urlToImage + "\" style=\"width:100%;height:100%;object-fit:cover\" "
+                  + "onerror=\"this.parentNode.style.display='none'\" loading=\"lazy\"></div>";
+        }
+        var card = "<div style=\"background:var(--bg2);border:1px solid var(--border);border-radius:10px;"
+                 + "overflow:hidden;height:100%;display:flex;flex-direction:column\">"
+                 + imgHtml
+                 + "<div style=\"padding:14px;flex:1;display:flex;flex-direction:column;gap:6px\">"
+                 + "<div style=\"font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;"
+                 + "letter-spacing:1px\">" + src + " &middot; " + date + "</div>"
+                 + "<div style=\"font-size:14px;font-weight:700;line-height:1.4;color:var(--text)\">" + a.title + "</div>"
+                 + "<div style=\"font-size:12px;color:var(--text2);line-height:1.5;flex:1\">" + desc + "</div>"
+                 + "<div style=\"font-size:11px;color:var(--blue2);margin-top:4px;font-weight:600\">Read more &rarr;</div>"
+                 + "</div></div>";
+        return "<a href=\"" + a.url + "\" target=\"_blank\" rel=\"noopener\" "
+             + "style=\"text-decoration:none;color:inherit\">" + card + "</a>";
+      }).join("");
     })
-    .catch(function(e){ status.textContent = 'Error: ' + e.message; });
+    .catch(function(e) { status.textContent = "Error: " + e.message; });
 }
 </script>
 </body>
