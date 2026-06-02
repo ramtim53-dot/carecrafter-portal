@@ -262,6 +262,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('pdftool')"><span class="nav-icon">📑</span>PDF Tool</button>
         <button class="nav-btn" onclick="showView('news')"><span class="nav-icon">📰</span>Industry News</button>
         <button class="nav-btn" onclick="showView('timesheets')"><span class="nav-icon">📲</span>Timesheet Alerts</button>
+        <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon">💬</span>Quick Text</button>
       </div>
       <div class="sidebar-footer">
         <div class="user-name" id="sidebarName">Ram</div>
@@ -882,6 +883,37 @@ textarea.field-input{resize:vertical;min-height:80px}
         </div>
         </div>
       </div>
+
+      <!-- QUICK TEXT -->
+      <div class="view" id="v-quicktext">
+        <div class="view-title">💬 Quick Text</div>
+        <div class="view-sub">Send a text message to any phone number instantly</div>
+        <div style="max-width:600px">
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.75rem;display:flex;flex-direction:column;gap:16px">
+            <div class="field-group">
+              <label class="field-label">To (phone number)</label>
+              <input id="qt-to" type="tel" class="field-input" placeholder="e.g. 412-555-0000" style="font-size:15px;letter-spacing:0.5px">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Message</label>
+              <textarea id="qt-msg" class="field-input" placeholder="Type your message..." oninput="qtCount(this)" style="resize:vertical;height:140px;font-size:14px;line-height:1.7"></textarea>
+              <div style="display:flex;justify-content:space-between;margin-top:5px">
+                <span id="qt-chars" style="font-size:11px;color:var(--text3)">0 chars</span>
+                <span style="font-size:11px;color:var(--text3)">160 chars = 1 SMS</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <button onclick="qtSend()" id="qt-btn" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:11px 32px;font-size:14px;font-weight:700;cursor:pointer">📤 Send Text</button>
+              <button onclick="document.getElementById('qt-to').value='';document.getElementById('qt-msg').value='';document.getElementById('qt-chars').textContent='0 chars';document.getElementById('qt-status').textContent='';" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:11px 18px;font-size:13px;cursor:pointer">🗑 Clear</button>
+              <span id="qt-status" style="font-size:13px"></span>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">RECENT SENDS</div>
+              <div id="qt-history"><div style="font-size:12px;color:var(--text3)">No messages sent yet.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div><!-- end .main -->
   </div><!-- end .app-shell -->
 </div><!-- end #s-app -->
@@ -1015,7 +1047,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -2373,6 +2405,60 @@ showView = function(id) {
   _origShowView(id);
   if (id === 'timesheets') { setTimeout(ctRenderPhoneBook, 200); }
 };
+
+
+// --- QUICK TEXT ---
+var qtHistory = [];
+function qtCount(el) {
+  var len = el.value.length;
+  var cc = document.getElementById("qt-chars");
+  if (cc) { cc.textContent = len + " chars" + (len > 160 ? " (" + Math.ceil(len/160) + " SMS)" : ""); cc.style.color = len > 160 ? "var(--amber)" : "var(--text3)"; }
+}
+function qtSend() {
+  var toEl  = document.getElementById("qt-to");
+  var msgEl = document.getElementById("qt-msg");
+  var st    = document.getElementById("qt-status");
+  var btn   = document.getElementById("qt-btn");
+  var to    = (toEl.value || "").trim().replace(/\D/g,"");
+  var msg   = (msgEl.value || "").trim();
+  if (!to || to.length < 10) { st.innerHTML = "<span style=color:var(--red)>⚠ Enter a valid phone number</span>"; toEl.focus(); return; }
+  if (!msg) { st.innerHTML = "<span style=color:var(--red)>⚠ Enter a message</span>"; msgEl.focus(); return; }
+  var phone = to.length === 10 ? "+1" + to : "+" + to;
+  btn.disabled = true; btn.textContent = "Sending...";
+  st.textContent = "";
+  fetch("/api/sms", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({to: phone, message: msg})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.disabled = false; btn.textContent = "📤 Send Text";
+    if (data.success) {
+      st.innerHTML = "<span style=color:var(--green)>✅ Sent!</span>";
+      qtHistory.unshift({to: toEl.value.trim(), msg: msg.substring(0,60) + (msg.length>60?"...":""), time: new Date().toLocaleTimeString()});
+      qtRenderHistory();
+      msgEl.value = ""; document.getElementById("qt-chars").textContent = "0 chars";
+    } else {
+      st.innerHTML = "<span style=color:var(--red)>❌ " + (data.error || "Failed") + "</span>";
+    }
+  })
+  .catch(function(e) {
+    btn.disabled = false; btn.textContent = "📤 Send Text";
+    st.innerHTML = "<span style=color:var(--red)>❌ " + e.message + "</span>";
+  });
+}
+function qtRenderHistory() {
+  var el = document.getElementById("qt-history");
+  if (!el || !qtHistory.length) return;
+  el.innerHTML = qtHistory.slice(0,10).map(function(h) {
+    return "<div style=\"display:flex;gap:12px;padding:8px 10px;background:var(--bg3);border-radius:8px;align-items:flex-start\">"
+      + "<div style=\"font-size:11px;color:var(--teal);font-weight:700;white-space:nowrap;padding-top:1px\">" + h.time + "</div>"
+      + "<div style=\"flex:1\"><div style=\"font-size:12px;font-weight:600;color:var(--text2)\">" + h.to + "</div>"
+      + "<div style=\"font-size:12px;color:var(--text)\">" + h.msg + "</div></div>"
+      + "</div>";
+  }).join("");
+}
 
 </script>
 </body>
