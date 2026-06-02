@@ -2515,7 +2515,7 @@ window.dcEnhanced = {
 // ─── OPEN GOOGLE MAPS IN NEW TAB ──────────────────────────────────────────
 // Shows client address, clock-in location, clock-out location with route
 
-function dcOpenMapsInNewTab(alertOrIdx) {
+function dcOpenMaps(alertOrIdx) {
   var alert = typeof alertOrIdx === "number" ? dcAlerts[alertOrIdx] : alertOrIdx;
   if (!alert) return;
 
@@ -2574,7 +2574,7 @@ setTimeout(function() {
           var cardText = card.textContent;
           dcAlerts.forEach(function(a, idx) {
             if (a.title && a.title.includes('FRAUDULENT') && cardText.includes((a.caregiver || a.cgName || ''))) {
-              dcOpenMapsInNewTab(idx);
+              dcOpenMaps(idx);
             }
           });
         };
