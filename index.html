@@ -3296,49 +3296,110 @@ function ovExportExcel() {
 
 // OVERLAPPING SHIFTS — Print
 function ovPrint() {
-  var title = 'Overlapping Shifts Report — ' + new Date().toLocaleDateString();
-  var groups = Object.entries(ovGroups);
-  var billedCount = groups.filter(function(e){ return e[1].some(function(r){ return (r['Billed']||'').toUpperCase()==='YES'; }); }).length;
+  if (!Object.keys(ovGroups).length) return;
 
-  var rows = groups.map(function(e) {
-    var n=e[0], g=e[1];
-    var mins = ovOverlapMins(g);
-    var dur = ovFmtOverlap(mins);
+  var title = 'Overlapping Shifts Report';
+  var groups = Object.entries(ovGroups);
+  var billedCount = groups.filter(function(e){
+    return e[1].some(function(r){ return (r['Billed']||'').toUpperCase()==='YES'; });
+  }).length;
+
+  // Group by patient to show date ranges
+  var byPatient = {};
+  groups.forEach(function(e) {
+    var g = e[1];
+    var patient = g[0] ? g[0]['Patient Name'] : '';
+    var admId   = g[0] ? g[0]['Admission ID']  : '';
+    var key = patient + '||' + admId;
+    if (!byPatient[key]) byPatient[key] = {
+      patient: patient, admId: admId,
+      incidents: [], billed: 0, totalMins: 0
+    };
     var billed = g.some(function(r){ return (r['Billed']||'').toUpperCase()==='YES'; });
-    var cg1 = g[0]?g[0]['Caregiver Name']:'', cg2 = g[1]?g[1]['Caregiver Name']:'';
+    if (billed) byPatient[key].billed++;
+    var mins = ovOverlapMins(g);
+    if (mins !== null) byPatient[key].totalMins += mins;
+    byPatient[key].incidents.push({
+      date: g[0] ? g[0]['Visit Date'] : '',
+      cg1: g[0] ? g[0]['Caregiver Name'] : '',
+      cg2: g[1] ? g[1]['Caregiver Name'] : '',
+      mins: mins,
+      billed: billed
+    });
+  });
+
+  // Sort patients by number of overlaps desc
+  var patients = Object.values(byPatient).sort(function(a,b){ return b.incidents.length - a.incidents.length; });
+
+  // Get overall date range from all incidents
+  var allDates = [];
+  groups.forEach(function(e){ var d = e[1][0] && e[1][0]['Visit Date']; if(d) allDates.push(d); });
+  allDates.sort();
+  var dateRange = allDates.length ? (allDates[0] === allDates[allDates.length-1] ? allDates[0] : allDates[0] + ' – ' + allDates[allDates.length-1]) : '';
+
+  var rows = patients.map(function(p) {
+    // Get date range for this patient
+    var dates = p.incidents.map(function(inc){ return inc.date; }).filter(Boolean).sort();
+    var uniqueDates = dates.filter(function(d,i){ return dates.indexOf(d)===i; });
+    var dr = uniqueDates.length === 0 ? '—'
+           : uniqueDates.length === 1 ? uniqueDates[0]
+           : uniqueDates[0] + ' – ' + uniqueDates[uniqueDates.length-1];
+
+    // Get unique caregiver pairs
+    var pairs = [];
+    p.incidents.forEach(function(inc){
+      var pair = inc.cg1 + ' & ' + inc.cg2;
+      if (pairs.indexOf(pair) === -1) pairs.push(pair);
+    });
+
+    var totalDur = p.totalMins > 0 ? ovFmtOverlap(p.totalMins) : '—';
+    var billedColor = p.billed > 0 ? '#dc2626' : '#666';
+
     return '<tr>'
-      +'<td>'+n+'</td>'
-      +'<td>'+(g[0]&&g[0]['Visit Date']||'')+'</td>'
-      +'<td><strong>'+(g[0]&&g[0]['Patient Name']||'')+'</strong><br><small>'+(g[0]&&g[0]['Admission ID']||'')+'</small></td>'
-      +'<td>'+cg1+'</td>'
-      +'<td>'+cg2+'</td>'
-      +'<td style="text-align:center;font-weight:700;color:#b45309">'+dur+'</td>'
-      +'<td style="text-align:center;font-weight:700;color:'+(billed?'#dc2626':'#666')+'">'+(billed?'YES':'No')+'</td>'
-      +'</tr>';
+      + '<td><strong>' + p.patient + '</strong><br><small style="color:#888">' + p.admId + '</small></td>'
+      + '<td style="text-align:center;font-weight:700;color:#b45309">' + p.incidents.length + '</td>'
+      + '<td style="text-align:center;font-weight:700;color:' + billedColor + '">' + p.billed + '</td>'
+      + '<td style="font-weight:700;color:#991b1b">' + dr + '<br><small style="color:#888;font-weight:normal">' + uniqueDates.length + ' day' + (uniqueDates.length!==1?'s':'') + '</small></td>'
+      + '<td style="font-weight:700;color:#7c3aed">' + totalDur + '</td>'
+      + '<td style="font-size:10px;color:#555">' + pairs.slice(0,3).join('<br>') + (pairs.length>3 ? '<br>+' + (pairs.length-3) + ' more' : '') + '</td>'
+      + '</tr>';
   }).join('');
 
-  var html = '<!DOCTYPE html><html><head><title>'+title+'</title><style>'
-    +'body{font-family:Arial,sans-serif;font-size:11px;padding:20px;color:#111}'
-    +'h1{font-size:16px;margin-bottom:4px}h2{font-size:12px;color:#555;font-weight:normal;margin-bottom:16px}'
-    +'.summary{display:flex;gap:24px;margin-bottom:20px;background:#f5f5f5;padding:12px;border-radius:6px}'
-    +'.stat{text-align:center}.stat-n{font-size:22px;font-weight:800}.stat-l{font-size:10px;color:#666;text-transform:uppercase}'
-    +'table{width:100%;border-collapse:collapse}th{background:#1a1a2e;color:#fff;padding:8px;font-size:10px;text-align:left}'
-    +'td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top}'
-    +'tr:nth-child(even){background:#fafafa}'
-    +'@media print{@page{size:landscape}}'
-    +'</style></head><body>'
-    +'<h1>'+title+'</h1>'
-    +'<h2>Care Crafter Home Care, LLC — Generated ' + new Date().toLocaleString() + '</h2>'
-    +'<div class="summary">'
-    +'<div class="stat"><div class="stat-n">'+groups.length+'</div><div class="stat-l">Total Overlaps</div></div>'
-    +'<div class="stat"><div class="stat-n" style="color:#dc2626">'+billedCount+'</div><div class="stat-l">Already Billed</div></div>'
-    +'<div class="stat"><div class="stat-n">'+(groups.length-billedCount)+'</div><div class="stat-l">Not Billed</div></div>'
-    +'</div>'
-    +'<table><thead><tr><th>#</th><th>Date</th><th>Patient</th><th>Caregiver 1</th><th>Caregiver 2</th><th>Overlap</th><th>Billed</th></tr></thead>'
-    +'<tbody>'+rows+'</tbody></table>'
-    +'</body></html>';
+  var html = '<!DOCTYPE html><html><head><title>' + title + '</title><style>'
+    + 'body{font-family:Arial,sans-serif;font-size:11px;padding:20px;color:#111}'
+    + 'h1{font-size:16px;margin-bottom:2px}'
+    + 'h2{font-size:11px;color:#555;font-weight:normal;margin-bottom:4px}'
+    + 'h3{font-size:11px;color:#777;font-weight:normal;margin-bottom:16px}'
+    + '.summary{display:flex;gap:20px;margin-bottom:20px;background:#f5f5f5;padding:12px;border-radius:6px}'
+    + '.stat{text-align:center;min-width:80px}'
+    + '.stat-n{font-size:22px;font-weight:800;line-height:1}'
+    + '.stat-l{font-size:9px;color:#666;text-transform:uppercase;margin-top:2px}'
+    + 'table{width:100%;border-collapse:collapse}'
+    + 'th{background:#1a1a2e;color:#fff;padding:8px 10px;font-size:10px;text-align:left;white-space:nowrap}'
+    + 'td{padding:7px 10px;border-bottom:1px solid #e5e5e5;vertical-align:top}'
+    + 'tr:nth-child(even){background:#fafafa}'
+    + '@media print{@page{size:landscape;margin:1cm} body{padding:0}}'
+    + '</style></head><body>'
+    + '<h1>' + title + '</h1>'
+    + '<h2>Care Crafter Home Care, LLC</h2>'
+    + '<h3>Report Period: ' + dateRange + ' &nbsp;&nbsp; Generated: ' + new Date().toLocaleString() + '</h3>'
+    + '<div class="summary">'
+    + '<div class="stat"><div class="stat-n">' + patients.length + '</div><div class="stat-l">Patients Affected</div></div>'
+    + '<div class="stat"><div class="stat-n">' + groups.length + '</div><div class="stat-l">Total Overlaps</div></div>'
+    + '<div class="stat"><div class="stat-n" style="color:#dc2626">' + billedCount + '</div><div class="stat-l">Already Billed</div></div>'
+    + '<div class="stat"><div class="stat-n">' + (groups.length - billedCount) + '</div><div class="stat-l">Not Billed</div></div>'
+    + '</div>'
+    + '<table><thead><tr>'
+    + '<th>Patient</th>'
+    + '<th style="text-align:center">Overlaps</th>'
+    + '<th style="text-align:center">Billed</th>'
+    + '<th>Date Range</th>'
+    + '<th>Total Overlap Time</th>'
+    + '<th>Caregiver Pairs</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table>'
+    + '</body></html>';
 
-  var w = window.open('','_blank','width=1100,height=700');
+  var w = window.open('', '_blank', 'width=1100,height=700');
   w.document.write(html);
   w.document.close();
   w.focus();
