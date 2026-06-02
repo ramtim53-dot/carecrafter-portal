@@ -1237,7 +1237,7 @@ function dcMapsUrl(hLat,hLon,cLat,cLon){return`https://www.google.com/maps/dir/$
 function dcDistColor(d){return d>=DC_OUT_FT?'var(--red)':d>=500?'var(--amber)':'var(--green)';}
 function dcDistPct(d){return Math.min((d/2000)*100,100);}
 function dcProcessRows(rows){
-  const visits=rows.map((r,i)=>{const homeGPS=dcParseGPS(dcG(r,'Member Clock In Address GPS')||dcG(r,'Member Clock Out Address GPS'));const cinGPS=dcParseGPS(dcG(r,'Clock In GPS'));const coutGPS=dcParseGPS(dcG(r,'Clock Out GPS'));const evv=dcParseTimeRange(dcG(r,'EVV Time'));const sched=dcParseTimeRange(dcG(r,'Scheduled Time'));let cinDist=parseFloat(dcG(r,'Clock In Distance (FT)')||'0')||0;let coutDist=parseFloat(dcG(r,'Clock Out Distance(FT)')||'0')||0;if(homeGPS&&cinGPS)cinDist=dcHaversine(homeGPS.lat,homeGPS.lon,cinGPS.lat,cinGPS.lon);if(homeGPS&&coutGPS)coutDist=dcHaversine(homeGPS.lat,homeGPS.lon,coutGPS.lat,coutGPS.lon);return{i,admId:dcG(r,'Admission ID'),member:dcG(r,'Member Name'),date:dcG(r,'Visit Date'),cgId:dcG(r,'Caregiver ID'),cgName:dcG(r,'Caregiver Name'),schedStr:dcG(r,'Scheduled Time'),evvStr:dcG(r,'EVV Time'),homeGPS,cinGPS,coutGPS,cinDist:Math.round(cinDist),coutDist:Math.round(coutDist),cinLoc:dcG(r,'Clock In Location'),schedCin:sched?sched.cin:null,schedCout:sched?sched.cout:null,evvCin:evv?evv.cin:null,evvCout:evv?evv.cout:null};}).filter(v=>v.member&&v.admId);
+  const visits=rows.map((r,i)=>{const homeGPS=dcParseGPS(dcG(r,'Member Clock In Address GPS')||dcG(r,'Member Clock Out Address GPS'));const cinGPS=dcParseGPS(dcG(r,'Clock In GPS'));const coutGPS=dcParseGPS(dcG(r,'Clock Out GPS'));const evv=dcParseTimeRange(dcG(r,'EVV Time'));const sched=dcParseTimeRange(dcG(r,'Scheduled Time'));let cinDist=parseFloat(dcG(r,'Clock In Distance (FT)')||'0')||0;let coutDist=parseFloat(dcG(r,'Clock Out Distance(FT)')||'0')||0;if(homeGPS&&cinGPS)cinDist=dcHaversine(homeGPS.lat,homeGPS.lon,cinGPS.lat,cinGPS.lon);if(homeGPS&&coutGPS)coutDist=dcHaversine(homeGPS.lat,homeGPS.lon,coutGPS.lat,coutGPS.lon);return{i,admId:dcG(r,'Admission ID'),member:dcG(r,'Member Name'),date:dcG(r,'Visit Date'),cgId:dcG(r,'Caregiver ID'),cgName:dcG(r,'Caregiver Name'),schedStr:dcG(r,'Scheduled Time'),evvStr:dcG(r,'EVV Time'),homeGPS,cinGPS,coutGPS,cinDist:Math.round(cinDist),coutDist:Math.round(coutDist),cinLoc:dcG(r,'Clock In Location'),schedCin:sched?sched.cin:null,schedCout:sched?sched.cout:null,evvCin:evv?evv.cin:null,evvCout:evv?evv.cout:null,tasksDone:dcG(r,'Task Completed')||'',tasksNot:dcG(r,'Task Not Completed')||''};}).filter(v=>v.member&&v.admId);
   if(!visits.length){document.getElementById('dc-loading').innerHTML='<div style="color:var(--amber);padding:2rem">⚠ Could not parse visits.</div>';return;}
   const alerts=[];
   const byMD={};visits.forEach(v=>{const k=v.admId+'_'+v.date;(byMD[k]=byMD[k]||[]).push(v);});
@@ -1261,45 +1261,107 @@ function dcBuildCard(a,idx){
     diff:'<span style="background:rgba(59,130,246,0.12);color:var(--blue2);border:1px solid var(--blue2);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800">⏱ TIME DIFF</span>'
   }[a.type]||"";
 
-  // GPS: outVisit.coutGPS = {lat,lon}  inVisit.cinGPS = {lat,lon}
-  var outCoords = null, inCoords = null;
-  if (a.outVisit && a.outVisit.coutGPS && a.outVisit.coutGPS.lat) outCoords = a.outVisit.coutGPS;
-  if (a.inVisit  && a.inVisit.cinGPS   && a.inVisit.cinGPS.lat)   inCoords  = a.inVisit.cinGPS;
-  // Also try single visit (range alerts)
-  if (!outCoords && a.visit && a.visit.coutGPS && a.visit.coutGPS.lat) outCoords = a.visit.coutGPS;
-  if (!inCoords  && a.visit && a.visit.cinGPS  && a.visit.cinGPS.lat)  inCoords  = a.visit.cinGPS;
-
-  // Build Google Maps URL
-  var mapsBtn = "";
-  if (outCoords && inCoords) {
-    var mapsUrl = "https://www.google.com/maps/dir/"+outCoords.lat+","+outCoords.lon+"/"+inCoords.lat+","+inCoords.lon;
-    mapsBtn = '<a href="'+mapsUrl+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:10px;font-size:13px;font-weight:700;margin-top:10px">🗺️ Open Google Maps — View Route →</a>';
-  } else if (outCoords) {
-    var singleUrl = "https://www.google.com/maps?q="+outCoords.lat+","+outCoords.lon;
-    mapsBtn = '<a href="'+singleUrl+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:10px;font-size:13px;font-weight:700;margin-top:10px">🗺️ View Clock-Out Location on Maps →</a>';
-  } else if (inCoords) {
-    var singleUrl = "https://www.google.com/maps?q="+inCoords.lat+","+inCoords.lon;
-    mapsBtn = '<a href="'+singleUrl+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:10px;font-size:13px;font-weight:700;margin-top:10px">🗺️ View Clock-In Location on Maps →</a>';
+  // helper: calc hours from evvStr "16:56 - 21:59"
+  function hrs(evvStr){
+    if(!evvStr)return null;
+    var m=evvStr.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+    if(!m)return null;
+    var mins=(parseInt(m[3])*60+parseInt(m[4]))-(parseInt(m[1])*60+parseInt(m[2]));
+    return mins>0?(mins/60).toFixed(1):null;
   }
 
-  // Details panel
-  var body = "";
-  body += "<strong>Caregiver:</strong> "+(a.cgName||a.caregiver||"N/A")+"<br>";
-  body += "<strong>Member:</strong> "+(a.member||"N/A")+"<br>";
-  body += "<strong>Date:</strong> "+a.date+"<br>";
-  if (outCoords) body += '<strong>Clock-Out GPS:</strong> <code style="font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px">'+outCoords.lat+', '+outCoords.lon+'</code><br>';
-  if (inCoords)  body += '<strong>Clock-In GPS:</strong>  <code style="font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px">'+inCoords.lat+', '+inCoords.lon+'</code><br>';
-  if (a.timeDiff) body += "<strong>Time gap:</strong> "+a.timeDiff+" min<br>";
-  if (!outCoords && !inCoords) body += '<span style="color:var(--amber)">No GPS data available for this visit</span>';
+  // helper: format GPS object to string
+  function gpsStr(g){ return g&&g.lat?(g.lat+', '+g.lon):''; }
+
+  // Get visits
+  var outV = a.outVisit || a.visit || {};
+  var inV  = a.inVisit  || {};
+
+  // GPS
+  var outGPS = outV.coutGPS && outV.coutGPS.lat ? outV.coutGPS : null;
+  var inGPS  = inV.cinGPS   && inV.cinGPS.lat   ? inV.cinGPS   : (outV.cinGPS && outV.cinGPS.lat ? outV.cinGPS : null);
+
+  // Hours worked
+  var outHrs = hrs(outV.evvStr);
+  var inHrs  = hrs(inV.evvStr);
+
+  // Tasks
+  var outTasks = (outV.tasksDone||'').trim();
+  var inTasks  = (inV.tasksDone||'').trim();
+  var outTasksNot = (outV.tasksNot||'').trim();
+
+  // Build Google Maps URL — both locations as route
+  var mapsBtn = '';
+  if (outGPS && inGPS) {
+    var url = 'https://www.google.com/maps/dir/'+outGPS.lat+','+outGPS.lon+'/'+inGPS.lat+','+inGPS.lon;
+    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:13px;font-weight:700;margin-top:12px">🗺️ View Route on Google Maps (Clock-Out → Clock-In) →</a>';
+  } else if (outGPS) {
+    var url = 'https://www.google.com/maps?q='+outGPS.lat+','+outGPS.lon;
+    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:13px;font-weight:700;margin-top:12px">🗺️ View Clock-Out Location →</a>';
+  } else if (inGPS) {
+    var url = 'https://www.google.com/maps?q='+inGPS.lat+','+inGPS.lon;
+    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:13px;font-weight:700;margin-top:12px">🗺️ View Clock-In Location →</a>';
+  }
+
+  // Build detail body
+  var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">';
+
+  // LEFT: Clock-Out DCW
+  body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--red)">';
+  body += '<div style="font-size:10px;font-weight:700;color:var(--red);letter-spacing:1px;margin-bottom:8px">📤 CLOCK OUT</div>';
+  body += '<div style="font-size:13px;font-weight:700;margin-bottom:6px">'+(outV.cgName||a.caregiver||'N/A')+'</div>';
+  body += '<div style="font-size:11px;color:var(--text2);line-height:1.8">';
+  body += '<div><strong>Time:</strong> '+(outV.evvStr||'N/A')+'</div>';
+  if (outHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+outHrs+' hrs</span></div>';
+  body += '<div><strong>Distance from Client:</strong> <span style="color:var(--red)">'+(outV.coutDist?Math.round(outV.coutDist).toLocaleString()+' ft':'N/A')+'</span></div>';
+  if (outGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">'+gpsStr(outGPS)+'</code></div>';
+  if (outTasks) body += '<div style="margin-top:6px"><strong>✅ Duties Done:</strong><div style="color:var(--green);font-size:10px;margin-top:2px">'+outTasks+'</div></div>';
+  if (outTasksNot) body += '<div style="margin-top:4px"><strong>❌ Not Done:</strong><div style="color:var(--red);font-size:10px;margin-top:2px">'+outTasksNot+'</div></div>';
+  if (!outTasks && !outTasksNot) body += '<div style="color:var(--text3);margin-top:4px"><em>No duties recorded</em></div>';
+  body += '</div></div>';
+
+  // RIGHT: Clock-In DCW
+  if (a.inVisit) {
+    body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--blue2)">';
+    body += '<div style="font-size:10px;font-weight:700;color:var(--blue2);letter-spacing:1px;margin-bottom:8px">📥 CLOCK IN</div>';
+    body += '<div style="font-size:13px;font-weight:700;margin-bottom:6px">'+(inV.cgName||'N/A')+'</div>';
+    body += '<div style="font-size:11px;color:var(--text2);line-height:1.8">';
+    body += '<div><strong>Time:</strong> '+(inV.evvStr||'N/A')+'</div>';
+    if (inHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+inHrs+' hrs</span></div>';
+    body += '<div><strong>Distance from Client:</strong> <span style="color:var(--green)">'+(inV.cinDist?Math.round(inV.cinDist).toLocaleString()+' ft':'N/A')+'</span></div>';
+    if (inGPS && a.inVisit) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">'+gpsStr(inGPS)+'</code></div>';
+    if (inTasks) body += '<div style="margin-top:6px"><strong>✅ Duties Done:</strong><div style="color:var(--green);font-size:10px;margin-top:2px">'+inTasks+'</div></div>';
+    var inTasksNot=(inV.tasksNot||'').trim();
+    if (inTasksNot) body += '<div style="margin-top:4px"><strong>❌ Not Done:</strong><div style="color:var(--red);font-size:10px;margin-top:2px">'+inTasksNot+'</div></div>';
+    if (!inTasks && !inTasksNot) body += '<div style="color:var(--text3);margin-top:4px"><em>No duties recorded</em></div>';
+    body += '</div></div>';
+  } else {
+    // Single visit (range alert)
+    body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--blue2)">';
+    body += '<div style="font-size:10px;font-weight:700;color:var(--blue2);letter-spacing:1px;margin-bottom:8px">📥 CLOCK IN</div>';
+    body += '<div style="font-size:11px;color:var(--text2);line-height:1.8">';
+    if (inGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">'+gpsStr(inGPS)+'</code></div>';
+    body += '<div><strong>Distance from Client:</strong> <span style="color:var(--green)">'+(outV.cinDist?Math.round(outV.cinDist).toLocaleString()+' ft':'N/A')+'</span></div>';
+    if (outV.tasksDone) body += '<div style="margin-top:6px"><strong>✅ Duties Done:</strong><div style="color:var(--green);font-size:10px;margin-top:2px">'+outV.tasksDone+'</div></div>';
+    body += '</div></div>';
+  }
+
+  body += '</div>';
+
+  // Time gap banner for fraud
+  if (a.timeDiff) {
+    body += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 12px;font-size:12px;text-align:center;margin-bottom:8px">';
+    body += '⏱ <strong>'+a.timeDiff+' minutes</strong> between clock-out and clock-in — distance requires more time</div>';
+  }
 
   return '<div style="background:var(--bg2);border:1px solid var(--border);border-left:4px solid '+borders[a.type]+';border-radius:var(--radius);margin-bottom:10px;overflow:hidden">'
     +'<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer" onclick="dcToggle('+idx+')">'
     +badgeHtml
-    +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+(a.member||"")+'</div>'
-    +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+(a.admId||"")+" · "+a.date+" · "+a.desc.substring(0,120)+'</div></div>'
+    +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+(a.member||'')+'</div>'
+    +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+(a.admId||'')+' · '+a.date+' · '+a.desc.substring(0,120)+'</div></div>'
     +'<span style="color:var(--text3);font-size:12px" id="dc-tog-'+idx+'">▼</span></div>'
     +'<div style="display:none;padding:12px 16px 16px;border-top:1px solid var(--border)" id="dc-body-'+idx+'">'
-    +'<div style="font-size:12px;color:var(--text2);line-height:1.8">'+body+'</div>'
+    +body
     +mapsBtn
     +'</div></div>';
 }
