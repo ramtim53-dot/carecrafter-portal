@@ -988,8 +988,10 @@ textarea.field-input{resize:vertical;min-height:80px}
           </div>
 
           <!-- Reset -->
-          <div style="margin-top:1rem;text-align:right">
-            <button onclick="haReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
+          <div style="margin-top:1rem;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+            <button onclick="haExportExcel()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">📥 Export Excel</button>
+            <button onclick="haPrint()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+            <button onclick="haReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
           </div>
         </div>
       </div>
@@ -1054,8 +1056,10 @@ textarea.field-input{resize:vertical;min-height:80px}
             </table>
           </div>
 
-          <div style="margin-top:1rem;text-align:right">
-            <button onclick="ovReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
+          <div style="margin-top:1rem;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+            <button onclick="ovExportExcel()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">📥 Export Excel</button>
+            <button onclick="ovPrint()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+            <button onclick="ovReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
           </div>
         </div>
       </div>
@@ -3260,6 +3264,171 @@ function ovReset() {
   document.getElementById('ov-dashboard').style.display='none';
   document.getElementById('ov-fileBar').style.display='none';
   document.getElementById('ov-billedAlert').style.display='none';
+}
+
+
+
+// ─── EXPORT & PRINT ────────────────────────────────────────────────────────
+
+// OVERLAPPING SHIFTS — Export to Excel
+function ovExportExcel() {
+  if (!Object.keys(ovGroups).length) return;
+  var rows = [['#','Date','Patient','Admission ID','Caregiver 1','Caregiver 2','Overlap Duration','Billed','Times (CG1)','Times (CG2)']];
+  Object.entries(ovGroups).forEach(function(e) {
+    var n=e[0], g=e[1];
+    var mins = ovOverlapMins(g);
+    var dur  = ovFmtOverlap(mins);
+    var billed = g.some(function(r){ return (r['Billed']||'').toUpperCase()==='YES'; }) ? 'YES' : 'NO';
+    var cg1 = g[0] ? g[0]['Caregiver Name'] : '';
+    var cg2 = g[1] ? g[1]['Caregiver Name'] : '';
+    var t1  = g[0] ? (g[0]['Overlapping Visits']||'').replace(/\n/g,' ') : '';
+    var t2  = g[1] ? (g[1]['Overlapping Visits']||'').replace(/\n/g,' ') : '';
+    rows.push([n, (g[0]&&g[0]['Visit Date'])||'', (g[0]&&g[0]['Patient Name'])||'',
+               (g[0]&&g[0]['Admission ID'])||'', cg1, cg2, dur, billed, t1, t2]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Overlapping Shifts');
+  // Auto column widths
+  ws['!cols'] = [6,12,22,14,22,22,14,8,30,30].map(function(w){ return {wch:w}; });
+  XLSX.writeFile(wb, 'Overlapping_Shifts_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+// OVERLAPPING SHIFTS — Print
+function ovPrint() {
+  var title = 'Overlapping Shifts Report — ' + new Date().toLocaleDateString();
+  var groups = Object.entries(ovGroups);
+  var billedCount = groups.filter(function(e){ return e[1].some(function(r){ return (r['Billed']||'').toUpperCase()==='YES'; }); }).length;
+
+  var rows = groups.map(function(e) {
+    var n=e[0], g=e[1];
+    var mins = ovOverlapMins(g);
+    var dur = ovFmtOverlap(mins);
+    var billed = g.some(function(r){ return (r['Billed']||'').toUpperCase()==='YES'; });
+    var cg1 = g[0]?g[0]['Caregiver Name']:'', cg2 = g[1]?g[1]['Caregiver Name']:'';
+    return '<tr>'
+      +'<td>'+n+'</td>'
+      +'<td>'+(g[0]&&g[0]['Visit Date']||'')+'</td>'
+      +'<td><strong>'+(g[0]&&g[0]['Patient Name']||'')+'</strong><br><small>'+(g[0]&&g[0]['Admission ID']||'')+'</small></td>'
+      +'<td>'+cg1+'</td>'
+      +'<td>'+cg2+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:#b45309">'+dur+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+(billed?'#dc2626':'#666')+'">'+(billed?'YES':'No')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html><head><title>'+title+'</title><style>'
+    +'body{font-family:Arial,sans-serif;font-size:11px;padding:20px;color:#111}'
+    +'h1{font-size:16px;margin-bottom:4px}h2{font-size:12px;color:#555;font-weight:normal;margin-bottom:16px}'
+    +'.summary{display:flex;gap:24px;margin-bottom:20px;background:#f5f5f5;padding:12px;border-radius:6px}'
+    +'.stat{text-align:center}.stat-n{font-size:22px;font-weight:800}.stat-l{font-size:10px;color:#666;text-transform:uppercase}'
+    +'table{width:100%;border-collapse:collapse}th{background:#1a1a2e;color:#fff;padding:8px;font-size:10px;text-align:left}'
+    +'td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top}'
+    +'tr:nth-child(even){background:#fafafa}'
+    +'@media print{@page{size:landscape}}'
+    +'</style></head><body>'
+    +'<h1>'+title+'</h1>'
+    +'<h2>Care Crafter Home Care, LLC — Generated ' + new Date().toLocaleString() + '</h2>'
+    +'<div class="summary">'
+    +'<div class="stat"><div class="stat-n">'+groups.length+'</div><div class="stat-l">Total Overlaps</div></div>'
+    +'<div class="stat"><div class="stat-n" style="color:#dc2626">'+billedCount+'</div><div class="stat-l">Already Billed</div></div>'
+    +'<div class="stat"><div class="stat-n">'+(groups.length-billedCount)+'</div><div class="stat-l">Not Billed</div></div>'
+    +'</div>'
+    +'<table><thead><tr><th>#</th><th>Date</th><th>Patient</th><th>Caregiver 1</th><th>Caregiver 2</th><th>Overlap</th><th>Billed</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
+    +'</body></html>';
+
+  var w = window.open('','_blank','width=1100,height=700');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); }, 500);
+}
+
+// HOURS ANALYSIS — Export to Excel
+function haExportExcel() {
+  if (!haRows.length) return;
+  function fh(m){ var h=Math.floor(m/60),mn=m%60; return h+':'+(mn<10?'0':'')+mn; }
+  var rows = [['Client','Admission ID','MCO','Coordinator','Auth Hours','Scheduled Hours','Confirmed Hours','Billed Hours','Unbilled Hours','Missed Hours','Est. Revenue ($)']];
+  haRows.forEach(function(r){
+    rows.push([r.member, r.admId, r.mco, r.coord,
+      fh(r.auth), fh(r.sched), fh(r.conf), fh(r.bill),
+      fh(r.unbilled), fh(r.missed),
+      r.unbilled > 0 ? Math.round((r.unbilled/60)*22) : 0]);
+  });
+  // Totals row
+  var ta=0,ts=0,tc=0,tb=0,tu=0,tm=0;
+  haRows.forEach(function(r){ ta+=r.auth;ts+=r.sched;tc+=r.conf;tb+=r.bill;tu+=r.unbilled;tm+=r.missed; });
+  rows.push(['TOTALS','','','','',fh(ta),fh(ts),fh(tc),fh(tb),fh(tu),fh(tm),'$'+Math.round((tu/60)*22)]);
+
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Hours Analysis');
+  ws['!cols'] = [24,14,20,18,10,10,10,10,10,10,14].map(function(w){ return {wch:w}; });
+  XLSX.writeFile(wb, 'Hours_Analysis_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+// HOURS ANALYSIS — Print
+function haPrint() {
+  if (!haRows.length) return;
+  function fh(m){ var h=Math.floor(m/60),mn=m%60; return h+':'+(mn<10?'0':'')+mn; }
+
+  var ta=0,ts=0,tc=0,tb=0,tu=0,tm=0;
+  haRows.forEach(function(r){ ta+=r.auth;ts+=r.sched;tc+=r.conf;tb+=r.bill;tu+=r.unbilled;tm+=r.missed; });
+  var rev = Math.round((tu/60)*22);
+
+  var sorted = haRows.slice().sort(function(a,b){ return b.unbilled-a.unbilled; });
+  var rows = sorted.map(function(r){
+    return '<tr>'
+      +'<td><strong>'+r.member+'</strong><br><small>'+r.admId+'</small></td>'
+      +'<td style="font-size:10px">'+r.mco.replace('UPMC LTSS (','').replace(')','')+'</td>'
+      +'<td style="text-align:center">'+fh(r.auth)+'</td>'
+      +'<td style="text-align:center">'+fh(r.conf)+'</td>'
+      +'<td style="text-align:center">'+fh(r.bill)+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+(r.unbilled>120?'#dc2626':r.unbilled>0?'#b45309':'#666')+'">'+fh(r.unbilled)+'</td>'
+      +'<td style="text-align:center;color:'+(r.missed>120?'#dc2626':'#666')+'">'+fh(r.missed)+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:#166534">'+(r.unbilled>0?'$'+Math.round((r.unbilled/60)*22):'—')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html><head><title>Hours Analysis</title><style>'
+    +'body{font-family:Arial,sans-serif;font-size:11px;padding:20px}'
+    +'h1{font-size:16px;margin-bottom:4px}h2{font-size:12px;color:#555;font-weight:normal;margin-bottom:12px}'
+    +'.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}'
+    +'.stat{background:#f5f5f5;padding:10px;border-radius:6px;text-align:center}'
+    +'.stat-n{font-size:18px;font-weight:800}.stat-l{font-size:9px;color:#666;text-transform:uppercase;margin-top:2px}'
+    +'table{width:100%;border-collapse:collapse}th{background:#1a1a2e;color:#fff;padding:7px;font-size:10px;text-align:left}'
+    +'td{padding:5px 7px;border-bottom:1px solid #eee;vertical-align:top}'
+    +'tr:nth-child(even){background:#fafafa}'
+    +'tfoot td{background:#f0f0f0;font-weight:700}'
+    +'@media print{@page{size:landscape}}'
+    +'</style></head><body>'
+    +'<h1>Hours & Billing Analysis — Care Crafter Home Care, LLC</h1>'
+    +'<h2>Period: '+haRows[0].period+' — Generated '+new Date().toLocaleString()+'</h2>'
+    +'<div class="summary">'
+    +'<div class="stat"><div class="stat-n">'+fh(ta)+'</div><div class="stat-l">Authorized</div></div>'
+    +'<div class="stat"><div class="stat-n">'+fh(tb)+'</div><div class="stat-l">Billed</div></div>'
+    +'<div class="stat"><div class="stat-n" style="color:#dc2626">'+fh(tu)+'</div><div class="stat-l">Unbilled</div></div>'
+    +'<div class="stat"><div class="stat-n" style="color:#b45309">'+fh(tm)+'</div><div class="stat-l">Missed</div></div>'
+    +'<div class="stat"><div class="stat-n" style="color:#166534">$'+rev.toLocaleString()+'</div><div class="stat-l">Est. Revenue Gap</div></div>'
+    +'<div class="stat"><div class="stat-n">'+sorted.length+'</div><div class="stat-l">Clients</div></div>'
+    +'</div>'
+    +'<table><thead><tr><th>Client</th><th>MCO</th><th>Auth Hrs</th><th>Confirmed</th><th>Billed</th><th>Unbilled</th><th>Missed</th><th>Est Revenue</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'<tfoot><tr><td><strong>TOTALS</strong></td><td></td>'
+    +'<td style="text-align:center">'+fh(ta)+'</td><td style="text-align:center">'+fh(tc)+'</td>'
+    +'<td style="text-align:center">'+fh(tb)+'</td>'
+    +'<td style="text-align:center;color:#dc2626">'+fh(tu)+'</td>'
+    +'<td style="text-align:center;color:#b45309">'+fh(tm)+'</td>'
+    +'<td style="text-align:center;color:#166534">$'+rev.toLocaleString()+'</td>'
+    +'</tr></tfoot>'
+    +'</table></body></html>';
+
+  var w = window.open('','_blank','width=1100,height=700');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); }, 500);
 }
 
 </script>
