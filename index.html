@@ -2597,22 +2597,43 @@ setTimeout(function() {
 // SIMPLE GOOGLE MAPS - OPEN IN NEW TAB
 // ═══════════════════════════════════════════════════════════════════════════
 function dcOpenMaps(idx) {
-  var alert = dcAlerts[idx];
-  if (!alert) return;
-  var out = alert.outVisit || {};
-  var in_ = alert.inVisit || {};
-  var outGPS = (out.outGPS || out['Clock Out GPS'] || '').trim();
-  var inGPS = (in_.inGPS || in_['Clock In GPS'] || '').trim();
-  
-  if (!outGPS || !inGPS) { alert('Missing GPS data'); return; }
-  
-  var outParts = outGPS.split(',').map(x => x.trim());
-  var inParts = inGPS.split(',').map(x => x.trim());
-  
-  // Simple directions URL
-  var url = 'https://www.google.com/maps/dir/' + outParts[0] + ',' + outParts[1] + '/' + inParts[0] + ',' + inParts[1];
-  window.open(url, '_blank');
+  try {
+    var alert = dcAlerts[idx];
+    console.log("Opening maps for alert", idx, alert);
+    if (!alert) { console.log("No alert found"); return; }
+
+    var out = alert.outVisit || {};
+    var in_ = alert.inVisit || {};
+    var outGPS = (out.outGPS || out['Clock Out GPS'] || '').trim();
+    var inGPS = (in_.inGPS || in_['Clock In GPS'] || '').trim();
+
+    console.log('Out GPS:', outGPS, 'In GPS:', inGPS);
+
+    if (!outGPS || !inGPS) {
+      console.log('Missing GPS');
+      alert('Missing GPS data for this location');
+      return;
+    }
+
+    var outParts = outGPS.split(',').map(x => x.trim());
+    var inParts = inGPS.split(',').map(x => x.trim());
+
+    if (outParts.length !== 2 || inParts.length !== 2) {
+      console.log('Invalid GPS format');
+      alert('Invalid GPS coordinates');
+      return;
+    }
+
+    var url = 'https://www.google.com/maps/dir/' + outParts[0] + ',' + outParts[1] + '/' + inParts[0] + ',' + inParts[1];
+    console.log('Opening URL:', url);
+    window.open(url, '_blank');
+  } catch(e) {
+    console.error('Error opening maps:', e);
+    alert('Error: ' + e.message);
+  }
 }
+
+
 
 // Add button to fraud cards
 window.addEventListener('load', function() {
