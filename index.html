@@ -3003,6 +3003,27 @@ function ovAnalyze() {
           ovGroups[n].push(r);
         });
 
+        // Filter out overlaps < 5 minutes (just clock-in/out timing noise)
+        function ovParseVTime(field) {
+          var m = (field||'').match(/V:s*(d{3,4})-(d{3,4})/);
+          if (!m) return null;
+          function toM(t){ t=t.padStart(4,'0'); return parseInt(t.slice(0,2))*60+parseInt(t.slice(2)); }
+          return { s: toM(m[1]), e: toM(m[2]) };
+        }
+        function ovOverlapMins(g) {
+          if (g.length < 2) return 999;
+          var t1 = ovParseVTime(g[0]['Overlapping Visits']);
+          var t2 = ovParseVTime(g[1]['Overlapping Visits']);
+          if (!t1 || !t2) return 999;
+          var e1 = t1.e < t1.s ? t1.e+1440 : t1.e;
+          var e2 = t2.e < t2.s ? t2.e+1440 : t2.e;
+          return Math.max(0, Math.min(e1,e2) - Math.max(t1.s,t2.s));
+        }
+        // Remove groups with < 5 min actual overlap
+        Object.keys(ovGroups).forEach(function(k){
+          if (ovOverlapMins(ovGroups[k]) < 5) delete ovGroups[k];
+        });
+
         ovRenderDashboard();
       } catch(err) {
         document.getElementById('ov-loading').style.display='none';
