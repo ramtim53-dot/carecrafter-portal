@@ -3110,7 +3110,7 @@ function ovRenderTable() {
       +'<th style="'+thStyle+'">Admission ID</th>'
       +'<th style="'+thStyle+';text-align:center">Total Overlaps</th>'
       +'<th style="'+thStyle+';text-align:center">🚨 Billed</th>'
-      +'<th style="'+thStyle+';text-align:center">Days</th>'
+      +'<th style="'+thStyle+'">Dates</th>'
       +'<th style="'+thStyle+'">Caregiver Pairs</th>'
       +'</tr>';
 
@@ -3122,7 +3122,7 @@ function ovRenderTable() {
         +'<td style="padding:10px 12px;font-size:12px;color:var(--text3)">'+r.admId+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--amber)">'+r.overlaps+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:'+billedWeight+';color:'+billedColor+'">'+r.billed+'</td>'
-        +'<td style="padding:10px 12px;text-align:center;color:var(--text2)">'+r.dates.length+'</td>'
+        +'<td style="padding:10px 12px;font-size:10px;color:var(--text2)">'+r.dates.sort().join('<br>')+'</td>'
         +'<td style="padding:10px 12px;font-size:11px;color:var(--text3)">'+r.pairs.slice(0,2).join(' · ')+(r.pairs.length>2?' +more':'')+'</td>'
         +'</tr>';
     }).join('');
@@ -3150,8 +3150,8 @@ function ovRenderTable() {
       +'<th style="'+thStyle+'">Caregiver 2</th>'
       +'<th style="'+thStyle+';text-align:center">Overlaps</th>'
       +'<th style="'+thStyle+';text-align:center">🚨 Billed</th>'
-      +'<th style="'+thStyle+';text-align:center">Patients</th>'
-      +'<th style="'+thStyle+';text-align:center">Days</th>'
+      +'<th style="'+thStyle+'">Patients</th>'
+      +'<th style="'+thStyle+'">Dates</th>'
       +'<th style="'+thStyle+'">⚠️ Flag</th>'
       +'</tr>';
 
@@ -3164,8 +3164,8 @@ function ovRenderTable() {
         +'<td style="padding:10px 12px;font-weight:600;font-size:13px">'+r.cg2+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--amber)">'+r.count+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:'+(r.billed>0?'700':'400')+';color:'+billedColor+'">'+r.billed+'</td>'
-        +'<td style="padding:10px 12px;text-align:center;color:var(--text2)">'+r.patients.length+'</td>'
-        +'<td style="padding:10px 12px;text-align:center;color:var(--text2)">'+r.dates.length+'</td>'
+        +'<td style="padding:10px 12px;font-size:10px;color:var(--text2)">'+r.patients.slice(0,3).join('<br>')+(r.patients.length>3?'<br><span style="color:var(--text3)">+'+( r.patients.length-3)+' more</span>':'')+'</td>'
+        +'<td style="padding:10px 12px;font-size:10px;color:var(--text2)">'+r.dates.sort().join('<br>')+'</td>'
         +'<td style="padding:10px 12px">'+flag+'</td>'
         +'</tr>';
     }).join('');
