@@ -2512,10 +2512,10 @@ window.dcEnhanced = {
 
 
 
-// ─── GOOGLE MAPS FRAUD COMPARISON (FIXED) ─────────────────────────────────
-// Works with actual distance checker alert structure
+// ─── OPEN GOOGLE MAPS IN NEW TAB ──────────────────────────────────────────
+// Shows client address, clock-in location, clock-out location with route
 
-function dcShowMapComparison(alertOrIdx) {
+function dcOpenMapsInNewTab(alertOrIdx) {
   var alert = typeof alertOrIdx === "number" ? dcAlerts[alertOrIdx] : alertOrIdx;
   if (!alert) return;
 
@@ -2523,136 +2523,74 @@ function dcShowMapComparison(alertOrIdx) {
   var inV = alert.inVisit || {};
   var outGPS = (outV.outGPS || outV['Clock Out GPS'] || '').trim();
   var inGPS = (inV.inGPS || inV['Clock In GPS'] || '').trim();
+  var clientAddr = (outV.clientAddr || outV['Member Clock Out Address'] || '').trim();
 
-  var modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;overflow-y:auto';
-
-  var container = document.createElement('div');
-  container.style.cssText = 'background:var(--bg);border-radius:12px;width:100%;max-width:1400px;overflow:hidden';
-
-  // Header
-  var header = document.createElement('div');
-  header.style.cssText = 'padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:start';
-
-  var title = alert.title || '🚨 FRAUDULENT ACTIVITY';
-  var caregiver1 = outV.cgName || alert.cgName || 'Unknown';
-  var caregiver2 = inV.cgName || alert.cgName || 'Unknown';
-  var member = alert.member || outV.member || 'Unknown';
-  var date = alert.date || outV.date || 'N/A';
-
-  header.innerHTML = '<div style="flex:1">' +
-    '<div style="font-size:16px;font-weight:700;color:var(--red)">' + title + '</div>' +
-    '<div style="font-size:13px;color:var(--text2);margin-top:8px"><strong>Member:</strong> ' + member + '</div>' +
-    '<div style="font-size:13px;color:var(--text2)"><strong>Date:</strong> ' + date + '</div>' +
-    '<div style="font-size:12px;color:var(--text3);margin-top:8px">' + alert.desc + '</div>' +
-    '</div>' +
-    '<button onclick="this.closest(\'[style*=\\\"position:fixed\\\"]\').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:var(--text3);margin-top:-8px">✕</button>';
-  container.appendChild(header);
-
-  // Maps grid
-  var maps = document.createElement('div');
-  maps.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:500px';
-
-  // LEFT: Clock Out
-  var leftDiv = document.createElement('div');
-  leftDiv.style.cssText = 'background:var(--bg2);padding:20px;overflow-y:auto;border-right:1px solid var(--border)';
-
-  var leftTitle = document.createElement('div');
-  leftTitle.style.cssText = 'font-size:14px;font-weight:700;margin-bottom:12px;color:var(--red)';
-  leftTitle.textContent = '📍 CLOCK OUT FROM';
-  leftDiv.appendChild(leftTitle);
-
-  if (outGPS) {
-    var parts = outGPS.split(',').map(x => x.trim());
-    if (parts.length === 2) {
-      var mapUrl = 'https://maps.google.com/maps?q=' + parts[0] + ',' + parts[1] + '&z=16&output=embed';
-      var iframe = document.createElement('iframe');
-      iframe.src = mapUrl;
-      iframe.style.cssText = 'width:100%;height:300px;border:none;border-radius:8px;margin-bottom:16px';
-      leftDiv.appendChild(iframe);
-    }
+  if (!outGPS || !inGPS) {
+    alert('Missing location data');
+    return;
   }
 
-  var leftInfo = document.createElement('div');
-  leftInfo.style.cssText = 'font-size:12px;color:var(--text2);line-height:2';
-  leftInfo.innerHTML =
-    '<div><strong>Caregiver:</strong> ' + caregiver1 + '</div>' +
-    '<div><strong>Time:</strong> ' + (outV.evvStr || 'N/A') + '</div>' +
-    '<div><strong>Location:</strong> ' + (outV.location || outV['Clock Out Location'] || 'N/A') + '</div>' +
-    '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg3);padding:3px 6px;border-radius:4px;display:block;margin-top:4px;word-break:break-all">' + outGPS + '</code></div>' +
-    '<div style="margin-top:8px;color:var(--amber)"><strong>Distance from client:</strong> ' + ((parseFloat(outV.distFt || 0)/5280).toFixed(2)) + ' mi</div>';
-  leftDiv.appendChild(leftInfo);
-  maps.appendChild(leftDiv);
+  // Parse coordinates
+  var outCoords = outGPS.split(',').map(x => x.trim());
+  var inCoords = inGPS.split(',').map(x => x.trim());
 
-  // RIGHT: Clock In
-  var rightDiv = document.createElement('div');
-  rightDiv.style.cssText = 'background:var(--bg2);padding:20px;overflow-y:auto';
-
-  var rightTitle = document.createElement('div');
-  rightTitle.style.cssText = 'font-size:14px;font-weight:700;margin-bottom:12px;color:var(--blue2)';
-  rightTitle.textContent = '📍 CLOCK IN TO';
-  rightDiv.appendChild(rightTitle);
-
-  if (inGPS) {
-    var parts = inGPS.split(',').map(x => x.trim());
-    if (parts.length === 2) {
-      var mapUrl = 'https://maps.google.com/maps?q=' + parts[0] + ',' + parts[1] + '&z=16&output=embed';
-      var iframe = document.createElement('iframe');
-      iframe.src = mapUrl;
-      iframe.style.cssText = 'width:100%;height:300px;border:none;border-radius:8px;margin-bottom:16px';
-      rightDiv.appendChild(iframe);
-    }
+  if (outCoords.length !== 2 || inCoords.length !== 2) {
+    alert('Invalid GPS coordinates');
+    return;
   }
 
-  var rightInfo = document.createElement('div');
-  rightInfo.style.cssText = 'font-size:12px;color:var(--text2);line-height:2';
-  rightInfo.innerHTML =
-    '<div><strong>Caregiver:</strong> ' + caregiver2 + '</div>' +
-    '<div><strong>Time:</strong> ' + (inV.evvStr || 'N/A') + '</div>' +
-    '<div><strong>Location:</strong> ' + (inV.location || inV['Clock In Location'] || 'N/A') + '</div>' +
-    '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg3);padding:3px 6px;border-radius:4px;display:block;margin-top:4px;word-break:break-all">' + inGPS + '</code></div>' +
-    '<div style="margin-top:8px;color:var(--amber)"><strong>Distance from client:</strong> ' + ((parseFloat(inV.distFt || 0)/5280).toFixed(2)) + ' mi</div>';
-  rightDiv.appendChild(rightInfo);
-  maps.appendChild(rightDiv);
+  // Build Google Maps URL with multiple markers and route
+  // Format: https://www.google.com/maps/dir/start/middle/end
+  // Or: https://www.google.com/maps?q=...
 
-  container.appendChild(maps);
+  var url = 'https://www.google.com/maps/dir/?api=1' +
+    '&origin=' + outCoords[0] + ',' + outCoords[1] + '&' +
+    'destination=' + inCoords[0] + ',' + inCoords[1] + '&' +
+    'travelmode=driving';
 
-  // Footer: Analysis
-  if (outGPS && inGPS && alert.distance && alert.timeMins) {
-    var footer = document.createElement('div');
-    footer.style.cssText = 'padding:20px;background:var(--bg3);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:16px;font-size:13px';
-
-    var speedMph = alert.timeMins > 0 ? (alert.distance / (alert.timeMins / 60)).toFixed(1) : 0;
-    var verdict = speedMph > 75 ? '🚨 IMPOSSIBLE (>75 mph)' : speedMph > 60 ? '⚠️ UNLIKELY (>60 mph)' : '✅ Possible';
-    var verdictColor = speedMph > 75 ? 'var(--red)' : speedMph > 60 ? 'var(--amber)' : 'var(--green)';
-
-    footer.innerHTML =
-      '<div><strong>Distance:</strong> ' + alert.distance.toFixed(2) + ' miles</div>' +
-      '<div><strong>Time Gap:</strong> ' + alert.timeMins + ' minutes</div>' +
-      '<div><strong>Speed Needed:</strong> ' + speedMph + ' mph</div>' +
-      '<div style="color:' + verdictColor + ';font-weight:700"><strong>Verdict:</strong> ' + verdict + '</div>';
-
-    container.appendChild(footer);
+  // Add client address as waypoint if available
+  if (clientAddr) {
+    url = url.replace('&travelmode=driving', '&waypoints=' + encodeURIComponent(clientAddr) + '&travelmode=driving');
   }
 
-  modal.appendChild(container);
-  document.body.appendChild(modal);
+  // Open in new tab
+  window.open(url, '_blank');
 }
 
-// Hook into dcBuildCard to add "View Map" button
-var _origDcBuildCard = window.dcBuildCard || function(){};
-window.dcBuildCard = function(alert, idx) {
-  var html = _origDcBuildCard(alert, idx);
+// Add button to fraud cards
+var originalAlert = window.alert;
+setTimeout(function() {
+  // Hook the fraud card rendering to add a "View Route" button
+  var observeCards = function() {
+    var cards = document.querySelectorAll('[style*="border-left"]');
+    cards.forEach(function(card) {
+      if (!card.querySelector('.dc-maps-btn') && card.textContent.includes('FRAUDULENT')) {
+        var btn = document.createElement('button');
+        btn.className = 'dc-maps-btn';
+        btn.textContent = '🗺️ View Route on Maps';
+        btn.style.cssText = 'background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;width:100%';
+        btn.onclick = function() {
+          // Find which alert this is
+          var cardText = card.textContent;
+          dcAlerts.forEach(function(a, idx) {
+            if (a.title && a.title.includes('FRAUDULENT') && cardText.includes((a.caregiver || a.cgName || ''))) {
+              dcOpenMapsInNewTab(idx);
+            }
+          });
+        };
+        card.appendChild(btn);
+      }
+    });
+  };
 
-  // Add "View Map" button if this is a fraud/range alert with location data
-  if ((alert.type === 'fraud' || alert.type === 'range') && (alert.gps1 || alert.gps2 || alert.visit)) {
-    // Insert button before closing </div>
-    var button = '<button onclick="dcShowMapComparison(' + idx + ')" style="background:var(--teal);color:#000;border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px">🗺️ View on Maps</button>';
-    html = html.replace('</div>', button + '</div>');
+  // Observe for new cards being added
+  observeCards();
+  var observer = new MutationObserver(observeCards);
+  var container = document.getElementById('dc-resultsList');
+  if (container) {
+    observer.observe(container, {childList: true, subtree: true});
   }
-
-  return html;
-};
+}, 1000);
 
 </script>
 </body>
