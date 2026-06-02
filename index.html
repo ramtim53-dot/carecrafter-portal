@@ -3005,7 +3005,7 @@ function ovAnalyze() {
 
         // Remove groups with < 5 min actual overlap
         Object.keys(ovGroups).forEach(function(k){
-          if (ovOverlapMins(ovGroups[k]) < 5) delete ovGroups[k];
+          if (!ovIsRealOverlap(ovGroups[k])) delete ovGroups[k];
         });
 
         ovRenderDashboard();
@@ -3092,26 +3092,35 @@ function ovRenderDashboard() {
 
 // ── Overlap time helpers (module level so render can use them) ────────────
 function ovParseVTime(field) {
-  var m = (field||'').match(/V:s*(d{3,4})-(d{3,4})/);
-  if (!m) return null;
-  function toM(t){ t=t.padStart(4,'0'); return parseInt(t.slice(0,2))*60+parseInt(t.slice(2)); }
-  return { s: toM(m[1]), e: toM(m[2]) };
+  if (!field) return null;
+  var s = field.toString().split("V:");
+  if (s.length < 2) return null;
+  var part = s[s.length-1].replace(/[^0-9\-]/g," ").trim();
+  var nums = part.match(/^(\d{3,4})[^0-9]+(\d{3,4})/);
+  if (!nums) return null;
+  function toM(t){ var p=t.padStart(4,"0"); return parseInt(p.slice(0,2))*60+parseInt(p.slice(2)); }
+  return { s: toM(nums[1]), e: toM(nums[2]) };
 }
 function ovOverlapMins(g) {
-  if (!g || g.length < 2) return 0;
-  var t1 = ovParseVTime(g[0]['Overlapping Visits']);
-  var t2 = ovParseVTime(g[1]['Overlapping Visits']);
-  if (!t1 || !t2) return 999;
+  if (!g || g.length < 2) return null;
+  var t1 = ovParseVTime(g[0]["Overlapping Visits"]);
+  var t2 = ovParseVTime(g[1]["Overlapping Visits"]);
+  if (!t1 || !t2) return null;
   var e1 = t1.e < t1.s ? t1.e+1440 : t1.e;
   var e2 = t2.e < t2.s ? t2.e+1440 : t2.e;
   return Math.max(0, Math.min(e1,e2) - Math.max(t1.s,t2.s));
 }
-function ovFmtOverlap(mins) {
-  if (!mins || mins <= 0) return '';
-  if (mins < 60) return mins + ' min';
-  var h = Math.floor(mins/60), m = mins%60;
-  return h + 'h' + (m > 0 ? ' '+m+'m' : '');
+function ovIsRealOverlap(g) {
+  var m = ovOverlapMins(g);
+  return m === null || m >= 5;
 }
+function ovFmtOverlap(mins) {
+  if (mins === null || mins === undefined || mins <= 0) return "—";
+  if (mins < 60) return mins + " min";
+  var h = Math.floor(mins/60), m = mins%60;
+  return h + "h" + (m > 0 ? " " + m + "m" : "");
+}
+
 
 function ovRenderTable() {
   var thStyle = 'padding:10px 12px;text-align:left;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase';
@@ -3126,7 +3135,7 @@ function ovRenderTable() {
       if (!patientData[key]) patientData[key] = { patient:g[0]['Patient Name'], admId:g[0]['Admission ID'], overlaps:0, billed:0, dates:[], pairs:[], totalMins:0 };
       var d = patientData[key];
       d.overlaps++;
-      d.totalMins += ovOverlapMins(g);
+      var _om=ovOverlapMins(g); if(_om!==null) d.totalMins+=_om;
       if (g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; })) d.billed++;
       var date = g[0]['Visit Date']; if (!d.dates.includes(date)) d.dates.push(date);
       if (g.length >= 2) { var pair = g[0]['Caregiver Name']+' & '+g[1]['Caregiver Name']; if (!d.pairs.includes(pair)) d.pairs.push(pair); }
@@ -3169,7 +3178,7 @@ function ovRenderTable() {
       if (!pairData[key]) pairData[key] = { pair:key, cg1:names[0], cg2:names[1], count:0, billed:0, patients:[], dates:[], totalMins:0 };
       var d = pairData[key];
       d.count++;
-      d.totalMins += ovOverlapMins(g);
+      var _pm=ovOverlapMins(g); if(_pm!==null) d.totalMins+=_pm;
       if (g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; })) d.billed++;
       var pat = g[0]['Patient Name']; if (!d.patients.includes(pat)) d.patients.push(pat);
       var date = g[0]['Visit Date'];  if (!d.dates.includes(date))   d.dates.push(date);
