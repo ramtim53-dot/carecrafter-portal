@@ -2592,6 +2592,55 @@ setTimeout(function() {
   }
 }, 1000);
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIMPLE GOOGLE MAPS - OPEN IN NEW TAB
+// ═══════════════════════════════════════════════════════════════════════════
+function dcOpenMaps(idx) {
+  var alert = dcAlerts[idx];
+  if (!alert) return;
+  var out = alert.outVisit || {};
+  var in_ = alert.inVisit || {};
+  var outGPS = (out.outGPS || out['Clock Out GPS'] || '').trim();
+  var inGPS = (in_.inGPS || in_['Clock In GPS'] || '').trim();
+  
+  if (!outGPS || !inGPS) { alert('Missing GPS data'); return; }
+  
+  var outParts = outGPS.split(',').map(x => x.trim());
+  var inParts = inGPS.split(',').map(x => x.trim());
+  
+  // Simple directions URL
+  var url = 'https://www.google.com/maps/dir/' + outParts[0] + ',' + outParts[1] + '/' + inParts[0] + ',' + inParts[1];
+  window.open(url, '_blank');
+}
+
+// Add button to fraud cards
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    dcAlerts.forEach(function(alert, idx) {
+      if (alert.type === 'fraud') {
+        var cardId = 'dc-card-' + idx;
+        var card = document.querySelector('[data-alert-idx="' + idx + '"]');
+        if (!card) {
+          // Try to find by text content
+          var cards = document.querySelectorAll('div[style*="border-left"]');
+          cards.forEach(function(c) {
+            if (c.textContent.includes('FRAUDULENT') && c.textContent.includes(alert.caregiver || alert.cgName)) {
+              if (!c.querySelector('.dc-maps-btn-' + idx)) {
+                var btn = document.createElement('button');
+                btn.className = 'dc-maps-btn-' + idx;
+                btn.innerHTML = '🗺️ View Route on Google Maps';
+                btn.style.cssText = 'background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;width:100%';
+                btn.onclick = function(e) { e.preventDefault(); dcOpenMaps(idx); };
+                c.appendChild(btn);
+              }
+            }
+          });
+        }
+      }
+    });
+  }, 500);
+});
 </script>
 </body>
 </html>
