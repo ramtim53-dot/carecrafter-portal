@@ -2512,121 +2512,131 @@ window.dcEnhanced = {
 
 
 
-// ─── GOOGLE MAPS LOCATION COMPARISON ──────────────────────────────────────
-// Visual fraud detection: compare clock-in vs clock-out locations
+// ─── GOOGLE MAPS FRAUD COMPARISON (FIXED) ─────────────────────────────────
+// Works with actual distance checker alert structure
 
-function dcShowMapComparison(alert) {
-  // Create modal for map comparison
+function dcShowMapComparison(alertOrIdx) {
+  var alert = typeof alertOrIdx === "number" ? dcAlerts[alertOrIdx] : alertOrIdx;
+  if (!alert) return;
+
+  var outV = alert.outVisit || {};
+  var inV = alert.inVisit || {};
+  var outGPS = (outV.outGPS || outV['Clock Out GPS'] || '').trim();
+  var inGPS = (inV.inGPS || inV['Clock In GPS'] || '').trim();
+
   var modal = document.createElement('div');
-  modal.id = 'dc-map-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;overflow-y:auto';
 
   var container = document.createElement('div');
-  container.style.cssText = 'background:var(--bg);border-radius:12px;width:100%;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden';
+  container.style.cssText = 'background:var(--bg);border-radius:12px;width:100%;max-width:1400px;overflow:hidden';
 
   // Header
   var header = document.createElement('div');
-  header.style.cssText = 'padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
-  header.innerHTML = '<div><strong style="font-size:16px">' + alert.title + '</strong><div style="font-size:12px;color:var(--text2);margin-top:4px">' + alert.caregiver + ' — ' + alert.date + '</div></div><button onclick="document.getElementById(\'dc-map-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text3)">✕</button>';
+  header.style.cssText = 'padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:start';
+
+  var title = alert.title || '🚨 FRAUDULENT ACTIVITY';
+  var caregiver1 = outV.cgName || alert.cgName || 'Unknown';
+  var caregiver2 = inV.cgName || alert.cgName || 'Unknown';
+  var member = alert.member || outV.member || 'Unknown';
+  var date = alert.date || outV.date || 'N/A';
+
+  header.innerHTML = '<div style="flex:1">' +
+    '<div style="font-size:16px;font-weight:700;color:var(--red)">' + title + '</div>' +
+    '<div style="font-size:13px;color:var(--text2);margin-top:8px"><strong>Member:</strong> ' + member + '</div>' +
+    '<div style="font-size:13px;color:var(--text2)"><strong>Date:</strong> ' + date + '</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-top:8px">' + alert.desc + '</div>' +
+    '</div>' +
+    '<button onclick="this.closest(\'[style*=\\\"position:fixed\\\"]\').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:var(--text3);margin-top:-8px">✕</button>';
   container.appendChild(header);
 
-  // Content
-  var content = document.createElement('div');
-  content.style.cssText = 'flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;overflow:hidden';
+  // Maps grid
+  var maps = document.createElement('div');
+  maps.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:500px';
 
-  // Left: Clock-Out Location
-  if (alert.v1) {
-    var leftPanel = dcCreateLocationPanel('📍 CLOCK OUT FROM', alert.v1, alert.gps1);
-    content.appendChild(leftPanel);
+  // LEFT: Clock Out
+  var leftDiv = document.createElement('div');
+  leftDiv.style.cssText = 'background:var(--bg2);padding:20px;overflow-y:auto;border-right:1px solid var(--border)';
+
+  var leftTitle = document.createElement('div');
+  leftTitle.style.cssText = 'font-size:14px;font-weight:700;margin-bottom:12px;color:var(--red)';
+  leftTitle.textContent = '📍 CLOCK OUT FROM';
+  leftDiv.appendChild(leftTitle);
+
+  if (outGPS) {
+    var parts = outGPS.split(',').map(x => x.trim());
+    if (parts.length === 2) {
+      var mapUrl = 'https://maps.google.com/maps?q=' + parts[0] + ',' + parts[1] + '&z=16&output=embed';
+      var iframe = document.createElement('iframe');
+      iframe.src = mapUrl;
+      iframe.style.cssText = 'width:100%;height:300px;border:none;border-radius:8px;margin-bottom:16px';
+      leftDiv.appendChild(iframe);
+    }
   }
 
-  // Right: Clock-In Location
-  if (alert.v2) {
-    var rightPanel = dcCreateLocationPanel('📍 CLOCK IN TO', alert.v2, alert.gps2);
-    content.appendChild(rightPanel);
+  var leftInfo = document.createElement('div');
+  leftInfo.style.cssText = 'font-size:12px;color:var(--text2);line-height:2';
+  leftInfo.innerHTML =
+    '<div><strong>Caregiver:</strong> ' + caregiver1 + '</div>' +
+    '<div><strong>Time:</strong> ' + (outV.evvStr || 'N/A') + '</div>' +
+    '<div><strong>Location:</strong> ' + (outV.location || outV['Clock Out Location'] || 'N/A') + '</div>' +
+    '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg3);padding:3px 6px;border-radius:4px;display:block;margin-top:4px;word-break:break-all">' + outGPS + '</code></div>' +
+    '<div style="margin-top:8px;color:var(--amber)"><strong>Distance from client:</strong> ' + ((parseFloat(outV.distFt || 0)/5280).toFixed(2)) + ' mi</div>';
+  leftDiv.appendChild(leftInfo);
+  maps.appendChild(leftDiv);
+
+  // RIGHT: Clock In
+  var rightDiv = document.createElement('div');
+  rightDiv.style.cssText = 'background:var(--bg2);padding:20px;overflow-y:auto';
+
+  var rightTitle = document.createElement('div');
+  rightTitle.style.cssText = 'font-size:14px;font-weight:700;margin-bottom:12px;color:var(--blue2)';
+  rightTitle.textContent = '📍 CLOCK IN TO';
+  rightDiv.appendChild(rightTitle);
+
+  if (inGPS) {
+    var parts = inGPS.split(',').map(x => x.trim());
+    if (parts.length === 2) {
+      var mapUrl = 'https://maps.google.com/maps?q=' + parts[0] + ',' + parts[1] + '&z=16&output=embed';
+      var iframe = document.createElement('iframe');
+      iframe.src = mapUrl;
+      iframe.style.cssText = 'width:100%;height:300px;border:none;border-radius:8px;margin-bottom:16px';
+      rightDiv.appendChild(iframe);
+    }
   }
 
-  // If no consecutive visits, show single location
-  if (!alert.v2 && alert.visit) {
-    var singlePanel = document.createElement('div');
-    singlePanel.style.cssText = 'grid-column:1/-1;padding:20px;overflow-y:auto';
-    singlePanel.innerHTML = '<div style="font-size:13px;line-height:1.8">' +
-      '<div><strong>Member:</strong> ' + (alert.visit['Member Name'] || 'N/A') + '</div>' +
-      '<div><strong>Date:</strong> ' + (alert.visit['Visit Date'] || 'N/A') + '</div>' +
-      '<div><strong>Location:</strong> ' + (alert.visit['Clock In Location'] || 'N/A') + '</div>' +
-      '<div><strong>Distance from Address:</strong> ' + ((parseFloat(alert.visit['Clock In Distance (FT)'] || 0)/5280).toFixed(2)) + ' miles</div>' +
-      '</div>';
-    content.appendChild(singlePanel);
+  var rightInfo = document.createElement('div');
+  rightInfo.style.cssText = 'font-size:12px;color:var(--text2);line-height:2';
+  rightInfo.innerHTML =
+    '<div><strong>Caregiver:</strong> ' + caregiver2 + '</div>' +
+    '<div><strong>Time:</strong> ' + (inV.evvStr || 'N/A') + '</div>' +
+    '<div><strong>Location:</strong> ' + (inV.location || inV['Clock In Location'] || 'N/A') + '</div>' +
+    '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg3);padding:3px 6px;border-radius:4px;display:block;margin-top:4px;word-break:break-all">' + inGPS + '</code></div>' +
+    '<div style="margin-top:8px;color:var(--amber)"><strong>Distance from client:</strong> ' + ((parseFloat(inV.distFt || 0)/5280).toFixed(2)) + ' mi</div>';
+  rightDiv.appendChild(rightInfo);
+  maps.appendChild(rightDiv);
+
+  container.appendChild(maps);
+
+  // Footer: Analysis
+  if (outGPS && inGPS && alert.distance && alert.timeMins) {
+    var footer = document.createElement('div');
+    footer.style.cssText = 'padding:20px;background:var(--bg3);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:16px;font-size:13px';
+
+    var speedMph = alert.timeMins > 0 ? (alert.distance / (alert.timeMins / 60)).toFixed(1) : 0;
+    var verdict = speedMph > 75 ? '🚨 IMPOSSIBLE (>75 mph)' : speedMph > 60 ? '⚠️ UNLIKELY (>60 mph)' : '✅ Possible';
+    var verdictColor = speedMph > 75 ? 'var(--red)' : speedMph > 60 ? 'var(--amber)' : 'var(--green)';
+
+    footer.innerHTML =
+      '<div><strong>Distance:</strong> ' + alert.distance.toFixed(2) + ' miles</div>' +
+      '<div><strong>Time Gap:</strong> ' + alert.timeMins + ' minutes</div>' +
+      '<div><strong>Speed Needed:</strong> ' + speedMph + ' mph</div>' +
+      '<div style="color:' + verdictColor + ';font-weight:700"><strong>Verdict:</strong> ' + verdict + '</div>';
+
+    container.appendChild(footer);
   }
 
-  // Comparison stats (if both locations)
-  if (alert.v1 && alert.v2 && alert.gps1 && alert.gps2) {
-    var stats = document.createElement('div');
-    stats.style.cssText = 'grid-column:1/-1;padding:20px;background:var(--bg2);border-top:1px solid var(--border);font-size:13px';
-    var dist = window.dcEnhanced ? window.dcEnhanced.calcMiles(alert.gps1, alert.gps2) : 0;
-    var timeStr = (alert.v1['EVV Time'] || '').split('-')[1] + ' to ' + (alert.v2['EVV Time'] || '').split('-')[0];
-    var timeMins = dcCalcTimeBetween(alert.v1['EVV Time'], alert.v2['EVV Time']);
-    var speedMph = timeMins > 0 ? (dist / (timeMins / 60)).toFixed(1) : 0;
-    var flagged = speedMph > 75 ? '🚨 IMPOSSIBLE (>75 mph)' : speedMph > 60 ? '⚠️ UNLIKELY (>60 mph)' : '✅ Possible';
-
-    stats.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px">' +
-      '<div><strong>Distance:</strong> ' + dist.toFixed(2) + ' miles</div>' +
-      '<div><strong>Time Gap:</strong> ' + timeMins + ' minutes</div>' +
-      '<div><strong>Avg Speed:</strong> ' + speedMph + ' mph</div>' +
-      '<div><strong>Assessment:</strong> ' + flagged + '</div>' +
-      '</div>';
-    content.appendChild(stats);
-  }
-
-  container.appendChild(content);
   modal.appendChild(container);
   document.body.appendChild(modal);
-}
-
-function dcCreateLocationPanel(title, visitData, gpsStr) {
-  var panel = document.createElement('div');
-  panel.style.cssText = 'padding:20px;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column';
-
-  var gps = window.dcEnhanced ? window.dcEnhanced.parseGPS(gpsStr) : null;
-  var mapUrl = gps ? 'https://maps.google.com/maps?q=' + gps.lat + ',' + gps.lon + '&z=16&output=embed' : '';
-
-  var html = '<div style="font-size:14px;font-weight:700;margin-bottom:12px">' + title + '</div>';
-
-  // Map
-  if (mapUrl) {
-    html += '<iframe src="' + mapUrl + '" width="100%" height="300" style="border:none;border-radius:8px;margin-bottom:12px"></iframe>';
-  }
-
-  // Details
-  html += '<div style="font-size:12px;color:var(--text2);line-height:1.7">' +
-    '<div><strong>Member:</strong> ' + (visitData['Member Name'] || 'N/A') + '</div>' +
-    '<div><strong>Time:</strong> ' + (visitData['EVV Time'] || 'N/A') + '</div>' +
-    '<div><strong>Location:</strong> ' + (visitData['Clock In Location'] || visitData['Clock Out Location'] || 'N/A') + '</div>' +
-    '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:4px">' + (gpsStr || 'N/A') + '</code></div>';
-
-  var dist = parseFloat((visitData['Clock In Distance (FT)'] || visitData['Clock Out Distance(FT)'] || 0).trim());
-  if (dist > 0) {
-    html += '<div style="color:' + (dist > 528 ? 'var(--red)' : 'var(--green)') + ';font-weight:600"><strong>Distance from client:</strong> ' + (dist/5280).toFixed(2) + ' miles</div>';
-  }
-
-  html += '</div>';
-
-  panel.innerHTML = html;
-  return panel;
-}
-
-function dcCalcTimeBetween(evvStr1, evvStr2) {
-  // "16:56 - 21:59" → extract end time from first, start time from second
-  if (!evvStr1 || !evvStr2) return 0;
-  var m1 = (evvStr1 || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-  var m2 = (evvStr2 || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-  if (!m1 || !m2) return 0;
-
-  var end1 = parseInt(m1[3]) * 60 + parseInt(m1[4]);  // end time of first visit
-  var start2 = parseInt(m2[1]) * 60 + parseInt(m2[2]); // start time of second visit
-
-  var diff = start2 - end1;
-  return diff >= 0 ? diff : (1440 + diff); // handle overnight
 }
 
 // Hook into dcBuildCard to add "View Map" button
