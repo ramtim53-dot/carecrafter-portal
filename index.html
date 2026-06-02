@@ -1261,98 +1261,90 @@ function dcBuildCard(a,idx){
     diff:'<span style="background:rgba(59,130,246,0.12);color:var(--blue2);border:1px solid var(--blue2);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800">⏱ TIME DIFF</span>'
   }[a.type]||"";
 
-  // helper: calc hours from evvStr "16:56 - 21:59"
-  function hrs(evvStr){
-    if(!evvStr)return null;
-    var m=evvStr.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-    if(!m)return null;
-    var mins=(parseInt(m[3])*60+parseInt(m[4]))-(parseInt(m[1])*60+parseInt(m[2]));
-    return mins>0?(mins/60).toFixed(1):null;
-  }
+  function hrs(s){if(!s)return null;var m=s.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!m)return null;var mins=(parseInt(m[3])*60+parseInt(m[4]))-(parseInt(m[1])*60+parseInt(m[2]));return mins>0?(mins/60).toFixed(1):null;}
+  function gStr(g){return g&&g.lat?(g.lat+', '+g.lon):null;}
+  function gCoord(g){return g&&g.lat?(g.lat+','+g.lon):null;}
 
-  // helper: format GPS object to string
-  function gpsStr(g){ return g&&g.lat?(g.lat+', '+g.lon):''; }
-
-  // Get visits
   var outV = a.outVisit || a.visit || {};
   var inV  = a.inVisit  || {};
 
-  // GPS
-  var outGPS = outV.coutGPS && outV.coutGPS.lat ? outV.coutGPS : null;
-  var inGPS  = inV.cinGPS   && inV.cinGPS.lat   ? inV.cinGPS   : (outV.cinGPS && outV.cinGPS.lat ? outV.cinGPS : null);
+  // All available GPS points
+  var homeGPS  = outV.homeGPS  || inV.homeGPS  || null;
+  var outGPS   = (outV.coutGPS && outV.coutGPS.lat) ? outV.coutGPS : null;   // Yashoda clock-OUT
+  var inGPS    = (inV.cinGPS   && inV.cinGPS.lat)   ? inV.cinGPS   : null;   // Brikchya clock-IN
+  var outCinGPS= (outV.cinGPS  && outV.cinGPS.lat)  ? outV.cinGPS  : null;   // Yashoda clock-IN (fallback)
+  var inCoutGPS= (inV.coutGPS  && inV.coutGPS.lat)  ? inV.coutGPS  : null;   // Brikchya clock-OUT
 
-  // Hours worked
+  // Build ordered list of map points: home → Yashoda location → Brikchya location
+  var mapPoints = [];
+  var mapLabels = [];
+  if (homeGPS)   { mapPoints.push(gCoord(homeGPS));   mapLabels.push('Client Home'); }
+  if (outGPS)    { mapPoints.push(gCoord(outGPS));    mapLabels.push((outV.cgName||'DCW1')+' Clock-Out'); }
+  else if (outCinGPS){ mapPoints.push(gCoord(outCinGPS)); mapLabels.push((outV.cgName||'DCW1')+' Clock-In'); }
+  if (inGPS)     { mapPoints.push(gCoord(inGPS));     mapLabels.push((inV.cgName||'DCW2')+' Clock-In'); }
+  else if (inCoutGPS){ mapPoints.push(gCoord(inCoutGPS)); mapLabels.push((inV.cgName||'DCW2')+' Clock-Out'); }
+
+  // Single visit alerts (range)
+  if (!a.inVisit) {
+    mapPoints = [];
+    if (homeGPS) { mapPoints.push(gCoord(homeGPS)); mapLabels.push('Client Home'); }
+    var anyGPS = outGPS || outCinGPS || inGPS;
+    if (anyGPS) { mapPoints.push(gCoord(anyGPS)); mapLabels.push((outV.cgName||'DCW')+' Location'); }
+  }
+
+  // Build Maps URL
+  var mapsBtn = '';
+  if (mapPoints.length >= 2) {
+    var url = 'https://www.google.com/maps/dir/' + mapPoints.join('/');
+    var btnLabel = '🗺️ View on Google Maps: ' + mapLabels.join(' → ') + ' →';
+    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:12px;font-weight:700;margin-top:12px">'+btnLabel+'</a>';
+  } else if (mapPoints.length === 1) {
+    var url = 'https://www.google.com/maps?q=' + mapPoints[0];
+    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:12px;font-weight:700;margin-top:12px">🗺️ View Location on Google Maps →</a>';
+  } else {
+    mapsBtn = '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px;font-size:11px;color:var(--amber);text-align:center;margin-top:12px">⚠️ No GPS data recorded for this visit — EVV app may have been offline</div>';
+  }
+
   var outHrs = hrs(outV.evvStr);
   var inHrs  = hrs(inV.evvStr);
 
-  // Tasks
-  var outTasks = (outV.tasksDone||'').trim();
-  var inTasks  = (inV.tasksDone||'').trim();
-  var outTasksNot = (outV.tasksNot||'').trim();
+  // Two-column detail panel
+  var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">';
 
-  // Build Google Maps URL — both locations as route
-  var mapsBtn = '';
-  if (outGPS && inGPS) {
-    var url = 'https://www.google.com/maps/dir/'+outGPS.lat+','+outGPS.lon+'/'+inGPS.lat+','+inGPS.lon;
-    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:13px;font-weight:700;margin-top:12px">🗺️ View Route on Google Maps (Clock-Out → Clock-In) →</a>';
-  } else if (outGPS) {
-    var url = 'https://www.google.com/maps?q='+outGPS.lat+','+outGPS.lon;
-    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:13px;font-weight:700;margin-top:12px">🗺️ View Clock-Out Location →</a>';
-  } else if (inGPS) {
-    var url = 'https://www.google.com/maps?q='+inGPS.lat+','+inGPS.lon;
-    mapsBtn = '<a href="'+url+'" target="_blank" style="display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:11px;font-size:13px;font-weight:700;margin-top:12px">🗺️ View Clock-In Location →</a>';
-  }
-
-  // Build detail body
-  var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">';
-
-  // LEFT: Clock-Out DCW
+  // ── LEFT: Clock-Out DCW ──────────────────────────────────────────────────
   body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--red)">';
-  body += '<div style="font-size:10px;font-weight:700;color:var(--red);letter-spacing:1px;margin-bottom:8px">📤 CLOCK OUT</div>';
-  body += '<div style="font-size:13px;font-weight:700;margin-bottom:6px">'+(outV.cgName||a.caregiver||'N/A')+'</div>';
-  body += '<div style="font-size:11px;color:var(--text2);line-height:1.8">';
-  body += '<div><strong>Time:</strong> '+(outV.evvStr||'N/A')+'</div>';
-  if (outHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+outHrs+' hrs</span></div>';
-  body += '<div><strong>Distance from Client:</strong> <span style="color:var(--red)">'+(outV.coutDist?Math.round(outV.coutDist).toLocaleString()+' ft':'N/A')+'</span></div>';
-  if (outGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">'+gpsStr(outGPS)+'</code></div>';
-  if (outTasks) body += '<div style="margin-top:6px"><strong>✅ Duties Done:</strong><div style="color:var(--green);font-size:10px;margin-top:2px">'+outTasks+'</div></div>';
-  if (outTasksNot) body += '<div style="margin-top:4px"><strong>❌ Not Done:</strong><div style="color:var(--red);font-size:10px;margin-top:2px">'+outTasksNot+'</div></div>';
-  if (!outTasks && !outTasksNot) body += '<div style="color:var(--text3);margin-top:4px"><em>No duties recorded</em></div>';
+  body += '<div style="font-size:10px;font-weight:700;color:var(--red);letter-spacing:1px;margin-bottom:8px">📤 CLOCK OUT  —  '+(outV.cgName||a.caregiver||'N/A')+'</div>';
+  body += '<div style="font-size:11px;color:var(--text2);line-height:1.9">';
+  body += '<div><strong>EVV Time:</strong> '+(outV.evvStr||'N/A')+'</div>';
+  if(outHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+outHrs+' hrs</span></div>';
+  body += '<div><strong>Dist from Client:</strong> <span style="color:var(--red);font-weight:700">'+(outV.coutDist?Math.round(outV.coutDist).toLocaleString()+' ft':'N/A')+'</span></div>';
+  var outGPSstr = gStr(outGPS) || gStr(outCinGPS);
+  if(outGPSstr) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+outGPSstr+'</code></div>';
+  else body += '<div style="color:var(--amber)"><strong>GPS:</strong> ⚠️ Not recorded</div>';
+  if(outV.tasksDone) body += '<div style="margin-top:4px"><strong>✅ Duties:</strong> <span style="color:var(--green);font-size:10px">'+outV.tasksDone+'</span></div>';
+  if(outV.tasksNot)  body += '<div><strong>❌ Not done:</strong> <span style="color:var(--red);font-size:10px">'+outV.tasksNot+'</span></div>';
   body += '</div></div>';
 
-  // RIGHT: Clock-In DCW
-  if (a.inVisit) {
-    body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--blue2)">';
-    body += '<div style="font-size:10px;font-weight:700;color:var(--blue2);letter-spacing:1px;margin-bottom:8px">📥 CLOCK IN</div>';
-    body += '<div style="font-size:13px;font-weight:700;margin-bottom:6px">'+(inV.cgName||'N/A')+'</div>';
-    body += '<div style="font-size:11px;color:var(--text2);line-height:1.8">';
-    body += '<div><strong>Time:</strong> '+(inV.evvStr||'N/A')+'</div>';
-    if (inHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+inHrs+' hrs</span></div>';
-    body += '<div><strong>Distance from Client:</strong> <span style="color:var(--green)">'+(inV.cinDist?Math.round(inV.cinDist).toLocaleString()+' ft':'N/A')+'</span></div>';
-    if (inGPS && a.inVisit) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">'+gpsStr(inGPS)+'</code></div>';
-    if (inTasks) body += '<div style="margin-top:6px"><strong>✅ Duties Done:</strong><div style="color:var(--green);font-size:10px;margin-top:2px">'+inTasks+'</div></div>';
-    var inTasksNot=(inV.tasksNot||'').trim();
-    if (inTasksNot) body += '<div style="margin-top:4px"><strong>❌ Not Done:</strong><div style="color:var(--red);font-size:10px;margin-top:2px">'+inTasksNot+'</div></div>';
-    if (!inTasks && !inTasksNot) body += '<div style="color:var(--text3);margin-top:4px"><em>No duties recorded</em></div>';
-    body += '</div></div>';
-  } else {
-    // Single visit (range alert)
-    body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--blue2)">';
-    body += '<div style="font-size:10px;font-weight:700;color:var(--blue2);letter-spacing:1px;margin-bottom:8px">📥 CLOCK IN</div>';
-    body += '<div style="font-size:11px;color:var(--text2);line-height:1.8">';
-    if (inGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">'+gpsStr(inGPS)+'</code></div>';
-    body += '<div><strong>Distance from Client:</strong> <span style="color:var(--green)">'+(outV.cinDist?Math.round(outV.cinDist).toLocaleString()+' ft':'N/A')+'</span></div>';
-    if (outV.tasksDone) body += '<div style="margin-top:6px"><strong>✅ Duties Done:</strong><div style="color:var(--green);font-size:10px;margin-top:2px">'+outV.tasksDone+'</div></div>';
-    body += '</div></div>';
-  }
+  // ── RIGHT: Clock-In DCW ──────────────────────────────────────────────────
+  var rightV = a.inVisit ? inV : outV;
+  var rightGPS = inGPS || outCinGPS || null;
+  body += '<div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--blue2)">';
+  body += '<div style="font-size:10px;font-weight:700;color:var(--blue2);letter-spacing:1px;margin-bottom:8px">📥 CLOCK IN  —  '+(a.inVisit ? (inV.cgName||'N/A') : (outV.cgName||'N/A'))+'</div>';
+  body += '<div style="font-size:11px;color:var(--text2);line-height:1.9">';
+  body += '<div><strong>EVV Time:</strong> '+(rightV.evvStr||'N/A')+'</div>';
+  var rHrs = hrs(rightV.evvStr);
+  if(rHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+rHrs+' hrs</span></div>';
+  body += '<div><strong>Dist from Client:</strong> <span style="color:var(--green);font-weight:700">'+(rightV.cinDist!==undefined?Math.round(rightV.cinDist).toLocaleString()+' ft':'N/A')+'</span></div>';
+  if(rightGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+gStr(rightGPS)+'</code></div>';
+  else body += '<div style="color:var(--amber)"><strong>GPS:</strong> ⚠️ Not recorded</div>';
+  if(homeGPS) body += '<div style="margin-top:4px"><strong>🏠 Client Home GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+gStr(homeGPS)+'</code></div>';
+  if(rightV.tasksDone) body += '<div style="margin-top:4px"><strong>✅ Duties:</strong> <span style="color:var(--green);font-size:10px">'+rightV.tasksDone+'</span></div>';
+  if(rightV.tasksNot)  body += '<div><strong>❌ Not done:</strong> <span style="color:var(--red);font-size:10px">'+rightV.tasksNot+'</span></div>';
+  body += '</div></div>';
 
   body += '</div>';
 
-  // Time gap banner for fraud
-  if (a.timeDiff) {
-    body += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 12px;font-size:12px;text-align:center;margin-bottom:8px">';
-    body += '⏱ <strong>'+a.timeDiff+' minutes</strong> between clock-out and clock-in — distance requires more time</div>';
-  }
+  if(a.timeDiff) body += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 12px;font-size:12px;text-align:center;margin-bottom:8px">⏱ <strong>'+a.timeDiff+' minutes</strong> gap between these two clock events</div>';
 
   return '<div style="background:var(--bg2);border:1px solid var(--border);border-left:4px solid '+borders[a.type]+';border-radius:var(--radius);margin-bottom:10px;overflow:hidden">'
     +'<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer" onclick="dcToggle('+idx+')">'
@@ -1361,8 +1353,7 @@ function dcBuildCard(a,idx){
     +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+(a.admId||'')+' · '+a.date+' · '+a.desc.substring(0,120)+'</div></div>'
     +'<span style="color:var(--text3);font-size:12px" id="dc-tog-'+idx+'">▼</span></div>'
     +'<div style="display:none;padding:12px 16px 16px;border-top:1px solid var(--border)" id="dc-body-'+idx+'">'
-    +body
-    +mapsBtn
+    +body+mapsBtn
     +'</div></div>';
 }
 function dcToggle(idx){const body=document.getElementById('dc-body-'+idx);const tog=document.getElementById('dc-tog-'+idx);const open=body.style.display==='none';body.style.display=open?'block':'none';tog.style.transform=open?'rotate(180deg)':'';}
