@@ -261,6 +261,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('letters')"><span class="nav-icon">📄</span>Letter Generator</button>
         <button class="nav-btn" onclick="showView('pdftool')"><span class="nav-icon">📑</span>PDF Tool</button>
         <button class="nav-btn" onclick="showView('news')"><span class="nav-icon">📰</span>Industry News</button>
+        <button class="nav-btn" onclick="showView('timesheets')"><span class="nav-icon">📲</span>Timesheet Alerts</button>
       </div>
       <div class="sidebar-footer">
         <div class="user-name" id="sidebarName">Ram</div>
@@ -775,6 +776,69 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div id="news-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
         <div id="news-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
       </div>
+
+      <!-- TIMESHEET ALERTS -->
+      <div class="view" id="v-timesheets">
+        <div class="view-title">📲 Timesheet Alerts</div>
+        <div class="view-sub">Upload Prebilling Review — auto-detect missed clock-ins and text DCWs</div>
+
+        <!-- Upload Row -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:1.5rem">
+          <label style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
+            📂 Upload Prebilling Excel
+            <input type="file" accept=".xlsx,.xls" style="display:none" onchange="tsHandleFile(event)">
+          </label>
+          <span id="ts-filename" style="font-size:12px;color:var(--text2)">No file chosen</span>
+          <span id="ts-status" style="font-size:13px;color:var(--text2)">Upload a Prebilling Review report to begin.</span>
+        </div>
+
+        <!-- API Key & Message Template -->
+        <div id="ts-actions" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.5rem">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">
+              <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">MESSAGE TEMPLATE</div>
+              <textarea id="ts-msg-tpl" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px;font-size:12px;line-height:1.6;resize:vertical;height:110px">Hi [NAME], this is Care Crafter Home Care. You have [COUNT] visit(s) in the Prebilling Review that need your timesheet submitted. Please submit ASAP to avoid billing delays. Call us at [PHONE] if you need help.</textarea>
+              <div style="font-size:10px;color:var(--text3);margin-top:6px">Use: [NAME] [COUNT] [AGENCY] [PHONE]</div>
+            </div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">
+              <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">SMS SETTINGS</div>
+              <div style="font-size:12px;color:var(--text2);margin-bottom:8px">TextBelt API Key — <a href="https://textbelt.com" target="_blank" style="color:var(--blue2)">textbelt.com</a></div>
+
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <button onclick="tsSendAll()" style="background:var(--green);color:#fff;border:none;border-radius:var(--radius);padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer">📤 Send Texts</button>
+                <span id="ts-send-status" style="font-size:12px"></span>
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-top:10px">💡 <b>Free tier:</b> 1 SMS/day for testing. Buy credits at textbelt.com (~$0.09/text) for bulk sends.</div>
+            </div>
+          </div>
+
+          <!-- DCW Table -->
+          <div id="ts-table-wrap" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg3)">
+              <input type="checkbox" id="ts-selall" onchange="tsToggleAll(this)" style="width:15px;height:15px;accent-color:var(--blue)">
+              <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px">Select All</span>
+              <span id="ts-selcount" style="font-size:12px;color:var(--text3)"></span>
+              <span style="flex:1"></span>
+              <span style="font-size:11px;color:var(--text3)">Phone numbers are saved automatically</span>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse">
+                <thead>
+                  <tr style="background:var(--bg3)">
+                    <th style="padding:8px 8px;text-align:left;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap"></th>
+                    <th style="padding:8px 8px;text-align:left;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">DCW</th>
+                    <th style="padding:8px 8px;text-align:left;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">Issues</th>
+                    <th style="padding:8px 8px;text-align:left;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">Affected Visits</th>
+                    <th style="padding:8px 8px;text-align:left;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">Phone Number</th>
+                    <th style="padding:8px 8px;text-align:left;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="ts-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div><!-- end .main -->
   </div><!-- end .app-shell -->
 </div><!-- end #s-app -->
@@ -908,7 +972,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -917,6 +981,7 @@ function showView(id) {
   if (id === 'ratecalc') { setTimeout(rcCalc, 100); }
   if (id === 'letters') { setTimeout(lvInit, 100); }
   if (id === 'news') loadNews();
+  if (id === 'timesheets') { setTimeout(function(){ document.getElementById('ts-status').textContent='Upload a Prebilling Review report to begin.'; },100); }
 }
 
 function renderVersionTable() {
@@ -1952,6 +2017,179 @@ function renderNewsGrid(articles, label) {
     return '<a href="' + a.link + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">' + card + '</a>';
   }).join('');
 }
+
+// ─── TIMESHEET ALERTS ────────────────────────────────────────────────────────
+var tsPhoneBook = JSON.parse(localStorage.getItem('cc_phonebook') || '{}');
+var tsParsedRows = [];
+
+function savePhoneBook() { localStorage.setItem('cc_phonebook', JSON.stringify(tsPhoneBook)); }
+
+function tsLoadXLSX(cb) {
+  if (window.XLSX) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = cb; document.head.appendChild(s);
+}
+
+function tsHandleFile(e) {
+  e.preventDefault();
+  var file = e.target.files ? e.target.files[0] : (e.dataTransfer ? e.dataTransfer.files[0] : null);
+  if (!file) return;
+  document.getElementById('ts-filename').textContent = file.name;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    tsLoadXLSX(function() {
+      var wb = XLSX.read(ev.target.result, {type:'array'});
+      var ws = wb.Sheets['Detail Data'] || wb.Sheets[wb.SheetNames[wb.SheetNames.length-1]];
+      var data = XLSX.utils.sheet_to_json(ws, {defval:''});
+      tsParsedRows = data.filter(function(r){ return r['Problem'] && r['Problem'].trim(); });
+      tsRenderTable();
+    });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function tsRenderTable() {
+  var dcwMap = {};
+  tsParsedRows.forEach(function(r) {
+    var name = (r['Caregiver Name'] || '').trim();
+    var code = (r['Caregiver Code'] || '').trim();
+    if (!name) return;
+    if (!dcwMap[name]) { var rawPhone = (r['Phone No.'] || '').split(',')[0].trim().replace(/\D/g,''); dcwMap[name] = {code:code, visits:[], problems:new Set(), excelPhone:rawPhone}; }
+    var prob = (r['Problem'] || '').trim();
+    var date = r['Date'] ? new Date(r['Date']).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    var sched = (r['Scheduled Time'] || '').trim();
+    var client = (r['Member Name'] || '').trim();
+    dcwMap[name].visits.push({date:date, sched:sched, client:client, prob:prob});
+    prob.split(',').forEach(function(p){ dcwMap[name].problems.add(p.trim()); });
+  });
+
+  var keys = Object.keys(dcwMap).sort();
+  var status = document.getElementById('ts-status');
+  status.textContent = keys.length + ' DCWs with issues found — enter phone numbers and select who to text.';
+
+  var tbody = document.getElementById('ts-tbody');
+  tbody.innerHTML = keys.map(function(name) {
+    var d = dcwMap[name];
+    var phone = tsPhoneBook[d.code] || d.excelPhone || '';
+    var hasIncomplete = Array.from(d.problems).some(function(p){ return p.toLowerCase().includes('incomplete'); });
+    var tags = Array.from(d.problems).map(function(p) {
+      var color = p.toLowerCase().includes('incomplete') ? '#ef4444' : p.toLowerCase().includes('unbalanced') ? '#f59e0b' : '#6366f1';
+      return '<span style="background:'+color+'22;color:'+color+';border:1px solid '+color+'44;border-radius:4px;padding:1px 6px;font-size:10px;white-space:nowrap">'+p+'</span>';
+    }).join(' ');
+    var visitList = d.visits.slice(0,3).map(function(v){
+      return v.date + (v.sched?' ('+v.sched+')':'') + (v.client?' — '+v.client:'');
+    }).join('<br>') + (d.visits.length>3 ? '<br><em style="color:var(--text3)">+' + (d.visits.length-3) + ' more</em>' : '');
+    return '<tr id="ts-row-'+d.code+'">'
+      + '<td style="padding:10px 8px"><input type="checkbox" class="ts-chk" data-code="'+d.code+'" data-name="'+name+'" style="width:15px;height:15px;accent-color:var(--blue)"'+(hasIncomplete?' checked':'')+'></td>'
+      + '<td style="padding:10px 8px"><div style="font-weight:700;font-size:13px">'+name+'</div><div style="font-size:11px;color:var(--text3)">'+d.code+'</div></td>'
+      + '<td style="padding:10px 8px;font-size:12px">'+tags+'</td>'
+      + '<td style="padding:10px 8px;font-size:12px;color:var(--text2)">'+visitList+'</td>'
+      + '<td style="padding:10px 8px"><input type="tel" placeholder="412-555-0000" value="'+phone+'" onchange="tsUpdatePhone(\''+d.code+'\',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px;width:140px"></td>'
+      + '<td style="padding:10px 8px"><span id="ts-sent-'+d.code+'" style="font-size:11px"></span></td>'
+      + '</tr>';
+  }).join('');
+
+  document.getElementById('ts-table-wrap').style.display = 'block';
+  document.getElementById('ts-actions').style.display = 'block';
+  tsSyncSelectAll();
+}
+
+function tsUpdatePhone(code, val) {
+  var clean = val.replace(/\D/g,'');
+  if (clean) tsPhoneBook[code] = clean;
+  else delete tsPhoneBook[code];
+  savePhoneBook();
+}
+
+function tsSyncSelectAll() {
+  var all = document.querySelectorAll('.ts-chk');
+  var checked = document.querySelectorAll('.ts-chk:checked');
+  var selEl = document.getElementById('ts-selcount');
+  if (selEl) selEl.textContent = checked.length + ' selected';
+  document.getElementById('ts-selall').checked = all.length > 0 && checked.length === all.length;
+}
+
+function tsToggleAll(cb) {
+  document.querySelectorAll('.ts-chk').forEach(function(c){ c.checked = cb.checked; });
+  tsSyncSelectAll();
+}
+
+function tsGetMessage(dcwName, visitCount) {
+  var tpl = document.getElementById('ts-msg-tpl').value;
+  return tpl.replace('[NAME]', dcwName.split(' ')[0])
+            .replace('[COUNT]', visitCount)
+            .replace('[AGENCY]', 'Care Crafter Home Care')
+            .replace('[PHONE]', '412-308-5300');
+}
+
+function tsSendAll() {
+  var checked = document.querySelectorAll('.ts-chk:checked');
+
+  if (!checked.length) { alert('No DCWs selected.'); return; }
+
+  // Build DCW visit counts for message
+  var dcwVisits = {};
+  tsParsedRows.forEach(function(r) {
+    var name = (r['Caregiver Name'] || '').trim();
+    var code = (r['Caregiver Code'] || '').trim();
+    if (!dcwVisits[code]) dcwVisits[code] = {name:name, count:0};
+    if ((r['Problem']||'').toLowerCase().includes('incomplete')) dcwVisits[code].count++;
+  });
+
+  var sent=0, failed=0, noPhone=0;
+  var total = checked.length;
+  document.getElementById('ts-send-status').textContent = 'Sending...';
+
+  Array.from(checked).forEach(function(cb) {
+    var code = cb.dataset.code;
+    var name = cb.dataset.name;
+    var phone = tsPhoneBook[code];
+    var statusEl = document.getElementById('ts-sent-'+code);
+    if (!phone) {
+      noPhone++;
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--amber)">⚠ No phone</span>';
+      checkDone();
+      return;
+    }
+    var count = dcwVisits[code] ? dcwVisits[code].count : 1;
+    var msg = tsGetMessage(name, count);
+    var fullPhone = phone.startsWith('1') ? '+'+phone : '+1'+phone;
+
+    fetch('/api/sms', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({to: fullPhone, message: msg})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        sent++;
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ Sent</span>';
+      } else {
+        failed++;
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + (data.error||'Failed') + '</span>';
+      }
+      checkDone();
+    })
+    .catch(function(err) {
+      failed++;
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ Error</span>';
+      checkDone();
+    });
+  });
+
+  function checkDone() {
+    var done = sent + failed + noPhone;
+    if (done >= total) {
+      document.getElementById('ts-send-status').innerHTML =
+        '<span style="color:var(--green)">✅ '+sent+' sent</span>'
+        + (failed ? ' &nbsp;<span style="color:var(--red)">❌ '+failed+' failed</span>' : '')
+        + (noPhone ? ' &nbsp;<span style="color:var(--amber)">⚠ '+noPhone+' no phone</span>' : '');
+    }
+  }
+}
+
 </script>
 </body>
 </html>
