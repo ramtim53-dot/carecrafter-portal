@@ -263,6 +263,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('news')"><span class="nav-icon">📰</span>Industry News</button>
         <button class="nav-btn" onclick="showView('timesheets')"><span class="nav-icon">📲</span>Timesheet Alerts</button>
         <button class="nav-btn" onclick="showView('hours')"><span class="nav-icon">💰</span>Hours Analysis</button>
+        <button class="nav-btn" onclick="showView('overlaps')"><span class="nav-icon">🔄</span>Overlapping Shifts</button>
         <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon">💬</span>Quick Text</button>
       </div>
       <div class="sidebar-footer">
@@ -993,6 +994,72 @@ textarea.field-input{resize:vertical;min-height:80px}
         </div>
       </div>
 
+
+      <!-- OVERLAPPING SHIFTS VIEW -->
+      <div class="view" id="v-overlaps">
+        <div class="view-title">🔄 Overlapping Shifts</div>
+        <div class="view-sub">In HHAeXchange: <strong>Reports</strong> → <strong>Visits</strong> → <strong>Scheduling</strong> → <strong>Member Overlapping Shifts</strong> → Export Excel</div>
+
+        <!-- Upload -->
+        <div id="ov-uploadWrap">
+          <div id="ov-dropArea" style="background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:3rem;text-align:center;cursor:pointer"
+            ondragover="event.preventDefault();this.style.borderColor='var(--amber)'"
+            ondragleave="this.style.borderColor='var(--border2)'"
+            ondrop="event.preventDefault();this.style.borderColor='var(--border2)';ovSetFile(event.dataTransfer.files[0])">
+            <input type="file" id="ov-fileInp" accept=".xlsx,.xls" style="display:none" onchange="ovSetFile(this.files[0])">
+            <div style="font-size:40px;margin-bottom:0.75rem">🔄</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:6px">Drop Member Overlapping Shifts Report Here</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:1.25rem">HHAeXchange → <strong>Reports</strong> → <strong>Visits</strong> → <strong>Scheduling</strong> → <strong>Member Overlapping Shifts</strong> → Export Excel</div>
+            <button onclick="document.getElementById('ov-fileInp').click()" style="background:var(--amber);color:#000;border:none;border-radius:var(--radius);padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Choose File</button>
+          </div>
+          <div id="ov-fileBar" style="display:none;align-items:center;gap:12px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius);padding:12px 16px;margin-top:12px">
+            <span>📄</span>
+            <span id="ov-fileName" style="color:var(--amber);font-weight:600;flex:1;font-size:13px"></span>
+            <button onclick="ovAnalyze()" style="background:var(--amber);color:#000;border:none;border-radius:7px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer">Analyze →</button>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="ov-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2)">
+          <div style="width:36px;height:36px;border:3px solid var(--bg3);border-top-color:var(--amber);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem"></div>
+          Analyzing overlapping shifts...
+        </div>
+
+        <!-- Dashboard -->
+        <div id="ov-dashboard" style="display:none">
+
+          <!-- Summary Cards -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:1.5rem" id="ov-summaryGrid"></div>
+
+          <!-- Critical: Billed Overlaps -->
+          <div id="ov-billedAlert" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem">
+            <div style="font-size:12px;font-weight:700;color:var(--red);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">🚨 CRITICAL — Already Billed to Medicaid</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px">These overlapping visits have already been billed. Medicaid may recoup payment with penalties. Review and correct immediately.</div>
+            <div id="ov-billedList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px"></div>
+          </div>
+
+          <!-- Tabs -->
+          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+            <button class="ov-tab active" onclick="ovSetTab('patients',this)" style="background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:20px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">👤 By Patient</button>
+            <button class="ov-tab" onclick="ovSetTab('pairs',this)" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:20px;padding:6px 16px;font-size:12px;cursor:pointer">👥 Caregiver Pairs</button>
+            <button class="ov-tab" onclick="ovSetTab('all',this)" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:20px;padding:6px 16px;font-size:12px;cursor:pointer">📋 All Incidents</button>
+            <span id="ov-tabCount" style="margin-left:auto;font-size:12px;color:var(--text3);align-self:center"></span>
+          </div>
+
+          <!-- Table -->
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+            <table style="width:100%;border-collapse:collapse">
+              <thead id="ov-thead"></thead>
+              <tbody id="ov-tbody"></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:1rem;text-align:right">
+            <button onclick="ovReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
+          </div>
+        </div>
+      </div>
+
 </div><!-- end .main -->
   </div><!-- end .app-shell -->
 </div><!-- end #s-app -->
@@ -1126,7 +1193,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -2864,6 +2931,289 @@ function haReset() {
   document.getElementById('ha-fileBar').style.display = 'none';
   document.getElementById('ha-zeroBillSection').style.display = 'none';
   document.getElementById('ha-fileName').textContent = '';
+}
+
+
+
+// ─── OVERLAPPING SHIFTS ANALYSIS ─────────────────────────────────────────
+var ovFile   = null;
+var ovGroups = {};   // grouped by overlap number
+var ovData   = [];   // flat rows
+var ovTab    = 'patients';
+
+function ovSetFile(file) {
+  if (!file) return;
+  ovFile = file;
+  document.getElementById('ov-fileName').textContent = file.name;
+  document.getElementById('ov-fileBar').style.display = 'flex';
+}
+
+function ovSetTab(tab, btn) {
+  ovTab = tab;
+  document.querySelectorAll('.ov-tab').forEach(function(b){
+    b.style.background='var(--bg3)'; b.style.color='var(--text2)';
+    b.style.border='1px solid var(--border)'; b.style.fontWeight='400';
+  });
+  btn.style.background='rgba(239,68,68,0.15)'; btn.style.color='var(--red)';
+  btn.style.border='1px solid rgba(239,68,68,0.3)'; btn.style.fontWeight='700';
+  ovRenderTable();
+}
+
+function ovAnalyze() {
+  if (!ovFile) return;
+  document.getElementById('ov-loading').style.display='block';
+  document.getElementById('ov-uploadWrap').style.display='none';
+  document.getElementById('ov-dashboard').style.display='none';
+
+  ovLoadXLSX(function(){
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var sheetName = wb.SheetNames[0];
+        var raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, defval:''});
+
+        // Find header row (contains 'Caregiver Name' and 'Patient Name')
+        var headerIdx = -1;
+        for (var i = 0; i < raw.length; i++) {
+          var rowStr = raw[i].join('|');
+          if (rowStr.includes('Caregiver Name') && rowStr.includes('Patient Name')) {
+            headerIdx = i; break;
+          }
+        }
+        if (headerIdx < 0) throw new Error('Could not find header row');
+
+        var headers = raw[headerIdx];
+        var data = [];
+        for (var i = headerIdx + 1; i < raw.length; i++) {
+          var r = raw[i];
+          if (!r[3]) continue; // skip blank rows (Visit Date is col 3)
+          var obj = {};
+          headers.forEach(function(h,j){ if(h && h.toString().trim()) obj[h.toString().trim()] = (r[j]||'').toString().trim(); });
+          if (obj['Visit Date'] && obj['Caregiver Name']) data.push(obj);
+        }
+
+        ovData = data;
+
+        // Group by overlap number
+        ovGroups = {};
+        data.forEach(function(r){
+          var n = r['Overlap'] || '?';
+          if (!ovGroups[n]) ovGroups[n] = [];
+          ovGroups[n].push(r);
+        });
+
+        ovRenderDashboard();
+      } catch(err) {
+        document.getElementById('ov-loading').style.display='none';
+        document.getElementById('ov-uploadWrap').style.display='block';
+        alert('Error: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(ovFile);
+  });
+}
+
+function ovLoadXLSX(cb) {
+  if (window.XLSX) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = cb; document.head.appendChild(s);
+}
+
+function ovRenderDashboard() {
+  document.getElementById('ov-loading').style.display='none';
+  document.getElementById('ov-dashboard').style.display='block';
+
+  var totalGroups  = Object.keys(ovGroups).length;
+  var billedGroups = Object.values(ovGroups).filter(function(g){
+    return g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; });
+  });
+  var unbilledGroups = totalGroups - billedGroups.length;
+
+  // Unique caregivers and patients
+  var caregivers = new Set(), patients = new Set();
+  ovData.forEach(function(r){
+    if (r['Caregiver Name']) caregivers.add(r['Caregiver Name']);
+    if (r['Patient Name'])   patients.add(r['Patient Name']);
+  });
+
+  var cards = [
+    {label:'Total Overlaps',       val: totalGroups,         color:'var(--text)',    sub:'Incidents found'},
+    {label:'🚨 Already Billed',    val: billedGroups.length, color:'var(--red)',     sub:'Must correct NOW'},
+    {label:'Not Yet Billed',       val: unbilledGroups,      color:'var(--amber)',   sub:'Do not bill these'},
+    {label:'Caregivers Involved',  val: caregivers.size,     color:'var(--blue2)',   sub:'Unique DCWs'},
+    {label:'Patients Affected',    val: patients.size,       color:'var(--teal)',    sub:'Unique clients'}
+  ];
+  document.getElementById('ov-summaryGrid').innerHTML = cards.map(function(c){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">'
+      +'<div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">'+c.label+'</div>'
+      +'<div style="font-size:28px;font-weight:800;color:'+c.color+';line-height:1">'+c.val+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+c.sub+'</div>'
+      +'</div>';
+  }).join('');
+
+  // Billed alert
+  if (billedGroups.length > 0) {
+    document.getElementById('ov-billedAlert').style.display='block';
+
+    // Group billed by patient
+    var billedByPatient = {};
+    billedGroups.forEach(function(g){
+      var patient = g[0]['Patient Name'];
+      var admId   = g[0]['Admission ID'] || '';
+      var key     = patient + (admId ? ' ('+admId+')' : '');
+      if (!billedByPatient[key]) billedByPatient[key] = {count:0, pairs:[]};
+      billedByPatient[key].count++;
+      if (g.length >= 2) {
+        var pair = g[0]['Caregiver Name'] + ' & ' + g[1]['Caregiver Name'];
+        if (!billedByPatient[key].pairs.includes(pair)) billedByPatient[key].pairs.push(pair);
+      }
+    });
+
+    var billedEntries = Object.entries(billedByPatient).sort(function(a,b){ return b[1].count - a[1].count; });
+    document.getElementById('ov-billedList').innerHTML = billedEntries.map(function(e){
+      return '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px">'
+        +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">'+e[0]+'</div>'
+        +'<div style="font-size:11px;color:var(--red);font-weight:700">'+e[1].count+' billed overlaps</div>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+e[1].pairs.slice(0,2).join(' · ')+'</div>'
+        +'</div>';
+    }).join('');
+  }
+
+  ovRenderTable();
+}
+
+function ovRenderTable() {
+  var thStyle = 'padding:10px 12px;text-align:left;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase';
+  var thead = document.getElementById('ov-thead');
+  var tbody = document.getElementById('ov-tbody');
+
+  if (ovTab === 'patients') {
+    // Group by patient
+    var patientData = {};
+    Object.values(ovGroups).forEach(function(g){
+      var key = (g[0]['Patient Name']||'?') + '||' + (g[0]['Admission ID']||'');
+      if (!patientData[key]) patientData[key] = { patient:g[0]['Patient Name'], admId:g[0]['Admission ID'], overlaps:0, billed:0, dates:[], pairs:[] };
+      var d = patientData[key];
+      d.overlaps++;
+      if (g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; })) d.billed++;
+      var date = g[0]['Visit Date']; if (!d.dates.includes(date)) d.dates.push(date);
+      if (g.length >= 2) { var pair = g[0]['Caregiver Name']+' & '+g[1]['Caregiver Name']; if (!d.pairs.includes(pair)) d.pairs.push(pair); }
+    });
+
+    var rows = Object.values(patientData).sort(function(a,b){ return b.overlaps-a.overlaps; });
+    document.getElementById('ov-tabCount').textContent = rows.length + ' patients';
+
+    thead.innerHTML = '<tr style="background:var(--bg3)">'
+      +'<th style="'+thStyle+'">Patient</th>'
+      +'<th style="'+thStyle+'">Admission ID</th>'
+      +'<th style="'+thStyle+';text-align:center">Total Overlaps</th>'
+      +'<th style="'+thStyle+';text-align:center">🚨 Billed</th>'
+      +'<th style="'+thStyle+';text-align:center">Days</th>'
+      +'<th style="'+thStyle+'">Caregiver Pairs</th>'
+      +'</tr>';
+
+    tbody.innerHTML = rows.map(function(r){
+      var billedColor = r.billed > 0 ? 'var(--red)' : 'var(--text3)';
+      var billedWeight = r.billed > 0 ? '700' : '400';
+      return '<tr style="border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
+        +'<td style="padding:10px 12px;font-weight:600;font-size:13px">'+r.patient+'</td>'
+        +'<td style="padding:10px 12px;font-size:12px;color:var(--text3)">'+r.admId+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--amber)">'+r.overlaps+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;font-weight:'+billedWeight+';color:'+billedColor+'">'+r.billed+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;color:var(--text2)">'+r.dates.length+'</td>'
+        +'<td style="padding:10px 12px;font-size:11px;color:var(--text3)">'+r.pairs.slice(0,2).join(' · ')+(r.pairs.length>2?' +more':'')+'</td>'
+        +'</tr>';
+    }).join('');
+
+  } else if (ovTab === 'pairs') {
+    // Group by caregiver pair
+    var pairData = {};
+    Object.values(ovGroups).forEach(function(g){
+      if (g.length < 2) return;
+      var names = g.map(function(r){ return r['Caregiver Name']; }).sort();
+      var key = names.join(' & ');
+      if (!pairData[key]) pairData[key] = { pair:key, cg1:names[0], cg2:names[1], count:0, billed:0, patients:[], dates:[] };
+      var d = pairData[key];
+      d.count++;
+      if (g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; })) d.billed++;
+      var pat = g[0]['Patient Name']; if (!d.patients.includes(pat)) d.patients.push(pat);
+      var date = g[0]['Visit Date'];  if (!d.dates.includes(date))   d.dates.push(date);
+    });
+
+    var rows = Object.values(pairData).sort(function(a,b){ return b.count-a.count; });
+    document.getElementById('ov-tabCount').textContent = rows.length + ' pairs';
+
+    thead.innerHTML = '<tr style="background:var(--bg3)">'
+      +'<th style="'+thStyle+'">Caregiver 1</th>'
+      +'<th style="'+thStyle+'">Caregiver 2</th>'
+      +'<th style="'+thStyle+';text-align:center">Overlaps</th>'
+      +'<th style="'+thStyle+';text-align:center">🚨 Billed</th>'
+      +'<th style="'+thStyle+';text-align:center">Patients</th>'
+      +'<th style="'+thStyle+';text-align:center">Days</th>'
+      +'<th style="'+thStyle+'">⚠️ Flag</th>'
+      +'</tr>';
+
+    tbody.innerHTML = rows.map(function(r){
+      var sameSurname = r.cg1.split(' ')[0] === r.cg2.split(' ')[0];
+      var flag = sameSurname ? '<span style="background:rgba(239,68,68,0.15);color:var(--red);border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700">Same Family?</span>' : '';
+      var billedColor = r.billed > 0 ? 'var(--red)' : 'var(--text3)';
+      return '<tr style="border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
+        +'<td style="padding:10px 12px;font-weight:600;font-size:13px">'+r.cg1+'</td>'
+        +'<td style="padding:10px 12px;font-weight:600;font-size:13px">'+r.cg2+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--amber)">'+r.count+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;font-weight:'+(r.billed>0?'700':'400')+';color:'+billedColor+'">'+r.billed+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;color:var(--text2)">'+r.patients.length+'</td>'
+        +'<td style="padding:10px 12px;text-align:center;color:var(--text2)">'+r.dates.length+'</td>'
+        +'<td style="padding:10px 12px">'+flag+'</td>'
+        +'</tr>';
+    }).join('');
+
+  } else {
+    // All incidents
+    var rows = Object.entries(ovGroups).sort(function(a,b){ return a[0]-b[0]; });
+    document.getElementById('ov-tabCount').textContent = rows.length + ' incidents';
+
+    thead.innerHTML = '<tr style="background:var(--bg3)">'
+      +'<th style="'+thStyle+'">#</th>'
+      +'<th style="'+thStyle+'">Date</th>'
+      +'<th style="'+thStyle+'">Patient</th>'
+      +'<th style="'+thStyle+'">Caregiver 1</th>'
+      +'<th style="'+thStyle+'">Caregiver 2</th>'
+      +'<th style="'+thStyle+'">Overlapping Times</th>'
+      +'<th style="'+thStyle+';text-align:center">Billed</th>'
+      +'</tr>';
+
+    tbody.innerHTML = rows.map(function(e){
+      var n = e[0]; var g = e[1];
+      var billed = g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; });
+      var cg1 = g[0] ? g[0]['Caregiver Name'] : '?';
+      var cg2 = g[1] ? g[1]['Caregiver Name'] : '?';
+      var times1 = g[0] ? (g[0]['Overlapping Visits']||'').replace(/\n/g,' ') : '';
+      var times2 = g[1] ? (g[1]['Overlapping Visits']||'').replace(/\n/g,' ') : '';
+      var billedBadge = billed
+        ? '<span style="background:rgba(239,68,68,0.15);color:var(--red);border-radius:4px;padding:2px 8px;font-size:10px;font-weight:800">BILLED</span>'
+        : '<span style="color:var(--text3);font-size:11px">No</span>';
+      return '<tr style="border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
+        +'<td style="padding:8px 12px;font-size:12px;color:var(--text3)">'+n+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px;color:var(--text2)">'+((g[0]&&g[0]['Visit Date'])||'')+'</td>'
+        +'<td style="padding:8px 12px;font-size:13px;font-weight:600">'+((g[0]&&g[0]['Patient Name'])||'')+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px">'+cg1+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px">'+cg2+'</td>'
+        +'<td style="padding:8px 12px;font-size:10px;color:var(--text3);max-width:200px">'+times1.substring(0,80)+'</td>'
+        +'<td style="padding:8px 12px;text-align:center">'+billedBadge+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+}
+
+function ovReset() {
+  ovFile=null; ovGroups={}; ovData=[];
+  document.getElementById('ov-uploadWrap').style.display='block';
+  document.getElementById('ov-dashboard').style.display='none';
+  document.getElementById('ov-fileBar').style.display='none';
+  document.getElementById('ov-billedAlert').style.display='none';
 }
 
 </script>
