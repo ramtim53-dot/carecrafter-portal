@@ -1252,7 +1252,45 @@ function dcProcessRows(rows){
 function dcRenderResults(total){document.getElementById('dc-loading').style.display='none';const fraud=dcAlerts.filter(a=>a.type==='fraud').length,range=dcAlerts.filter(a=>a.type==='range').length,overlap=dcAlerts.filter(a=>a.type==='overlap').length,diff=dcAlerts.filter(a=>a.type==='diff').length;['dc-sFraud','dc-hFraud'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=fraud;});['dc-sSuspicious','dc-hWarn'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=range;});['dc-sOverlap','dc-hOverlap'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=overlap;});['dc-sDiff','dc-hDiff'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=diff;});document.getElementById('dc-sOutRange').textContent=fraud+range;['dc-sVisits','dc-hVisits'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=total;});document.getElementById('dc-summary').style.display='grid';document.getElementById('dc-filtersBar').style.display='flex';document.getElementById('dc-pills').style.display='flex';document.getElementById('dc-uploadWrap').style.display='none';dcRenderList();}
 function dcSetFilter(f,btn){dcFilter=f;document.querySelectorAll('#dc-filtersBar .pill').forEach(p=>p.classList.remove('on'));btn.classList.add('on');dcRenderList();}
 function dcRenderList(){const filtered=dcFilter==='all'?dcAlerts:dcAlerts.filter(a=>a.type===dcFilter);document.getElementById('dc-resultCount').textContent=filtered.length+' issue'+(filtered.length!==1?'s':'');if(!filtered.length){document.getElementById('dc-resultsList').innerHTML='<div style="text-align:center;padding:3rem;color:var(--text3)">✅ No issues in this category</div>';return;}document.getElementById('dc-resultsList').innerHTML=filtered.map((a,i)=>dcBuildCard(a,i)).join('');}
-function dcBuildCard(a,idx){const borders={fraud:'var(--red)',range:'var(--amber)',overlap:'#a855f7',diff:'var(--blue2)'};const badges={fraud:'<span style="background:rgba(239,68,68,0.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800">🚨 FRAUDULENT</span>',range:'<span style="background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800">📍 OUT OF RANGE</span>',overlap:'<span style="background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid #a855f7;border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800">◈ OVERLAP</span>',diff:'<span style="background:rgba(59,130,246,0.12);color:var(--blue2);border:1px solid var(--blue2);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800">⏱ TIME DIFF</span>'}[a.type];return `<div style="background:var(--bg2);border:1px solid var(--border);border-left:4px solid ${borders[a.type]};border-radius:var(--radius);margin-bottom:10px;overflow:hidden"><div style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer" onclick="dcToggle(${idx})">${badges}<div style="flex:1"><div style="font-weight:700;font-size:14px">${a.member}</div><div style="font-size:11px;color:var(--text2);margin-top:2px">${a.admId} · ${a.date} · ${a.desc.substring(0,120)}</div></div><span style="color:var(--text3);font-size:12px" id="dc-tog-${idx}">▼</span></div><div style="display:none;padding:0 16px 16px;border-top:1px solid var(--border)" id="dc-body-${idx}"><pre style="font-size:11px;color:var(--text2);white-space:pre-wrap">${JSON.stringify(a,null,2).substring(0,400)}</pre></div></div>`;}
+function dcBuildCard(a,idx){
+  var borders={fraud:"var(--red)",range:"var(--amber)",overlap:"#a855f7",diff:"var(--blue2)"};
+  var badgeHtml={
+    fraud:"<span style=\"background:rgba(239,68,68,0.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800\">🚨 FRAUDULENT</span>",
+    range:"<span style=\"background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800\">📍 OUT OF RANGE</span>",
+    overlap:"<span style=\"background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid #a855f7;border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800\">◈ OVERLAP</span>",
+    diff:"<span style=\"background:rgba(59,130,246,0.12);color:var(--blue2);border:1px solid var(--blue2);border-radius:4px;padding:3px 10px;font-size:10px;font-weight:800\">⏱ TIME DIFF</span>"
+  }[a.type]||"";
+  var outGPS = "";
+  var inGPS  = "";
+  if (a.outVisit) { outGPS = (a.outVisit.outGPS || a.outVisit["Clock Out GPS"] || "").trim(); }
+  if (a.inVisit)  { inGPS  = (a.inVisit.inGPS   || a.inVisit["Clock In GPS"]  || "").trim(); }
+  var mapsBtn = "";
+  if (outGPS && inGPS) {
+    var op = outGPS.split(","); var ip = inGPS.split(",");
+    if (op.length===2 && ip.length===2) {
+      var url = "https://www.google.com/maps/dir/"+op[0].trim()+","+op[1].trim()+"/"+ip[0].trim()+","+ip[1].trim();
+      mapsBtn = "<a href=\""+url+"\" target=\"_blank\" style=\"display:block;background:#1a4fa0;color:#fff;text-decoration:none;text-align:center;border-radius:6px;padding:10px;font-size:13px;font-weight:700;margin-top:10px;letter-spacing:0.3px\">🗺️ Open Google Maps — View Route →</a>";
+    }
+  }
+  var body = "";
+  body += "<strong>Caregiver:</strong> "+(a.cgName||a.caregiver||"N/A")+"<br>";
+  body += "<strong>Member:</strong> "+(a.member||"N/A")+"<br>";
+  body += "<strong>Date:</strong> "+a.date+"<br>";
+  if (outGPS) body += "<strong>Clock-Out GPS:</strong> <code style=\"font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px\">"+outGPS+"</code><br>";
+  if (inGPS)  body += "<strong>Clock-In GPS:</strong>  <code style=\"font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px\">"+inGPS+"</code><br>";
+  if (a.distance) body += "<strong>Distance:</strong> "+a.distance.toFixed(2)+" miles<br>";
+  if (a.timeMins) body += "<strong>Time gap:</strong> "+a.timeMins+" min<br>";
+  return "<div style=\"background:var(--bg2);border:1px solid var(--border);border-left:4px solid "+borders[a.type]+";border-radius:var(--radius);margin-bottom:10px;overflow:hidden\">"
+    +"<div style=\"display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer\" onclick=\"dcToggle("+idx+")\">"
+    +badgeHtml
+    +"<div style=\"flex:1\"><div style=\"font-weight:700;font-size:14px\">"+(a.member||"")+"</div>"
+    +"<div style=\"font-size:11px;color:var(--text2);margin-top:2px\">"+(a.admId||"")+" · "+a.date+" · "+a.desc.substring(0,120)+"</div></div>"
+    +"<span style=\"color:var(--text3);font-size:12px\" id=\"dc-tog-"+idx+"\">▼</span></div>"
+    +"<div style=\"display:none;padding:12px 16px 16px;border-top:1px solid var(--border)\" id=\"dc-body-"+idx+"\">"
+    +"<div style=\"font-size:12px;color:var(--text2);line-height:1.8\">"+body+"</div>"
+    +mapsBtn
+    +"</div></div>";
+}
 function dcToggle(idx){const body=document.getElementById('dc-body-'+idx);const tog=document.getElementById('dc-tog-'+idx);const open=body.style.display==='none';body.style.display=open?'block':'none';tog.style.transform=open?'rotate(180deg)':'';}
 
 // ─── HHA INSERTION TOOL ─────────────────────────────────────────────────────
@@ -2473,195 +2511,12 @@ function qtRenderHistory() {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DISTANCE CHECKER FRAUD DETECTION ENHANCEMENTS
-// Analyzes Visit Distance Reports for GPS fraud, impossible travel, duty mismatches
 // ═════════════════════════════════════════════════════════════════════════════
 
-window.dcEnhanced = {
-  parseGPS: function(gpsStr) {
-    if (!gpsStr) return null;
-    var parts = gpsStr.split(',').map(x => parseFloat(x.trim()));
-    return (parts.length === 2) ? {lat: parts[0], lon: parts[1]} : null;
-  },
-  
-  calcMiles: function(gps1, gps2) {
-    var p1 = this.parseGPS(gps1), p2 = this.parseGPS(gps2);
-    if (!p1 || !p2) return 0;
-    var R = 3959, lat1 = p1.lat * Math.PI/180, lat2 = p2.lat * Math.PI/180;
-    var dLat = (p2.lat - p1.lat) * Math.PI/180, dLon = (p2.lon - p1.lon) * Math.PI/180;
-    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)*Math.sin(dLon/2);
-    var c = 2 * Math.asin(Math.sqrt(a));
-    return R * c;
-  },
-  
-  calcHours: function(evvStr) {
-    var m = (evvStr || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-    if (!m) return 0;
-    var h1 = parseInt(m[1]), min1 = parseInt(m[2]);
-    var h2 = parseInt(m[3]), min2 = parseInt(m[4]);
-    var mins = (h2 * 60 + min2) - (h1 * 60 + min1);
-    return mins > 0 ? (mins / 60) : 0;
-  },
-  
-  mapLink: function(gpsStr, label) {
-    if (!gpsStr) return '';
-    var coords = gpsStr.split(',').map(x => x.trim()).join(',');
-    return '<a href="https://maps.google.com/?q=' + coords + '" target="_blank" style="color:var(--blue2);font-weight:600;text-decoration:underline">' + (label || '🗺️ View') + '</a>';
-  }
-};
 
 
 
-// ─── OPEN GOOGLE MAPS IN NEW TAB ──────────────────────────────────────────
-// Shows client address, clock-in location, clock-out location with route
 
-function dcOpenMaps(alertOrIdx) {
-  var alert = typeof alertOrIdx === "number" ? dcAlerts[alertOrIdx] : alertOrIdx;
-  if (!alert) return;
-
-  var outV = alert.outVisit || {};
-  var inV = alert.inVisit || {};
-  var outGPS = (outV.outGPS || outV['Clock Out GPS'] || '').trim();
-  var inGPS = (inV.inGPS || inV['Clock In GPS'] || '').trim();
-  var clientAddr = (outV.clientAddr || outV['Member Clock Out Address'] || '').trim();
-
-  if (!outGPS || !inGPS) {
-    alert('Missing location data');
-    return;
-  }
-
-  // Parse coordinates
-  var outCoords = outGPS.split(',').map(x => x.trim());
-  var inCoords = inGPS.split(',').map(x => x.trim());
-
-  if (outCoords.length !== 2 || inCoords.length !== 2) {
-    alert('Invalid GPS coordinates');
-    return;
-  }
-
-  // Build Google Maps URL with multiple markers and route
-  // Format: https://www.google.com/maps/dir/start/middle/end
-  // Or: https://www.google.com/maps?q=...
-
-  var url = 'https://www.google.com/maps/dir/?api=1' +
-    '&origin=' + outCoords[0] + ',' + outCoords[1] + '&' +
-    'destination=' + inCoords[0] + ',' + inCoords[1] + '&' +
-    'travelmode=driving';
-
-  // Add client address as waypoint if available
-  if (clientAddr) {
-    url = url.replace('&travelmode=driving', '&waypoints=' + encodeURIComponent(clientAddr) + '&travelmode=driving');
-  }
-
-  // Open in new tab
-  window.open(url, '_blank');
-}
-
-// Add button to fraud cards
-var originalAlert = window.alert;
-setTimeout(function() {
-  // Hook the fraud card rendering to add a "View Route" button
-  var observeCards = function() {
-    var cards = document.querySelectorAll('[style*="border-left"]');
-    cards.forEach(function(card) {
-      if (!card.querySelector('.dc-maps-btn') && card.textContent.includes('FRAUDULENT')) {
-        var btn = document.createElement('button');
-        btn.className = 'dc-maps-btn';
-        btn.textContent = '🗺️ View Route on Maps';
-        btn.style.cssText = 'background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;width:100%';
-        btn.onclick = function() {
-          // Find which alert this is
-          var cardText = card.textContent;
-          dcAlerts.forEach(function(a, idx) {
-            if (a.title && a.title.includes('FRAUDULENT') && cardText.includes((a.caregiver || a.cgName || ''))) {
-              dcOpenMaps(idx);
-            }
-          });
-        };
-        card.appendChild(btn);
-      }
-    });
-  };
-
-  // Observe for new cards being added
-  observeCards();
-  var observer = new MutationObserver(observeCards);
-  var container = document.getElementById('dc-resultsList');
-  if (container) {
-    observer.observe(container, {childList: true, subtree: true});
-  }
-}, 1000);
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SIMPLE GOOGLE MAPS - OPEN IN NEW TAB
-// ═══════════════════════════════════════════════════════════════════════════
-function dcOpenMaps(idx) {
-  try {
-    var alert = dcAlerts[idx];
-    console.log("Opening maps for alert", idx, alert);
-    if (!alert) { console.log("No alert found"); return; }
-
-    var out = alert.outVisit || {};
-    var in_ = alert.inVisit || {};
-    var outGPS = (out.outGPS || out['Clock Out GPS'] || '').trim();
-    var inGPS = (in_.inGPS || in_['Clock In GPS'] || '').trim();
-
-    console.log('Out GPS:', outGPS, 'In GPS:', inGPS);
-
-    if (!outGPS || !inGPS) {
-      console.log('Missing GPS');
-      alert('Missing GPS data for this location');
-      return;
-    }
-
-    var outParts = outGPS.split(',').map(x => x.trim());
-    var inParts = inGPS.split(',').map(x => x.trim());
-
-    if (outParts.length !== 2 || inParts.length !== 2) {
-      console.log('Invalid GPS format');
-      alert('Invalid GPS coordinates');
-      return;
-    }
-
-    var url = 'https://www.google.com/maps/dir/' + outParts[0] + ',' + outParts[1] + '/' + inParts[0] + ',' + inParts[1];
-    console.log('Opening URL:', url);
-    window.open(url, '_blank');
-  } catch(e) {
-    console.error('Error opening maps:', e);
-    alert('Error: ' + e.message);
-  }
-}
-
-
-
-// Add button to fraud cards
-window.addEventListener('load', function() {
-  setTimeout(function() {
-    dcAlerts.forEach(function(alert, idx) {
-      if (alert.type === 'fraud') {
-        var cardId = 'dc-card-' + idx;
-        var card = document.querySelector('[data-alert-idx="' + idx + '"]');
-        if (!card) {
-          // Try to find by text content
-          var cards = document.querySelectorAll('div[style*="border-left"]');
-          cards.forEach(function(c) {
-            if (c.textContent.includes('FRAUDULENT') && c.textContent.includes(alert.caregiver || alert.cgName)) {
-              if (!c.querySelector('.dc-maps-btn-' + idx)) {
-                var btn = document.createElement('button');
-                btn.className = 'dc-maps-btn-' + idx;
-                btn.innerHTML = '🗺️ View Route on Google Maps';
-                btn.style.cssText = 'background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;width:100%';
-                btn.onclick = function(e) { e.preventDefault(); dcOpenMaps(idx); };
-                c.appendChild(btn);
-              }
-            }
-          });
-        }
-      }
-    });
-  }, 500);
-});
 </script>
 </body>
 </html>
