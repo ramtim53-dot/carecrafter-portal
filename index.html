@@ -1223,8 +1223,9 @@ function dcLoadXLSX(cb){if(window.XLSX){cb();return;}const s=document.createElem
 function dcHandleDrop(e){e.preventDefault();document.getElementById('dc-dropArea').style.borderColor='';document.getElementById('dc-dropArea').style.background='var(--bg2)';const f=e.dataTransfer.files[0];if(f)dcSetFile(f);}
 function dcHandleFile(e){if(e.target.files[0])dcSetFile(e.target.files[0]);}
 function dcSetFile(f){dcLoadedFile=f;document.getElementById('dc-fileName').textContent=f.name;document.getElementById('dc-fileBar').style.display='flex';}
+function dcAnalyzeFraud(rows){if(!rows||!rows.length)return;var byCaregiver={};rows.forEach(function(r){var cgId=(r['Caregiver ID']||'').trim();if(!cgId)return;if(!byCaregiver[cgId])byCaregiver[cgId]={name:r['Caregiver Name']||'',visits:[]};byCaregiver[cgId].visits.push(r);});Object.entries(byCaregiver).forEach(function(e){var cgId=e[0],cgData=e[1];if(!cgData.visits.length)return;cgData.visits.sort(function(a,b){return(new Date(a['Visit Date']||''))-(new Date(b['Visit Date']||''));});var dailyHours={};cgData.visits.forEach(function(v){var date=(v['Visit Date']||'').trim();var evv=(v['EVV Time']||'').trim();if(!date||!evv)return;var m=evv.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!m)return;var h1=parseInt(m[1]),min1=parseInt(m[2]),h2=parseInt(m[3]),min2=parseInt(m[4]);var hrs=((h2*60+min2)-(h1*60+min1))/60;if(hrs<=0)return;if(!dailyHours[date])dailyHours[date]={hrs:0,tasks:0};dailyHours[date].hrs+=hrs;if((v['Task Completed']||'').trim().length>0)dailyHours[date].tasks+=1;});Object.entries(dailyHours).forEach(function(e){var date=e[0],dayData=e[1];if(dayData.hrs>=8&&dayData.tasks<=2){dcAlerts.push({type:'duties',caregiver:cgData.name,title:'⚠️ DUTY MISMATCH',desc:dayData.hrs.toFixed(1)+' hrs worked, '+dayData.tasks+' duties selected',date:date,severity:dayData.hrs>=12?'HIGH':'MEDIUM'});}});});dcRenderList();}
 function dcReset(){dcAlerts=[];dcLoadedFile=null;dcFilter='all';document.getElementById('dc-uploadWrap').style.display='block';document.getElementById('dc-pills').style.display='none';document.getElementById('dc-summary').style.display='none';document.getElementById('dc-filtersBar').style.display='none';document.getElementById('dc-resultsList').innerHTML='';document.getElementById('dc-fileBar').style.display='none';document.getElementById('dc-loading').style.display='none';document.getElementById('dc-fileInp').value='';}
-function dcAnalyze(){if(!dcLoadedFile)return;document.getElementById('dc-uploadWrap').style.display='none';document.getElementById('dc-loading').style.display='block';dcLoadXLSX(()=>{const reader=new FileReader();reader.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const sn=wb.SheetNames.find(n=>n==='Detail Data')||wb.SheetNames.find(n=>/detail/i.test(n))||wb.SheetNames[wb.SheetNames.length-1];const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});if(!rows.length){document.getElementById('dc-loading').innerHTML='<div style="color:var(--amber);padding:2rem">⚠ No data found.</div>';return;}dcProcessRows(rows);}catch(err){document.getElementById('dc-loading').innerHTML=`<div style="color:var(--red);padding:2rem">❌ ${err.message}</div>`;}};reader.readAsArrayBuffer(dcLoadedFile);});}
+function dcAnalyze(){if(!dcLoadedFile)return;document.getElementById('dc-uploadWrap').style.display='none';document.getElementById('dc-loading').style.display='block';dcLoadXLSX(()=>{const reader=new FileReader();reader.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const sn=wb.SheetNames.find(n=>n==='Detail Data')||wb.SheetNames.find(n=>/detail/i.test(n))||wb.SheetNames[wb.SheetNames.length-1];const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});dcAnalyzeFraud(rows);if(!rows.length){document.getElementById('dc-loading').innerHTML='<div style="color:var(--amber);padding:2rem">⚠ No data found.</div>';return;}dcProcessRows(rows);}catch(err){document.getElementById('dc-loading').innerHTML=`<div style="color:var(--red);padding:2rem">❌ ${err.message}</div>`;}};reader.readAsArrayBuffer(dcLoadedFile);});}
 function dcG(row,key){if(row[key]!==undefined)return String(row[key]||'').trim();for(const k of Object.keys(row)){if(k.trim()===key.trim())return String(row[k]||'').trim();}return '';}
 function dcHaversine(lat1,lon1,lat2,lon2){const R=20902231,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function dcParseGPS(str){if(!str)return null;const p=String(str).trim().split(',');if(p.length<2)return null;const lon=parseFloat(p[0]),lat=parseFloat(p[1]);return(isNaN(lat)||isNaN(lon))?null:{lat,lon};}
@@ -2507,6 +2508,140 @@ window.dcEnhanced = {
     var coords = gpsStr.split(',').map(x => x.trim()).join(',');
     return '<a href="https://maps.google.com/?q=' + coords + '" target="_blank" style="color:var(--blue2);font-weight:600;text-decoration:underline">' + (label || '🗺️ View') + '</a>';
   }
+};
+
+
+
+// ─── GOOGLE MAPS LOCATION COMPARISON ──────────────────────────────────────
+// Visual fraud detection: compare clock-in vs clock-out locations
+
+function dcShowMapComparison(alert) {
+  // Create modal for map comparison
+  var modal = document.createElement('div');
+  modal.id = 'dc-map-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px';
+
+  var container = document.createElement('div');
+  container.style.cssText = 'background:var(--bg);border-radius:12px;width:100%;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden';
+
+  // Header
+  var header = document.createElement('div');
+  header.style.cssText = 'padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
+  header.innerHTML = '<div><strong style="font-size:16px">' + alert.title + '</strong><div style="font-size:12px;color:var(--text2);margin-top:4px">' + alert.caregiver + ' — ' + alert.date + '</div></div><button onclick="document.getElementById(\'dc-map-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text3)">✕</button>';
+  container.appendChild(header);
+
+  // Content
+  var content = document.createElement('div');
+  content.style.cssText = 'flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;overflow:hidden';
+
+  // Left: Clock-Out Location
+  if (alert.v1) {
+    var leftPanel = dcCreateLocationPanel('📍 CLOCK OUT FROM', alert.v1, alert.gps1);
+    content.appendChild(leftPanel);
+  }
+
+  // Right: Clock-In Location
+  if (alert.v2) {
+    var rightPanel = dcCreateLocationPanel('📍 CLOCK IN TO', alert.v2, alert.gps2);
+    content.appendChild(rightPanel);
+  }
+
+  // If no consecutive visits, show single location
+  if (!alert.v2 && alert.visit) {
+    var singlePanel = document.createElement('div');
+    singlePanel.style.cssText = 'grid-column:1/-1;padding:20px;overflow-y:auto';
+    singlePanel.innerHTML = '<div style="font-size:13px;line-height:1.8">' +
+      '<div><strong>Member:</strong> ' + (alert.visit['Member Name'] || 'N/A') + '</div>' +
+      '<div><strong>Date:</strong> ' + (alert.visit['Visit Date'] || 'N/A') + '</div>' +
+      '<div><strong>Location:</strong> ' + (alert.visit['Clock In Location'] || 'N/A') + '</div>' +
+      '<div><strong>Distance from Address:</strong> ' + ((parseFloat(alert.visit['Clock In Distance (FT)'] || 0)/5280).toFixed(2)) + ' miles</div>' +
+      '</div>';
+    content.appendChild(singlePanel);
+  }
+
+  // Comparison stats (if both locations)
+  if (alert.v1 && alert.v2 && alert.gps1 && alert.gps2) {
+    var stats = document.createElement('div');
+    stats.style.cssText = 'grid-column:1/-1;padding:20px;background:var(--bg2);border-top:1px solid var(--border);font-size:13px';
+    var dist = window.dcEnhanced ? window.dcEnhanced.calcMiles(alert.gps1, alert.gps2) : 0;
+    var timeStr = (alert.v1['EVV Time'] || '').split('-')[1] + ' to ' + (alert.v2['EVV Time'] || '').split('-')[0];
+    var timeMins = dcCalcTimeBetween(alert.v1['EVV Time'], alert.v2['EVV Time']);
+    var speedMph = timeMins > 0 ? (dist / (timeMins / 60)).toFixed(1) : 0;
+    var flagged = speedMph > 75 ? '🚨 IMPOSSIBLE (>75 mph)' : speedMph > 60 ? '⚠️ UNLIKELY (>60 mph)' : '✅ Possible';
+
+    stats.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px">' +
+      '<div><strong>Distance:</strong> ' + dist.toFixed(2) + ' miles</div>' +
+      '<div><strong>Time Gap:</strong> ' + timeMins + ' minutes</div>' +
+      '<div><strong>Avg Speed:</strong> ' + speedMph + ' mph</div>' +
+      '<div><strong>Assessment:</strong> ' + flagged + '</div>' +
+      '</div>';
+    content.appendChild(stats);
+  }
+
+  container.appendChild(content);
+  modal.appendChild(container);
+  document.body.appendChild(modal);
+}
+
+function dcCreateLocationPanel(title, visitData, gpsStr) {
+  var panel = document.createElement('div');
+  panel.style.cssText = 'padding:20px;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column';
+
+  var gps = window.dcEnhanced ? window.dcEnhanced.parseGPS(gpsStr) : null;
+  var mapUrl = gps ? 'https://maps.google.com/maps?q=' + gps.lat + ',' + gps.lon + '&z=16&output=embed' : '';
+
+  var html = '<div style="font-size:14px;font-weight:700;margin-bottom:12px">' + title + '</div>';
+
+  // Map
+  if (mapUrl) {
+    html += '<iframe src="' + mapUrl + '" width="100%" height="300" style="border:none;border-radius:8px;margin-bottom:12px"></iframe>';
+  }
+
+  // Details
+  html += '<div style="font-size:12px;color:var(--text2);line-height:1.7">' +
+    '<div><strong>Member:</strong> ' + (visitData['Member Name'] || 'N/A') + '</div>' +
+    '<div><strong>Time:</strong> ' + (visitData['EVV Time'] || 'N/A') + '</div>' +
+    '<div><strong>Location:</strong> ' + (visitData['Clock In Location'] || visitData['Clock Out Location'] || 'N/A') + '</div>' +
+    '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:4px">' + (gpsStr || 'N/A') + '</code></div>';
+
+  var dist = parseFloat((visitData['Clock In Distance (FT)'] || visitData['Clock Out Distance(FT)'] || 0).trim());
+  if (dist > 0) {
+    html += '<div style="color:' + (dist > 528 ? 'var(--red)' : 'var(--green)') + ';font-weight:600"><strong>Distance from client:</strong> ' + (dist/5280).toFixed(2) + ' miles</div>';
+  }
+
+  html += '</div>';
+
+  panel.innerHTML = html;
+  return panel;
+}
+
+function dcCalcTimeBetween(evvStr1, evvStr2) {
+  // "16:56 - 21:59" → extract end time from first, start time from second
+  if (!evvStr1 || !evvStr2) return 0;
+  var m1 = (evvStr1 || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+  var m2 = (evvStr2 || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+  if (!m1 || !m2) return 0;
+
+  var end1 = parseInt(m1[3]) * 60 + parseInt(m1[4]);  // end time of first visit
+  var start2 = parseInt(m2[1]) * 60 + parseInt(m2[2]); // start time of second visit
+
+  var diff = start2 - end1;
+  return diff >= 0 ? diff : (1440 + diff); // handle overnight
+}
+
+// Hook into dcBuildCard to add "View Map" button
+var _origDcBuildCard = window.dcBuildCard || function(){};
+window.dcBuildCard = function(alert, idx) {
+  var html = _origDcBuildCard(alert, idx);
+
+  // Add "View Map" button if this is a fraud/range alert with location data
+  if ((alert.type === 'fraud' || alert.type === 'range') && (alert.gps1 || alert.gps2 || alert.visit)) {
+    // Insert button before closing </div>
+    var button = '<button onclick="dcShowMapComparison(' + idx + ')" style="background:var(--teal);color:#000;border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px">🗺️ View on Maps</button>';
+    html = html.replace('</div>', button + '</div>');
+  }
+
+  return html;
 };
 
 </script>
