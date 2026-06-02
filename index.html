@@ -262,6 +262,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('pdftool')"><span class="nav-icon">📑</span>PDF Tool</button>
         <button class="nav-btn" onclick="showView('news')"><span class="nav-icon">📰</span>Industry News</button>
         <button class="nav-btn" onclick="showView('timesheets')"><span class="nav-icon">📲</span>Timesheet Alerts</button>
+        <button class="nav-btn" onclick="showView('hours')"><span class="nav-icon">💰</span>Hours Analysis</button>
         <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon">💬</span>Quick Text</button>
       </div>
       <div class="sidebar-footer">
@@ -914,7 +915,85 @@ textarea.field-input{resize:vertical;min-height:80px}
           </div>
         </div>
       </div>
-    </div><!-- end .main -->
+    
+      <!-- HOURS ANALYSIS VIEW -->
+      <div class="view" id="v-hours">
+        <div class="view-title">💰 Hours & Billing Analysis</div>
+        <div class="view-sub">Upload HHAeXchange Comparison of Hours report to find unbilled authorized hours and missing visits</div>
+
+        <!-- Upload Area -->
+        <div id="ha-uploadWrap">
+          <div id="ha-dropArea" style="background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:3rem;text-align:center;cursor:pointer;transition:border-color 0.2s"
+            ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+            ondragleave="this.style.borderColor='var(--border2)'"
+            ondrop="event.preventDefault();this.style.borderColor='var(--border2)';haSetFile(event.dataTransfer.files[0])">
+            <input type="file" id="ha-fileInp" accept=".xlsx,.xls" style="display:none" onchange="haSetFile(this.files[0])">
+            <div style="font-size:40px;margin-bottom:0.75rem">📊</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:6px">Drop Comparison of Hours Report Here</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:1.25rem">HHAeXchange → Reports → <strong>Comparison of Hours</strong> → Export Excel</div>
+            <button onclick="document.getElementById('ha-fileInp').click()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Choose File</button>
+          </div>
+          <div id="ha-fileBar" style="display:none;align-items:center;gap:12px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius);padding:12px 16px;margin-top:12px">
+            <span>📄</span>
+            <span id="ha-fileName" style="color:var(--green);font-weight:600;flex:1;font-size:13px"></span>
+            <button onclick="haAnalyze()" id="ha-analyzeBtn" style="background:var(--green);color:#000;border:none;border-radius:7px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer">Analyze →</button>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="ha-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2)">
+          <div style="width:36px;height:36px;border:3px solid var(--bg3);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem"></div>
+          Analyzing billing gaps...
+        </div>
+
+        <!-- Dashboard -->
+        <div id="ha-dashboard" style="display:none">
+
+          <!-- Summary Cards Row -->
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:1.5rem" id="ha-summaryGrid"></div>
+
+          <!-- Alert: $0 billed clients -->
+          <div id="ha-zeroBillSection" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem">
+            <div style="font-size:12px;font-weight:700;color:var(--red);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">🚨 CRITICAL — Authorized Hours With $0 Billed</div>
+            <div id="ha-zeroBillList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px"></div>
+          </div>
+
+          <!-- Filter tabs -->
+          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+            <button class="ha-tab active" onclick="haSetTab('unbilled',this)" style="background:var(--blue-dim);color:var(--blue2);border:1px solid rgba(59,130,246,0.3);border-radius:20px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">💰 Unbilled Hours</button>
+            <button class="ha-tab" onclick="haSetTab('missed',this)" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:20px;padding:6px 16px;font-size:12px;cursor:pointer">⚠️ Missed Visits</button>
+            <button class="ha-tab" onclick="haSetTab('all',this)" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:20px;padding:6px 16px;font-size:12px;cursor:pointer">📋 All Clients</button>
+            <span id="ha-tabCount" style="margin-left:auto;font-size:12px;color:var(--text3);align-self:center"></span>
+          </div>
+
+          <!-- Table -->
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+            <table style="width:100%;border-collapse:collapse" id="ha-table">
+              <thead>
+                <tr style="background:var(--bg3)">
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Client</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">MCO</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Auth Hrs</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Sched Hrs</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Confirmed Hrs</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Billed Hrs</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">💰 Unbilled</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">⚠️ Missed</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Est. Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="ha-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Reset -->
+          <div style="margin-top:1rem;text-align:right">
+            <button onclick="haReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
+          </div>
+        </div>
+      </div>
+
+</div><!-- end .main -->
   </div><!-- end .app-shell -->
 </div><!-- end #s-app -->
 
@@ -1047,7 +1126,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -2581,6 +2660,211 @@ function qtRenderHistory() {
 
 
 
+
+
+
+// ─── HOURS & BILLING ANALYSIS ─────────────────────────────────────────────
+var haFile = null;
+var haRows = [];
+var haTab  = 'unbilled';
+var HA_RATE = 22; // $/hr estimate
+
+function haSetFile(file) {
+  if (!file) return;
+  haFile = file;
+  document.getElementById('ha-fileName').textContent = file.name;
+  document.getElementById('ha-fileBar').style.display = 'flex';
+}
+
+function haSetTab(tab, btn) {
+  haTab = tab;
+  document.querySelectorAll('.ha-tab').forEach(function(b) {
+    b.style.background = 'var(--bg3)'; b.style.color = 'var(--text2)';
+    b.style.border = '1px solid var(--border)';
+  });
+  btn.style.background = 'var(--blue-dim)'; btn.style.color = 'var(--blue2)';
+  btn.style.border = '1px solid rgba(59,130,246,0.3)';
+  haRenderTable();
+}
+
+function haToMins(s) {
+  if (!s || s.toString().trim() === '' || s.toString().trim() === '00:00') return 0;
+  var str = s.toString().trim();
+  var neg = str.startsWith('-'); str = str.replace(/[+-]/g,'').trim();
+  var p = str.split(':'); if (p.length < 2) return 0;
+  return (neg ? -1 : 1) * (parseInt(p[0])*60 + parseInt(p[1]||0));
+}
+
+function haFmtHrs(mins, showColor) {
+  if (mins === 0) return '<span style="color:var(--text3)">0:00</span>';
+  var abs = Math.abs(mins);
+  var h = Math.floor(abs/60), m = abs%60;
+  var str = h + ':' + (m < 10 ? '0' : '') + m;
+  if (!showColor) return str;
+  var color = mins > 60 ? 'var(--red)' : mins > 0 ? 'var(--amber)' : 'var(--green)';
+  var weight = mins > 60 ? '700' : '600';
+  return '<span style="color:' + color + ';font-weight:' + weight + '">' + str + '</span>';
+}
+
+function haAnalyze() {
+  if (!haFile) return;
+  document.getElementById('ha-loading').style.display = 'block';
+  document.getElementById('ha-uploadWrap').style.display = 'none';
+  document.getElementById('ha-dashboard').style.display = 'none';
+
+  haLoadXLSX(function() {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var sheetName = wb.SheetNames.find(function(n){ return n === 'Detail Data'; })
+                     || wb.SheetNames.find(function(n){ return /detail/i.test(n); })
+                     || wb.SheetNames[wb.SheetNames.length-1];
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {defval:''});
+
+        haRows = rows.map(function(r) {
+          var raw    = (r['Member']||'').toString();
+          var member = raw.split('\n')[0].trim();
+          var admId  = (raw.match(/\(([^)]+)\)/) || ['',''])[1];
+          var auth   = haToMins(r['Auth. Hours']);
+          var sched  = haToMins(r['Scheduled Hours']);
+          var conf   = haToMins(r['Confirmed Hours']);
+          var bill   = haToMins(r['Billable Hours']);
+          return {
+            member: member, admId: admId, mco: (r['MCO']||'').trim(),
+            coord:  (r['Coordinator']||'').trim(),
+            period: (r['Weekly Period']||'').trim(),
+            auth: auth, sched: sched, conf: conf, bill: bill,
+            unbilled:    Math.max(0, auth - bill),
+            missed:      Math.max(0, sched - conf),
+            overbilled:  Math.max(0, bill - auth)
+          };
+        }).filter(function(r){ return r.member && r.auth > 0; });
+
+        haRenderDashboard();
+      } catch(err) {
+        document.getElementById('ha-loading').style.display = 'none';
+        document.getElementById('ha-uploadWrap').style.display = 'block';
+        alert('Error reading file: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(haFile);
+  });
+}
+
+function haLoadXLSX(cb) {
+  if (window.XLSX) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = cb; document.head.appendChild(s);
+}
+
+function haRenderDashboard() {
+  document.getElementById('ha-loading').style.display = 'none';
+  document.getElementById('ha-dashboard').style.display = 'block';
+
+  // Totals
+  var totAuth=0, totSched=0, totConf=0, totBill=0, totUnbill=0, totMissed=0;
+  haRows.forEach(function(r){
+    totAuth  += r.auth;  totSched += r.sched; totConf  += r.conf;
+    totBill  += r.bill;  totUnbill+= r.unbilled; totMissed+= r.missed;
+  });
+
+  var period = haRows.length ? haRows[0].period : '';
+  var unbilledDollars = Math.round((totUnbill / 60) * HA_RATE);
+  var missedDollars   = Math.round((totMissed / 60) * HA_RATE);
+
+  function fh(m){ var h=Math.floor(m/60),mn=m%60; return h+':'+(mn<10?'0':'')+mn; }
+
+  var cards = [
+    {label:'Authorized',  val:fh(totAuth),   color:'var(--blue2)',   sub:'Total approved'},
+    {label:'Scheduled',   val:fh(totSched),  color:'var(--text)',    sub:'Visits scheduled'},
+    {label:'Confirmed',   val:fh(totConf),   color:'var(--green)',   sub:'EVV confirmed'},
+    {label:'Billed',      val:fh(totBill),   color:'var(--teal)',    sub:'Submitted to Medicaid'},
+    {label:'💰 Unbilled', val:fh(totUnbill), color:'var(--red)',     sub:'~$'+unbilledDollars.toLocaleString()+' uncollected'},
+    {label:'⚠️ Missed',   val:fh(totMissed), color:'var(--amber)',   sub:'~$'+missedDollars.toLocaleString()+' at risk'}
+  ];
+
+  document.getElementById('ha-summaryGrid').innerHTML = cards.map(function(c){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">'
+      + '<div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">'+c.label+'</div>'
+      + '<div style="font-size:26px;font-weight:800;color:'+c.color+';line-height:1">'+c.val+'</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:4px">'+c.sub+'</div>'
+      + '</div>';
+  }).join('');
+
+  // $0 billed section
+  var zeroBill = haRows.filter(function(r){ return r.bill === 0 && r.auth > 0; })
+                       .sort(function(a,b){ return b.auth - a.auth; });
+
+  if (zeroBill.length > 0) {
+    document.getElementById('ha-zeroBillSection').style.display = 'block';
+    document.getElementById('ha-zeroBillList').innerHTML = zeroBill.map(function(r){
+      var rev = Math.round((r.auth/60)*HA_RATE);
+      return '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">'
+        + '<div>'
+        + '<div style="font-weight:700;font-size:13px">'+r.member+'</div>'
+        + '<div style="font-size:11px;color:var(--text3)">'+r.admId+' · '+r.mco+'</div>'
+        + '</div>'
+        + '<div style="text-align:right">'
+        + '<div style="font-size:14px;font-weight:800;color:var(--red)">'+fh(r.auth)+' hrs</div>'
+        + '<div style="font-size:11px;color:var(--amber)">~$'+rev+' uncollected</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  haRenderTable();
+}
+
+function haRenderTable() {
+  var rows = haRows.slice();
+
+  if (haTab === 'unbilled') {
+    rows = rows.filter(function(r){ return r.unbilled > 0; })
+               .sort(function(a,b){ return b.unbilled - a.unbilled; });
+  } else if (haTab === 'missed') {
+    rows = rows.filter(function(r){ return r.missed > 60; })
+               .sort(function(a,b){ return b.missed - a.missed; });
+  } else {
+    rows.sort(function(a,b){ return b.unbilled - a.unbilled; });
+  }
+
+  document.getElementById('ha-tabCount').textContent = rows.length + ' clients';
+
+  function fh(m){ var h=Math.floor(m/60),mn=m%60; return h+':'+(mn<10?'0':'')+mn; }
+
+  document.getElementById('ha-tbody').innerHTML = rows.map(function(r){
+    var unbilledColor = r.unbilled > 120 ? 'var(--red)' : r.unbilled > 30 ? 'var(--amber)' : 'var(--text3)';
+    var missedColor   = r.missed > 120 ? 'var(--red)' : r.missed > 60 ? 'var(--amber)' : 'var(--text3)';
+    var rev = r.unbilled > 0 ? '~$'+Math.round((r.unbilled/60)*HA_RATE).toLocaleString() : '—';
+    var zeroBadge = r.bill === 0 ? '<span style="background:rgba(239,68,68,0.15);color:var(--red);border-radius:3px;padding:1px 5px;font-size:9px;font-weight:800;margin-left:4px">$0 BILLED</span>' : '';
+
+    return '<tr style="border-top:1px solid var(--border);transition:background 0.1s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
+      + '<td style="padding:10px 12px">'
+      + '<div style="font-weight:600;font-size:13px">'+r.member+zeroBadge+'</div>'
+      + '<div style="font-size:11px;color:var(--text3)">'+r.admId+' · '+r.coord+'</div>'
+      + '</td>'
+      + '<td style="padding:10px 12px;font-size:12px;color:var(--text2)">'+r.mco.replace('UPMC LTSS (','').replace(')','')+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px">'+fh(r.auth)+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px">'+fh(r.sched)+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px">'+fh(r.conf)+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px">'+fh(r.bill)+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px;font-weight:'+(r.unbilled>60?'700':'400')+';color:'+unbilledColor+'">'+fh(r.unbilled)+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px;color:'+missedColor+'">'+fh(r.missed)+'</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-size:13px;color:var(--green);font-weight:700">'+rev+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function haReset() {
+  haFile = null; haRows = [];
+  document.getElementById('ha-uploadWrap').style.display = 'block';
+  document.getElementById('ha-dashboard').style.display = 'none';
+  document.getElementById('ha-fileBar').style.display = 'none';
+  document.getElementById('ha-zeroBillSection').style.display = 'none';
+  document.getElementById('ha-fileName').textContent = '';
+}
 
 </script>
 </body>
