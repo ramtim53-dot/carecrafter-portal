@@ -3341,10 +3341,6 @@ function ovPrint() {
     // Get date range for this patient
     var dates = p.incidents.map(function(inc){ return inc.date; }).filter(Boolean).sort();
     var uniqueDates = dates.filter(function(d,i){ return dates.indexOf(d)===i; });
-    var dr = uniqueDates.length === 0 ? '—'
-           : uniqueDates.length === 1 ? uniqueDates[0]
-           : uniqueDates[0] + ' – ' + uniqueDates[uniqueDates.length-1];
-
     // Get unique caregiver pairs
     var pairs = [];
     p.incidents.forEach(function(inc){
@@ -3355,11 +3351,18 @@ function ovPrint() {
     var totalDur = p.totalMins > 0 ? ovFmtOverlap(p.totalMins) : '—';
     var billedColor = p.billed > 0 ? '#dc2626' : '#666';
 
+    // Build exact dates with overlap duration per date
+    var dateRows = p.incidents.map(function(inc){
+      var billedMark = inc.billed ? ' <span style="color:#dc2626;font-weight:700">[BILLED]</span>' : '';
+      var dur = inc.mins !== null ? ' <span style="color:#7c3aed;font-weight:700">(' + ovFmtOverlap(inc.mins) + ')</span>' : '';
+      return '<div style="white-space:nowrap">' + (inc.date||'—') + billedMark + dur + '</div>';
+    }).join('');
+
     return '<tr>'
       + '<td><strong>' + p.patient + '</strong><br><small style="color:#888">' + p.admId + '</small></td>'
       + '<td style="text-align:center;font-weight:700;color:#b45309">' + p.incidents.length + '</td>'
       + '<td style="text-align:center;font-weight:700;color:' + billedColor + '">' + p.billed + '</td>'
-      + '<td style="font-weight:700;color:#991b1b">' + dr + '<br><small style="color:#888;font-weight:normal">' + uniqueDates.length + ' day' + (uniqueDates.length!==1?'s':'') + '</small></td>'
+      + '<td style="font-size:10px;line-height:1.7">' + dateRows + '</td>'
       + '<td style="font-weight:700;color:#7c3aed">' + totalDur + '</td>'
       + '<td style="font-size:10px;color:#555">' + pairs.slice(0,3).join('<br>') + (pairs.length>3 ? '<br>+' + (pairs.length-3) + ' more' : '') + '</td>'
       + '</tr>';
@@ -3393,7 +3396,7 @@ function ovPrint() {
     + '<th>Patient</th>'
     + '<th style="text-align:center">Overlaps</th>'
     + '<th style="text-align:center">Billed</th>'
-    + '<th>Date Range</th>'
+    + '<th>Exact Dates (Overlap Duration)</th>'
     + '<th>Total Overlap Time</th>'
     + '<th>Caregiver Pairs</th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table>'
