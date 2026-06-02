@@ -837,6 +837,49 @@ textarea.field-input{resize:vertical;min-height:80px}
               </table>
             </div>
           </div>
+
+        <!-- CUSTOM TEXT SECTION -->
+        <div style="margin-top:2rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:1.25rem">✉️ SEND CUSTOM TEXT</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+            <!-- Left: Recipients -->
+            <div>
+              <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:8px">Recipients</div>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input id="ct-phone" type="tel" placeholder="Phone number  e.g. 412-555-0000"
+                  style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:9px 12px;font-size:13px">
+                <button onclick="ctAddPhone()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ Add</button>
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Or pick from phone book:</div>
+              <div style="max-height:180px;overflow-y:auto;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px" id="ct-phonebook-list">
+                <div style="font-size:12px;color:var(--text3);padding:4px">No saved numbers yet — numbers auto-save when you enter them in the DCW table above.</div>
+              </div>
+              <div style="margin-top:10px">
+                <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">Selected <span id="ct-count" style="color:var(--blue2)">0</span>:</div>
+                <div id="ct-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
+              </div>
+            </div>
+
+            <!-- Right: Message + Send -->
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:8px">Message</div>
+                <textarea id="ct-msg" placeholder="Type your message here..."
+                  style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px;font-size:13px;line-height:1.6;resize:vertical;height:130px"></textarea>
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px">
+                  <span id="ct-charcount">0 / 160 chars</span>
+                  <span>160 chars = 1 SMS credit</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <button onclick="ctSendAll()" style="background:var(--green);color:#fff;border:none;border-radius:var(--radius);padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">📤 Send Custom Text</button>
+                <button onclick="ctClearAll()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:13px;cursor:pointer">🗑 Clear</button>
+                <span id="ct-status" style="font-size:12px"></span>
+              </div>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
     </div><!-- end .main -->
@@ -2189,6 +2232,147 @@ function tsSendAll() {
     }
   }
 }
+
+
+// ─── CUSTOM TEXT ─────────────────────────────────────────────────────────────
+var ctSelected = {};  // {phone: label}
+
+function ctRenderPhoneBook() {
+  var list = document.getElementById('ct-phonebook-list');
+  if (!list) return;
+  var entries = Object.entries(tsPhoneBook);
+  if (!entries.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px">No saved numbers yet.</div>';
+    return;
+  }
+  // Build a name lookup from code to name
+  var nameMap = {};
+  Object.entries(tsPhoneBook).forEach(function(e) { nameMap[e[0]] = e[0]; });
+  // Try to get actual names from last parsed rows
+  if (tsParsedRows && tsParsedRows.length) {
+    tsParsedRows.forEach(function(r) {
+      var code = (r['Caregiver Code']||'').trim();
+      var name = (r['Caregiver Name']||'').trim();
+      if (code && name) nameMap[code] = name;
+    });
+  }
+  list.innerHTML = entries.map(function(e) {
+    var code = e[0], phone = e[1];
+    var name = nameMap[code] || code;
+    var checked = ctSelected[phone] ? 'checked' : '';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px" '
+         + 'onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'transparent\'">'
+         + '<input type="checkbox" ' + checked + ' onchange="ctToggle(\'' + phone + '\',\'' + name.replace(/'/g,"\\'") + '\',this.checked)" '
+         + 'style="accent-color:var(--blue)">'
+         + '<span style="flex:1;color:var(--text)">' + name + '</span>'
+         + '<span style="color:var(--text3)">' + phone + '</span>'
+         + '</label>';
+  }).join('');
+}
+
+function ctToggle(phone, label, checked) {
+  if (checked) ctSelected[phone] = label;
+  else delete ctSelected[phone];
+  ctRenderChips();
+}
+
+function ctAddPhone() {
+  var input = document.getElementById('ct-phone');
+  var raw = input.value.trim().replace(/\D/g,'');
+  if (!raw || raw.length < 10) { input.style.borderColor='var(--red)'; return; }
+  input.style.borderColor = 'var(--border)';
+  ctSelected[raw] = raw;
+  ctRenderChips();
+  input.value = '';
+}
+
+function ctRenderChips() {
+  var el = document.getElementById('ct-chips');
+  var cnt = document.getElementById('ct-count');
+  var entries = Object.entries(ctSelected);
+  if (cnt) cnt.textContent = entries.length;
+  if (!el) return;
+  el.innerHTML = entries.map(function(e) {
+    return '<span style="background:var(--blue-dim);color:var(--blue2);border:1px solid rgba(59,130,246,0.3);border-radius:20px;padding:3px 10px;font-size:12px;display:flex;align-items:center;gap:6px">'
+         + e[1]
+         + '<span onclick="ctRemove(\'' + e[0] + '\')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1">&times;</span>'
+         + '</span>';
+  }).join('');
+}
+
+function ctRemove(phone) {
+  delete ctSelected[phone];
+  ctRenderChips();
+  ctRenderPhoneBook();
+}
+
+function ctClearAll() {
+  ctSelected = {};
+  ctRenderChips();
+  ctRenderPhoneBook();
+  var msg = document.getElementById('ct-msg');
+  if (msg) msg.value = '';
+  var st = document.getElementById('ct-status');
+  if (st) st.textContent = '';
+}
+
+function ctSendAll() {
+  var msg = (document.getElementById('ct-msg').value || '').trim();
+  var entries = Object.entries(ctSelected);
+  var status = document.getElementById('ct-status');
+  if (!msg) { status.innerHTML = '<span style="color:var(--red)">⚠ Enter a message</span>'; return; }
+  if (!entries.length) { status.innerHTML = '<span style="color:var(--red)">⚠ No recipients selected</span>'; return; }
+
+  status.textContent = 'Sending to ' + entries.length + ' people...';
+  var sent=0, failed=0;
+
+  entries.forEach(function(e, idx) {
+    var phone = e[0];
+    var fullPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? '+1'+phone : '+'+phone);
+    setTimeout(function() {
+      fetch('/api/sms', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({to: fullPhone, message: msg})
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) sent++; else failed++;
+        if (sent + failed === entries.length) {
+          status.innerHTML = '<span style="color:var(--green)">✅ ' + sent + ' sent</span>'
+            + (failed ? ' &nbsp;<span style="color:var(--red)">❌ ' + failed + ' failed</span>' : '');
+        }
+      })
+      .catch(function() {
+        failed++;
+        if (sent + failed === entries.length) {
+          status.innerHTML = '<span style="color:var(--green)">✅ ' + sent + ' sent</span>'
+            + '<span style="color:var(--red)"> ❌ ' + failed + ' failed</span>';
+        }
+      });
+    }, idx * 200);  // 200ms delay between each to avoid rate limits
+  });
+}
+
+// Update char counter
+document.addEventListener('DOMContentLoaded', function() {
+  var msg = document.getElementById('ct-msg');
+  if (msg) {
+    msg.addEventListener('input', function() {
+      var len = msg.value.length;
+      var cc = document.getElementById('ct-charcount');
+      if (cc) cc.textContent = len + ' / 160 chars' + (len > 160 ? ' (' + Math.ceil(len/160) + ' SMS)' : '');
+      if (cc) cc.style.color = len > 160 ? 'var(--amber)' : 'var(--text3)';
+    });
+  }
+});
+
+// Refresh phone book when timesheets tab opens
+var _origShowView = showView;
+showView = function(id) {
+  _origShowView(id);
+  if (id === 'timesheets') { setTimeout(ctRenderPhoneBook, 200); }
+};
 
 </script>
 </body>
