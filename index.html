@@ -3003,22 +3003,6 @@ function ovAnalyze() {
           ovGroups[n].push(r);
         });
 
-        // Filter out overlaps < 5 minutes (just clock-in/out timing noise)
-        function ovParseVTime(field) {
-          var m = (field||'').match(/V:s*(d{3,4})-(d{3,4})/);
-          if (!m) return null;
-          function toM(t){ t=t.padStart(4,'0'); return parseInt(t.slice(0,2))*60+parseInt(t.slice(2)); }
-          return { s: toM(m[1]), e: toM(m[2]) };
-        }
-        function ovOverlapMins(g) {
-          if (g.length < 2) return 999;
-          var t1 = ovParseVTime(g[0]['Overlapping Visits']);
-          var t2 = ovParseVTime(g[1]['Overlapping Visits']);
-          if (!t1 || !t2) return 999;
-          var e1 = t1.e < t1.s ? t1.e+1440 : t1.e;
-          var e2 = t2.e < t2.s ? t2.e+1440 : t2.e;
-          return Math.max(0, Math.min(e1,e2) - Math.max(t1.s,t2.s));
-        }
         // Remove groups with < 5 min actual overlap
         Object.keys(ovGroups).forEach(function(k){
           if (ovOverlapMins(ovGroups[k]) < 5) delete ovGroups[k];
@@ -3105,6 +3089,30 @@ function ovRenderDashboard() {
   ovRenderTable();
 }
 
+
+// ── Overlap time helpers (module level so render can use them) ────────────
+function ovParseVTime(field) {
+  var m = (field||'').match(/V:s*(d{3,4})-(d{3,4})/);
+  if (!m) return null;
+  function toM(t){ t=t.padStart(4,'0'); return parseInt(t.slice(0,2))*60+parseInt(t.slice(2)); }
+  return { s: toM(m[1]), e: toM(m[2]) };
+}
+function ovOverlapMins(g) {
+  if (!g || g.length < 2) return 0;
+  var t1 = ovParseVTime(g[0]['Overlapping Visits']);
+  var t2 = ovParseVTime(g[1]['Overlapping Visits']);
+  if (!t1 || !t2) return 999;
+  var e1 = t1.e < t1.s ? t1.e+1440 : t1.e;
+  var e2 = t2.e < t2.s ? t2.e+1440 : t2.e;
+  return Math.max(0, Math.min(e1,e2) - Math.max(t1.s,t2.s));
+}
+function ovFmtOverlap(mins) {
+  if (!mins || mins <= 0) return '';
+  if (mins < 60) return mins + ' min';
+  var h = Math.floor(mins/60), m = mins%60;
+  return h + 'h' + (m > 0 ? ' '+m+'m' : '');
+}
+
 function ovRenderTable() {
   var thStyle = 'padding:10px 12px;text-align:left;font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase';
   var thead = document.getElementById('ov-thead');
@@ -3115,9 +3123,10 @@ function ovRenderTable() {
     var patientData = {};
     Object.values(ovGroups).forEach(function(g){
       var key = (g[0]['Patient Name']||'?') + '||' + (g[0]['Admission ID']||'');
-      if (!patientData[key]) patientData[key] = { patient:g[0]['Patient Name'], admId:g[0]['Admission ID'], overlaps:0, billed:0, dates:[], pairs:[] };
+      if (!patientData[key]) patientData[key] = { patient:g[0]['Patient Name'], admId:g[0]['Admission ID'], overlaps:0, billed:0, dates:[], pairs:[], totalMins:0 };
       var d = patientData[key];
       d.overlaps++;
+      d.totalMins += ovOverlapMins(g);
       if (g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; })) d.billed++;
       var date = g[0]['Visit Date']; if (!d.dates.includes(date)) d.dates.push(date);
       if (g.length >= 2) { var pair = g[0]['Caregiver Name']+' & '+g[1]['Caregiver Name']; if (!d.pairs.includes(pair)) d.pairs.push(pair); }
@@ -3131,6 +3140,7 @@ function ovRenderTable() {
       +'<th style="'+thStyle+'">Admission ID</th>'
       +'<th style="'+thStyle+';text-align:center">Total Overlaps</th>'
       +'<th style="'+thStyle+';text-align:center">🚨 Billed</th>'
+      +'<th style="'+thStyle+';text-align:center">⏱ Overlap Time</th>'
       +'<th style="'+thStyle+'">Dates</th>'
       +'<th style="'+thStyle+'">Caregiver Pairs</th>'
       +'</tr>';
@@ -3143,6 +3153,7 @@ function ovRenderTable() {
         +'<td style="padding:10px 12px;font-size:12px;color:var(--text3)">'+r.admId+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--amber)">'+r.overlaps+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:'+billedWeight+';color:'+billedColor+'">'+r.billed+'</td>'
+        +'<td style="padding:10px 12px;text-align:center"><span style="background:rgba(239,68,68,0.12);color:var(--red);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700">'+ovFmtOverlap(r.totalMins)+'</span></td>'
         +(() => { var sd=r.dates.sort(); var first=sd[0],last=sd[sd.length-1]; var compact=first===last?first:first+' – '+last; return '<td style="padding:10px 12px"><div style="font-size:12px;color:var(--text2);font-weight:600">'+compact+'</div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+sd.length+' day'+(sd.length>1?'s':'')+' total</div></td>'; })()
         +'<td style="padding:10px 12px;font-size:11px;color:var(--text3)">'+r.pairs.slice(0,2).join(' · ')+(r.pairs.length>2?' +more':'')+'</td>'
         +'</tr>';
@@ -3155,9 +3166,10 @@ function ovRenderTable() {
       if (g.length < 2) return;
       var names = g.map(function(r){ return r['Caregiver Name']; }).sort();
       var key = names.join(' & ');
-      if (!pairData[key]) pairData[key] = { pair:key, cg1:names[0], cg2:names[1], count:0, billed:0, patients:[], dates:[] };
+      if (!pairData[key]) pairData[key] = { pair:key, cg1:names[0], cg2:names[1], count:0, billed:0, patients:[], dates:[], totalMins:0 };
       var d = pairData[key];
       d.count++;
+      d.totalMins += ovOverlapMins(g);
       if (g.some(function(r){ return r['Billed'] && r['Billed'].toUpperCase()==='YES'; })) d.billed++;
       var pat = g[0]['Patient Name']; if (!d.patients.includes(pat)) d.patients.push(pat);
       var date = g[0]['Visit Date'];  if (!d.dates.includes(date))   d.dates.push(date);
@@ -3170,6 +3182,7 @@ function ovRenderTable() {
       +'<th style="'+thStyle+'">Caregiver 1</th>'
       +'<th style="'+thStyle+'">Caregiver 2</th>'
       +'<th style="'+thStyle+';text-align:center">Overlaps</th>'
+      +'<th style="'+thStyle+';text-align:center">⏱ Overlap Time</th>'
       +'<th style="'+thStyle+';text-align:center">🚨 Billed</th>'
       +'<th style="'+thStyle+'">Patients</th>'
       +'<th style="'+thStyle+'">Dates</th>'
@@ -3184,6 +3197,7 @@ function ovRenderTable() {
         +'<td style="padding:10px 12px;font-weight:600;font-size:13px">'+r.cg1+'</td>'
         +'<td style="padding:10px 12px;font-weight:600;font-size:13px">'+r.cg2+'</td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--amber)">'+r.count+'</td>'
+        +'<td style="padding:10px 12px;text-align:center"><span style="background:rgba(239,68,68,0.12);color:var(--red);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700">'+ovFmtOverlap(r.totalMins)+'</span></td>'
         +'<td style="padding:10px 12px;text-align:center;font-weight:'+(r.billed>0?'700':'400')+';color:'+billedColor+'">'+r.billed+'</td>'
         +'<td style="padding:10px 12px;font-size:10px;color:var(--text2)">'+r.patients.slice(0,3).join('<br>')+(r.patients.length>3?'<br><span style="color:var(--text3)">+'+( r.patients.length-3)+' more</span>':'')+'</td>'
         +(() => { var sd=r.dates.sort(); var first=sd[0],last=sd[sd.length-1]; var compact=first===last?first:first+' – '+last; return '<td style="padding:10px 12px"><div style="font-size:12px;color:var(--text2);font-weight:600">'+compact+'</div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+sd.length+' day'+(sd.length>1?'s':'')+' total</div></td>'; })()
@@ -3203,6 +3217,7 @@ function ovRenderTable() {
       +'<th style="'+thStyle+'">Caregiver 1</th>'
       +'<th style="'+thStyle+'">Caregiver 2</th>'
       +'<th style="'+thStyle+'">Overlapping Times</th>'
+      +'<th style="'+thStyle+';text-align:center">⏱ Duration</th>'
       +'<th style="'+thStyle+';text-align:center">Billed</th>'
       +'</tr>';
 
@@ -3223,6 +3238,7 @@ function ovRenderTable() {
         +'<td style="padding:8px 12px;font-size:12px">'+cg1+'</td>'
         +'<td style="padding:8px 12px;font-size:12px">'+cg2+'</td>'
         +'<td style="padding:8px 12px;font-size:10px;color:var(--text3);max-width:200px">'+times1.substring(0,80)+'</td>'
+        +'<td style="padding:8px 12px;text-align:center"><span style="background:rgba(239,68,68,0.1);color:var(--red);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">'+ovFmtOverlap(ovOverlapMins(g))+'</span></td>'
         +'<td style="padding:8px 12px;text-align:center">'+billedBadge+'</td>'
         +'</tr>';
     }).join('');
