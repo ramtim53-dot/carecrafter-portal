@@ -763,16 +763,20 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div class="view-sub">Latest home care, Medicaid &amp; caregiving headlines</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem">
           <select id="news-topic" class="select-field" style="width:260px" onchange="loadNews()">
-             <option>All Home Care News</option>
-             <option>Home Care Magazine</option>
-             <option>PA Home Care</option>
-             <option>HCAOA</option>
-             <option>McKnight's Home Care</option>
-             <option>HCHB News</option>
-             <option>Home Care Pulse</option>
-             <option>NAHC News</option>
-             <option>Federal Health Policy</option>
-          </select>
+             <option>🇳🇵 Nepali Home Care</option>
+             <option>🏔️ Bhutanese Medicaid</option>
+             <option>🌏 Refugee Caregivers</option>
+             <option>🏠 Home Care News</option>
+             <option>🏥 PA Home Care</option>
+             <option>🚨 Medicaid Fraud</option>
+             <option>📋 Medicaid Policy</option>
+             <option>💰 Medicaid Billing</option>
+             <option>📰 Home Health Care News</option>
+             <option>📰 Home Care Magazine</option>
+             <option>📰 McKnight's Home Care</option>
+             <option>📰 NAHC</option>
+             <option>📰 PA Home Care Assoc</option>
+             </select>
           <button onclick="loadNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
           <span id="news-ts" style="font-size:11px;color:var(--text3)"></span>
         </div>
@@ -2194,14 +2198,24 @@ var _newsCache = {data: null, src: '', ts: 0};
 var _newsCache = {data: null, src: '', ts: 0};
 
 var NEWS_FEEDS = [
-  {label: 'All Home Care News',    url: 'https://homehealthcarenews.com/feed/'},
-  {label: 'Home Care Magazine',    url: 'https://www.homecaremag.com/rss.xml'},
-  {label: 'PA Home Care',          url: 'https://pahomecare.org/feed/'},
-  {label: 'HCAOA',                 url: 'https://www.hcaoa.org/feed/'},
-  {label: "McKnight's Home Care",  url: 'https://www.mcknightshomecare.com/feed/'},
-  {label: 'HCHB News',             url: 'https://hchb.com/feed/'},
-  {label: 'Home Care Pulse',       url: 'https://www.homecarepulse.com/feed/'},
-  {label: 'NAHC News',             url: 'https://www.nahc.org/feed/'}
+  // ── Google News: Nepali & Bhutanese ──────────────────────────────────────
+  {label: '🇳🇵 Nepali Home Care',       url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Nepali home care Medicaid caregiver')},
+  {label: '🏔️ Bhutanese Medicaid',      url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Bhutanese Medicaid home care fraud Pennsylvania')},
+  {label: '🌏 Refugee Caregivers',      url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('refugee caregiver Medicaid home care')},
+
+  // ── Google News: Home Care ────────────────────────────────────────────────
+  {label: '🏠 Home Care News',          url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('home care agency Medicaid waiver')},
+  {label: '🏥 PA Home Care',            url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Pennsylvania home care Medicaid')},
+  {label: '🚨 Medicaid Fraud',          url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Medicaid fraud home care caregiver')},
+  {label: '📋 Medicaid Policy',         url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Medicaid policy home care waiver 2025 2026')},
+  {label: '💰 Medicaid Billing',        url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Medicaid billing home care agency')},
+
+  // ── Industry Publications ─────────────────────────────────────────────────
+  {label: '📰 Home Health Care News',   url: 'https://homehealthcarenews.com/feed/'},
+  {label: '📰 Home Care Magazine',      url: 'https://www.homecaremag.com/rss.xml'},
+  {label: "📰 McKnight's Home Care",    url: 'https://www.mcknightshomecare.com/feed/'},
+  {label: '📰 NAHC',                    url: 'https://www.nahc.org/feed/'},
+  {label: '📰 PA Home Care Assoc',      url: 'https://pahomecare.org/feed/'}
 ];
 
 function fetchRSS(feedUrl, onSuccess, onFail) {
