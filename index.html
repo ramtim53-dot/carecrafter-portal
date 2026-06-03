@@ -763,6 +763,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div class="view-sub">Latest home care, Medicaid &amp; caregiving headlines</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem">
           <select id="news-topic" class="select-field" style="width:260px" onchange="loadNews()">
+             <option>🌐 All News</option>
              <option>🇳🇵 Nepali Home Care</option>
              <option>🏔️ Bhutanese Medicaid</option>
              <option>🌏 Refugee Caregivers</option>
@@ -2198,6 +2199,7 @@ var _newsCache = {data: null, src: '', ts: 0};
 var _newsCache = {data: null, src: '', ts: 0};
 
 var NEWS_FEEDS = [
+  {label: '🌐 All News',            url: 'ALL'},
   // ── Google News: Nepali & Bhutanese ──────────────────────────────────────
   {label: '🇳🇵 Nepali Home Care',       url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Nepali home care Medicaid caregiver')},
   {label: '🏔️ Bhutanese Medicaid',      url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Bhutanese Medicaid home care fraud Pennsylvania')},
@@ -2255,12 +2257,43 @@ function loadNews(force) {
   }
 
   grid.innerHTML = '';
+
+  // ALL NEWS — fetch every feed and combine
+  if (feed.url === 'ALL') {
+    status.textContent = 'Loading all sources...';
+    var allFeeds = NEWS_FEEDS.filter(function(f){ return f.url !== 'ALL'; });
+    var combined = [];
+    var done = 0;
+    var total = allFeeds.length;
+
+    allFeeds.forEach(function(f) {
+      fetchRSS(f.url,
+        function(xml) {
+          var arts = extractArticles(xml, f.label);
+          combined = combined.concat(arts);
+          done++;
+          status.textContent = 'Loading all sources... (' + done + '/' + total + ')';
+          if (done === total) {
+            combined.sort(function(a,b){ return new Date(b.pubDate||0) - new Date(a.pubDate||0); });
+            _newsCache = { data: combined.slice(0,50), src: feed.label, ts: Date.now() };
+            renderNewsGrid(_newsCache.data, 'All News');
+          }
+        },
+        function() {
+          done++;
+          if (done === total && combined.length) {
+            combined.sort(function(a,b){ return new Date(b.pubDate||0) - new Date(a.pubDate||0); });
+            _newsCache = { data: combined.slice(0,50), src: feed.label, ts: Date.now() };
+            renderNewsGrid(_newsCache.data, 'All News');
+          }
+        }
+      );
+    });
+    return;
+  }
+
   status.textContent = 'Loading ' + feed.label + '...';
-
-  // Build the actual URL (some feeds use encodeURIComponent calls)
-  var feedUrl = typeof feed.url === 'string' ? feed.url : feed.url;
-
-  fetchRSS(feedUrl,
+  fetchRSS(feed.url,
     function(xml) { parseAndRender(xml, feed.label, grid, status); },
     function()    { status.innerHTML = '<span style="color:var(--amber)">⚠️ ' + feed.label + ' unavailable. Try another source.</span>'; }
   );
