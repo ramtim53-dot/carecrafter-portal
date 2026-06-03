@@ -2219,15 +2219,23 @@ var NEWS_FEEDS = [
 ];
 
 function fetchRSS(feedUrl, onSuccess, onFail) {
-  /* Try corsproxy.io first, then allorigins as backup */
-  fetch('https://corsproxy.io/?' + feedUrl)
+  // Google News works better via allorigins; other feeds via corsproxy
+  var isGoogle = feedUrl.includes('news.google.com');
+  var proxy1 = isGoogle
+    ? 'https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl)
+    : 'https://corsproxy.io/?' + feedUrl;
+  var proxy2 = isGoogle
+    ? 'https://corsproxy.io/?' + feedUrl
+    : 'https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl);
+
+  fetch(proxy1)
     .then(function(r) {
       if (!r.ok) throw new Error('bad status');
       return r.text();
     })
     .then(onSuccess)
     .catch(function() {
-      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl))
+      fetch(proxy2)
         .then(function(r) { return r.text(); })
         .then(onSuccess)
         .catch(onFail);
@@ -2241,30 +2249,20 @@ function loadNews(force) {
   var grid   = document.getElementById('news-grid');
   var status = document.getElementById('news-status');
   var now    = Date.now();
+
   if (!force && _newsCache.data && _newsCache.src === feed.label && (now - _newsCache.ts) < 300000) {
     renderNewsGrid(_newsCache.data, _newsCache.src); return;
   }
-  grid.innerHTML = ''; status.textContent = 'Loading ' + feed.label + '...';
-  if (idx === 0) {
-    /* All Home Care: fetch top 3 sources and combine */
-    var combined = []; var done = 0; var sources = [NEWS_FEEDS[0], NEWS_FEEDS[1], NEWS_FEEDS[2]];
-    sources.forEach(function(src) {
-      fetchRSS(src.url, function(xml) {
-        var arts = extractArticles(xml, src.label);
-        combined = combined.concat(arts);
-        done++;
-        if (done === sources.length) {
-          combined.sort(function(a,b){ return new Date(b.pubDate||0)-new Date(a.pubDate||0); });
-          _newsCache = {data:combined.slice(0,20), src:feed.label, ts:Date.now()};
-          renderNewsGrid(_newsCache.data, 'All Home Care');
-        }
-      }, function() { done++; if (done===sources.length && combined.length) renderNewsGrid(combined,'All Home Care'); });
-    });
-    return;
-  }
-  fetchRSS(feed.url,
+
+  grid.innerHTML = '';
+  status.textContent = 'Loading ' + feed.label + '...';
+
+  // Build the actual URL (some feeds use encodeURIComponent calls)
+  var feedUrl = typeof feed.url === 'string' ? feed.url : feed.url;
+
+  fetchRSS(feedUrl,
     function(xml) { parseAndRender(xml, feed.label, grid, status); },
-    function()    { status.textContent = feed.label + ' is unavailable. Try another source.'; }
+    function()    { status.innerHTML = '<span style="color:var(--amber)">⚠️ ' + feed.label + ' unavailable. Try another source.</span>'; }
   );
 }
 
