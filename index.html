@@ -3735,10 +3735,10 @@ function prAnalyze() {
 }
 
 function prBuildPivot() {
-  // Create pivot: caregiver name + SSN as row key, week1/week2 as columns, phd as values
+  // Create pivot: caregiver name + SSN as row, week1 phd / week2 phd as columns
   var pivotMap = {};
 
-  // Add Week 1 data
+  // Add Week 1 data - ONLY extract PHD values
   prData.w1.forEach(function(r) {
     var cg = (r['Caregiver Name']||'').toString().trim();
     var ssn = (r['SSN']||'').toString().trim();
@@ -3748,10 +3748,10 @@ function prBuildPivot() {
     if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
 
     var phd = parseFloat(r['phd'] || 0);
-    pivotMap[key].w1 += phd;
+    if (!isNaN(phd)) pivotMap[key].w1 += phd;
   });
 
-  // Add Week 2 data
+  // Add Week 2 data - ONLY extract PHD values
   prData.w2.forEach(function(r) {
     var cg = (r['Caregiver Name']||'').toString().trim();
     var ssn = (r['SSN']||'').toString().trim();
@@ -3761,7 +3761,7 @@ function prBuildPivot() {
     if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
 
     var phd = parseFloat(r['phd'] || 0);
-    pivotMap[key].w2 += phd;
+    if (!isNaN(phd)) pivotMap[key].w2 += phd;
   });
 
   // Convert to array and sort by caregiver name
@@ -3776,7 +3776,7 @@ function prBuildPivot() {
     totW2 += r.w2;
   });
 
-  // Display
+  // Display summary
   document.getElementById('pr-loading').style.display = 'none';
   document.getElementById('pr-dashboard').style.display = 'block';
   document.getElementById('pr-totalCG').textContent = prPivot.length;
@@ -3784,7 +3784,7 @@ function prBuildPivot() {
   document.getElementById('pr-w2Total').textContent = totW2.toFixed(2) + ' hrs';
   document.getElementById('pr-grandTotal').textContent = (totW1 + totW2).toFixed(2) + ' hrs';
 
-  // Render table
+  // Render table - ONLY PHD columns
   var tbody = document.getElementById('pr-tbody');
   var rows = prPivot.map(function(r) {
     var total = r.w1 + r.w2;
@@ -3793,8 +3793,8 @@ function prBuildPivot() {
       + '<div style="font-weight:600;font-size:13px">' + r.cg + '</div>'
       + '<div style="font-size:10px;color:var(--text3)">' + r.ssn + '</div>'
       + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + r.w1.toFixed(2) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + r.w2.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + (r.w1 > 0 ? r.w1.toFixed(2) : '—') + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + (r.w2 > 0 ? r.w2.toFixed(2) : '—') + '</td>'
       + '<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--teal);font-size:13px">' + total.toFixed(2) + '</td>'
       + '</tr>';
   }).join('');
