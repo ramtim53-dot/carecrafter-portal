@@ -3735,67 +3735,37 @@ function prAnalyze() {
 }
 
 function prBuildPivot() {
-  // Parse files that already have W1 PHD, W2 PHD columns
-  // Extract: Caregiver, SSN, W1 PHD, W2 PHD, Grand Total PHD
-  var pivotMap = {};
+  var map = {};
 
-  // Week 1 data - find W1 PHD column
+  // Process Week 1 - extract ONLY: Caregiver, SSN, W1 PHD
   prData.w1.forEach(function(r) {
-    var cg = (r['Caregiver'] || r['Caregiver Name'] || '').toString().trim();
-    var ssn = (r['SSN'] || '').toString().trim();
+    var cg = r['Caregiver'] || r['Caregiver Name'] || '';
+    var ssn = r['SSN'] || '';
+    var w1 = r['W1 PHD'] || 0;
+
     if (!cg || !ssn) return;
-
-    var w1phd = null;
-    // Try different possible column names for W1 PHD
-    ['W1 PHD', 'W1PHD', 'Week 1 PHD', 'phd'].forEach(function(colName) {
-      if (r[colName] !== undefined && r[colName] !== '') {
-        w1phd = parseFloat(r[colName]);
-      }
-    });
-
-    if (w1phd === null) return;
-
     var key = cg + '||' + ssn;
-    if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
-    if (!isNaN(w1phd)) pivotMap[key].w1 += w1phd;
+    if (!map[key]) map[key] = {cg: cg, ssn: ssn, w1: 0, w2: 0};
+    map[key].w1 = parseFloat(w1) || 0;
   });
 
-  // Week 2 data - find W2 PHD column
+  // Process Week 2 - extract ONLY: Caregiver, SSN, W2 PHD
   prData.w2.forEach(function(r) {
-    var cg = (r['Caregiver'] || r['Caregiver Name'] || '').toString().trim();
-    var ssn = (r['SSN'] || '').toString().trim();
+    var cg = r['Caregiver'] || r['Caregiver Name'] || '';
+    var ssn = r['SSN'] || '';
+    var w2 = r['W2 PHD'] || 0;
+
     if (!cg || !ssn) return;
-
-    var w2phd = null;
-    // Try different possible column names for W2 PHD
-    ['W2 PHD', 'W2PHD', 'Week 2 PHD', 'phd'].forEach(function(colName) {
-      if (r[colName] !== undefined && r[colName] !== '') {
-        w2phd = parseFloat(r[colName]);
-      }
-    });
-
-    if (w2phd === null) return;
-
     var key = cg + '||' + ssn;
-    if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
-    if (!isNaN(w2phd)) pivotMap[key].w2 += w2phd;
+    if (!map[key]) map[key] = {cg: cg, ssn: ssn, w1: 0, w2: 0};
+    map[key].w2 = parseFloat(w2) || 0;
   });
 
-  // Convert to array and sort by caregiver name
-  prPivot = Object.values(pivotMap).sort(function(a,b) {
-    return a.cg.localeCompare(b.cg);
-  });
+  prPivot = Object.values(map).sort(function(a,b) { return a.cg.localeCompare(b.cg); });
 
-  console.log('Pivot data built:', prPivot.length, 'caregivers');
-
-  // Calculate totals
   var totW1 = 0, totW2 = 0;
-  prPivot.forEach(function(r) {
-    totW1 += r.w1;
-    totW2 += r.w2;
-  });
+  prPivot.forEach(function(r) { totW1 += r.w1; totW2 += r.w2; });
 
-  // Display summary
   document.getElementById('pr-loading').style.display = 'none';
   document.getElementById('pr-dashboard').style.display = 'block';
   document.getElementById('pr-totalCG').textContent = prPivot.length;
@@ -3803,30 +3773,24 @@ function prBuildPivot() {
   document.getElementById('pr-w2Total').textContent = totW2.toFixed(2) + ' hrs';
   document.getElementById('pr-grandTotal').textContent = (totW1 + totW2).toFixed(2) + ' hrs';
 
-  // Render table - ONLY PHD columns
-  var tbody = document.getElementById('pr-tbody');
-  var rows = prPivot.map(function(r) {
-    var total = r.w1 + r.w2;
-    return '<tr style="border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
-      + '<td style="padding:10px 12px">'
-      + '<div style="font-weight:600;font-size:13px">' + r.cg + '</div>'
-      + '<div style="font-size:10px;color:var(--text3)">' + r.ssn + '</div>'
-      + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + (r.w1 > 0 ? r.w1.toFixed(2) : '—') + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + (r.w2 > 0 ? r.w2.toFixed(2) : '—') + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--teal);font-size:13px">' + total.toFixed(2) + '</td>'
+  var html = prPivot.map(function(r) {
+    var t = r.w1 + r.w2;
+    return '<tr style="border-top:1px solid var(--border)">'
+      + '<td style="padding:10px 12px"><strong>' + r.cg + '</strong><br><small style="color:var(--text3)">' + r.ssn + '</small></td>'
+      + '<td style="padding:10px 12px;text-align:center;color:var(--green);font-weight:600">' + r.w1.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;color:var(--amber);font-weight:600">' + r.w2.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;color:var(--teal);font-weight:700">' + t.toFixed(2) + '</td>'
       + '</tr>';
   }).join('');
 
-  // Add totals row
-  rows += '<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">'
-    + '<td style="padding:10px 12px;font-weight:700">TOTAL</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--green);font-weight:700">' + totW1.toFixed(2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--amber);font-weight:700">' + totW2.toFixed(2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--teal);font-weight:700">' + (totW1 + totW2).toFixed(2) + '</td>'
+  html += '<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">'
+    + '<td style="padding:10px 12px">TOTAL</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--green)">' + totW1.toFixed(2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--amber)">' + totW2.toFixed(2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--teal)">' + (totW1 + totW2).toFixed(2) + '</td>'
     + '</tr>';
 
-  tbody.innerHTML = rows;
+  document.getElementById('pr-tbody').innerHTML = html;
 }
 
 function prFmtHours(decimal) {
