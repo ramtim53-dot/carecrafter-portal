@@ -1144,9 +1144,9 @@ textarea.field-input{resize:vertical;min-height:80px}
               <thead>
                 <tr style="background:var(--bg3)">
                   <th style="padding:12px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);min-width:200px">Caregiver</th>
-                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);min-width:100px;border-left:1px solid var(--border)">📅 Week 1</th>
-                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);min-width:100px;border-left:1px solid var(--border)">📅 Week 2</th>
-                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);min-width:100px;border-left:1px solid var(--border)">💼 Total</th>
+                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--green);min-width:120px;border-left:1px solid var(--border)">📅 Week 1 (PHD)</th>
+                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--amber);min-width:120px;border-left:1px solid var(--border)">📅 Week 2 (PHD)</th>
+                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--teal);min-width:120px;border-left:1px solid var(--border)">💼 Total (PHD)</th>
                 </tr>
               </thead>
               <tbody id="pr-tbody"></tbody>
@@ -3780,9 +3780,9 @@ function prBuildPivot() {
   document.getElementById('pr-loading').style.display = 'none';
   document.getElementById('pr-dashboard').style.display = 'block';
   document.getElementById('pr-totalCG').textContent = prPivot.length;
-  document.getElementById('pr-w1Total').textContent = prFmtHours(totW1);
-  document.getElementById('pr-w2Total').textContent = prFmtHours(totW2);
-  document.getElementById('pr-grandTotal').textContent = prFmtHours(totW1 + totW2);
+  document.getElementById('pr-w1Total').textContent = totW1.toFixed(2) + ' hrs';
+  document.getElementById('pr-w2Total').textContent = totW2.toFixed(2) + ' hrs';
+  document.getElementById('pr-grandTotal').textContent = (totW1 + totW2).toFixed(2) + ' hrs';
 
   // Render table
   var tbody = document.getElementById('pr-tbody');
@@ -3793,18 +3793,18 @@ function prBuildPivot() {
       + '<div style="font-weight:600;font-size:13px">' + r.cg + '</div>'
       + '<div style="font-size:10px;color:var(--text3)">' + r.ssn + '</div>'
       + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + prFmtHours(r.w1) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + prFmtHours(r.w2) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--teal);font-size:13px">' + prFmtHours(total) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + r.w1.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + r.w2.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--teal);font-size:13px">' + total.toFixed(2) + '</td>'
       + '</tr>';
   }).join('');
 
   // Add totals row
   rows += '<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">'
     + '<td style="padding:10px 12px;font-weight:700">TOTAL</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--green)">' + prFmtHours(totW1) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--amber)">' + prFmtHours(totW2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--teal)">' + prFmtHours(totW1 + totW2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--green);font-weight:700">' + totW1.toFixed(2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--amber);font-weight:700">' + totW2.toFixed(2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--teal);font-weight:700">' + (totW1 + totW2).toFixed(2) + '</td>'
     + '</tr>';
 
   tbody.innerHTML = rows;
@@ -3832,7 +3832,7 @@ function prExportExcel() {
     var total = r.w1 + r.w2;
     totW1 += r.w1;
     totW2 += r.w2;
-    rows.push([r.cg, r.ssn, r.w1.toFixed(2), r.w2.toFixed(2), total.toFixed(2)]);
+    rows.push([r.cg, r.ssn, r.w1, r.w2, total]);
   });
 
   rows.push(['TOTAL', '', totW1.toFixed(2), totW2.toFixed(2), (totW1 + totW2).toFixed(2)]);
