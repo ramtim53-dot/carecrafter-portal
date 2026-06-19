@@ -3735,39 +3735,58 @@ function prAnalyze() {
 }
 
 function prBuildPivot() {
-  // Create pivot: caregiver name + SSN as row, week1 phd / week2 phd as columns
+  // Parse files that already have W1 PHD, W2 PHD columns
+  // Extract: Caregiver, SSN, W1 PHD, W2 PHD, Grand Total PHD
   var pivotMap = {};
 
-  // Add Week 1 data - ONLY extract PHD values
+  // Week 1 data - find W1 PHD column
   prData.w1.forEach(function(r) {
-    var cg = (r['Caregiver Name']||'').toString().trim();
-    var ssn = (r['SSN']||'').toString().trim();
+    var cg = (r['Caregiver'] || r['Caregiver Name'] || '').toString().trim();
+    var ssn = (r['SSN'] || '').toString().trim();
     if (!cg || !ssn) return;
+
+    var w1phd = null;
+    // Try different possible column names for W1 PHD
+    ['W1 PHD', 'W1PHD', 'Week 1 PHD', 'phd'].forEach(function(colName) {
+      if (r[colName] !== undefined && r[colName] !== '') {
+        w1phd = parseFloat(r[colName]);
+      }
+    });
+
+    if (w1phd === null) return;
 
     var key = cg + '||' + ssn;
     if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
-
-    var phd = parseFloat(r['phd'] || 0);
-    if (!isNaN(phd)) pivotMap[key].w1 += phd;
+    if (!isNaN(w1phd)) pivotMap[key].w1 += w1phd;
   });
 
-  // Add Week 2 data - ONLY extract PHD values
+  // Week 2 data - find W2 PHD column
   prData.w2.forEach(function(r) {
-    var cg = (r['Caregiver Name']||'').toString().trim();
-    var ssn = (r['SSN']||'').toString().trim();
+    var cg = (r['Caregiver'] || r['Caregiver Name'] || '').toString().trim();
+    var ssn = (r['SSN'] || '').toString().trim();
     if (!cg || !ssn) return;
+
+    var w2phd = null;
+    // Try different possible column names for W2 PHD
+    ['W2 PHD', 'W2PHD', 'Week 2 PHD', 'phd'].forEach(function(colName) {
+      if (r[colName] !== undefined && r[colName] !== '') {
+        w2phd = parseFloat(r[colName]);
+      }
+    });
+
+    if (w2phd === null) return;
 
     var key = cg + '||' + ssn;
     if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
-
-    var phd = parseFloat(r['phd'] || 0);
-    if (!isNaN(phd)) pivotMap[key].w2 += phd;
+    if (!isNaN(w2phd)) pivotMap[key].w2 += w2phd;
   });
 
   // Convert to array and sort by caregiver name
   prPivot = Object.values(pivotMap).sort(function(a,b) {
     return a.cg.localeCompare(b.cg);
   });
+
+  console.log('Pivot data built:', prPivot.length, 'caregivers');
 
   // Calculate totals
   var totW1 = 0, totW2 = 0;
