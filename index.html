@@ -265,7 +265,6 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('hours')"><span class="nav-icon">💰</span>Hours Analysis</button>
         <button class="nav-btn" onclick="showView('overlaps')"><span class="nav-icon">🔄</span>Overlapping Shifts</button>
         <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon">💬</span>Quick Text</button>
-        <button class="nav-btn" onclick="showView('payroll')"><span class="nav-icon">💰</span>Payroll Hours</button>
       </div>
       <div class="sidebar-footer">
         <div class="user-name" id="sidebarName">Ram</div>
@@ -764,21 +763,16 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div class="view-sub">Latest home care, Medicaid &amp; caregiving headlines</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem">
           <select id="news-topic" class="select-field" style="width:260px" onchange="loadNews()">
-             <option>🌐 All News</option>
-             <option>🇳🇵 Nepali Home Care</option>
-             <option>🏔️ Bhutanese Medicaid</option>
-             <option>🌏 Refugee Caregivers</option>
-             <option>🏠 Home Care News</option>
-             <option>🏥 PA Home Care</option>
-             <option>🚨 Medicaid Fraud</option>
-             <option>📋 Medicaid Policy</option>
-             <option>💰 Medicaid Billing</option>
-             <option>📰 Home Health Care News</option>
-             <option>📰 Home Care Magazine</option>
-             <option>📰 McKnight's Home Care</option>
-             <option>📰 NAHC</option>
-             <option>📰 PA Home Care Assoc</option>
-             </select>
+             <option>All Home Care News</option>
+             <option>Home Care Magazine</option>
+             <option>PA Home Care</option>
+             <option>HCAOA</option>
+             <option>McKnight's Home Care</option>
+             <option>HCHB News</option>
+             <option>Home Care Pulse</option>
+             <option>NAHC News</option>
+             <option>Federal Health Policy</option>
+          </select>
           <button onclick="loadNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
           <span id="news-ts" style="font-size:11px;color:var(--text3)"></span>
         </div>
@@ -1066,97 +1060,6 @@ textarea.field-input{resize:vertical;min-height:80px}
             <button onclick="ovExportExcel()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">📥 Export Excel</button>
             <button onclick="ovPrint()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
             <button onclick="ovReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer">↺ Upload New File</button>
-          </div>
-        </div>
-      </div>
-
-
-      <!-- PAYROLL HOURS VIEW -->
-      <div class="view" id="v-payroll">
-        <div class="view-title">💰 Payroll Hours</div>
-        <div class="view-sub">Upload Week 1 & Week 2 payroll reports to generate pivot table summary</div>
-
-        <!-- Upload Areas -->
-        <div id="pr-uploadWrap">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-            <!-- Week 1 -->
-            <div id="pr-w1Drop" style="background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2rem;text-align:center;cursor:pointer"
-              ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
-              ondragleave="this.style.borderColor='var(--border2)'"
-              ondrop="event.preventDefault();this.style.borderColor='var(--border2)';prSetFile(event.dataTransfer.files[0], 'w1')">
-              <input type="file" id="pr-w1File" accept=".xlsx,.xls" style="display:none" onchange="prSetFile(this.files[0], 'w1')">
-              <div style="font-size:32px;margin-bottom:0.5rem">📅</div>
-              <div style="font-size:14px;font-weight:700;margin-bottom:4px">Week 1</div>
-              <div style="font-size:11px;color:var(--text3);margin-bottom:1rem">Payroll Hours by Caregiver Summary</div>
-              <button onclick="document.getElementById('pr-w1File').click()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">Choose File</button>
-              <div id="pr-w1Bar" style="display:none;margin-top:10px;font-size:11px;color:var(--green);font-weight:600"></div>
-            </div>
-
-            <!-- Week 2 -->
-            <div id="pr-w2Drop" style="background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2rem;text-align:center;cursor:pointer"
-              ondragover="event.preventDefault();this.style.borderColor='var(--amber)'"
-              ondragleave="this.style.borderColor='var(--border2)'"
-              ondrop="event.preventDefault();this.style.borderColor='var(--border2)';prSetFile(event.dataTransfer.files[0], 'w2')">
-              <input type="file" id="pr-w2File" accept=".xlsx,.xls" style="display:none" onchange="prSetFile(this.files[0], 'w2')">
-              <div style="font-size:32px;margin-bottom:0.5rem">📅</div>
-              <div style="font-size:14px;font-weight:700;margin-bottom:4px">Week 2</div>
-              <div style="font-size:11px;color:var(--text3);margin-bottom:1rem">Payroll Hours by Caregiver Summary</div>
-              <button onclick="document.getElementById('pr-w2File').click()" style="background:var(--amber);color:#000;border:none;border-radius:var(--radius);padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">Choose File</button>
-              <div id="pr-w2Bar" style="display:none;margin-top:10px;font-size:11px;color:var(--amber);font-weight:600"></div>
-            </div>
-          </div>
-
-          <div style="text-align:center">
-            <button onclick="prAnalyze()" id="pr-analyzeBtn" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:10px 32px;font-size:13px;font-weight:700;cursor:pointer;display:none">Generate Pivot Table →</button>
-          </div>
-        </div>
-
-        <!-- Loading -->
-        <div id="pr-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2)">
-          <div style="width:36px;height:36px;border:3px solid var(--bg3);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem"></div>
-          Generating pivot table...
-        </div>
-
-        <!-- Pivot Table -->
-        <div id="pr-dashboard" style="display:none">
-          <div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">
-            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;flex:1;min-width:150px">
-              <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase">Total Caregivers</div>
-              <div style="font-size:24px;font-weight:800;color:var(--blue);margin-top:4px" id="pr-totalCG">0</div>
-            </div>
-            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;flex:1;min-width:150px">
-              <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase">Week 1 Total</div>
-              <div style="font-size:24px;font-weight:800;color:var(--green);margin-top:4px" id="pr-w1Total">0h</div>
-            </div>
-            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;flex:1;min-width:150px">
-              <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase">Week 2 Total</div>
-              <div style="font-size:24px;font-weight:800;color:var(--amber);margin-top:4px" id="pr-w2Total">0h</div>
-            </div>
-            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;flex:1;min-width:150px">
-              <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase">Grand Total</div>
-              <div style="font-size:24px;font-weight:800;color:var(--teal);margin-top:4px" id="pr-grandTotal">0h</div>
-            </div>
-          </div>
-
-          <!-- Pivot Table -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto;margin-bottom:1.5rem">
-            <table style="width:100%;border-collapse:collapse" id="pr-pivot">
-              <thead>
-                <tr style="background:var(--bg3)">
-                  <th style="padding:12px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);min-width:200px">Caregiver</th>
-                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--green);min-width:120px;border-left:1px solid var(--border)">📅 Week 1 (PHD)</th>
-                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--amber);min-width:120px;border-left:1px solid var(--border)">📅 Week 2 (PHD)</th>
-                  <th style="padding:12px;text-align:center;font-size:11px;font-weight:700;color:var(--teal);min-width:120px;border-left:1px solid var(--border)">💼 Total (PHD)</th>
-                </tr>
-              </thead>
-              <tbody id="pr-tbody"></tbody>
-            </table>
-          </div>
-
-          <!-- Export & Reset -->
-          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
-            <button onclick="prExportExcel()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">📥 Export Excel</button>
-            <button onclick="prReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer">↺ Upload New Files</button>
           </div>
         </div>
       </div>
@@ -2291,45 +2194,26 @@ var _newsCache = {data: null, src: '', ts: 0};
 var _newsCache = {data: null, src: '', ts: 0};
 
 var NEWS_FEEDS = [
-  {label: '🌐 All News',            url: 'ALL'},
-  // ── Google News: Nepali & Bhutanese ──────────────────────────────────────
-  {label: '🇳🇵 Nepali Home Care',       url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Nepali home care Medicaid caregiver')},
-  {label: '🏔️ Bhutanese Medicaid',      url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Bhutanese Medicaid home care fraud Pennsylvania')},
-  {label: '🌏 Refugee Caregivers',      url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('refugee caregiver Medicaid home care')},
-
-  // ── Google News: Home Care ────────────────────────────────────────────────
-  {label: '🏠 Home Care News',          url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('home care agency Medicaid waiver')},
-  {label: '🏥 PA Home Care',            url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Pennsylvania home care Medicaid')},
-  {label: '🚨 Medicaid Fraud',          url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Medicaid fraud home care caregiver')},
-  {label: '📋 Medicaid Policy',         url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Medicaid policy home care waiver 2025 2026')},
-  {label: '💰 Medicaid Billing',        url: 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent('Medicaid billing home care agency')},
-
-  // ── Industry Publications ─────────────────────────────────────────────────
-  {label: '📰 Home Health Care News',   url: 'https://homehealthcarenews.com/feed/'},
-  {label: '📰 Home Care Magazine',      url: 'https://www.homecaremag.com/rss.xml'},
-  {label: "📰 McKnight's Home Care",    url: 'https://www.mcknightshomecare.com/feed/'},
-  {label: '📰 NAHC',                    url: 'https://www.nahc.org/feed/'},
-  {label: '📰 PA Home Care Assoc',      url: 'https://pahomecare.org/feed/'}
+  {label: 'All Home Care News',    url: 'https://homehealthcarenews.com/feed/'},
+  {label: 'Home Care Magazine',    url: 'https://www.homecaremag.com/rss.xml'},
+  {label: 'PA Home Care',          url: 'https://pahomecare.org/feed/'},
+  {label: 'HCAOA',                 url: 'https://www.hcaoa.org/feed/'},
+  {label: "McKnight's Home Care",  url: 'https://www.mcknightshomecare.com/feed/'},
+  {label: 'HCHB News',             url: 'https://hchb.com/feed/'},
+  {label: 'Home Care Pulse',       url: 'https://www.homecarepulse.com/feed/'},
+  {label: 'NAHC News',             url: 'https://www.nahc.org/feed/'}
 ];
 
 function fetchRSS(feedUrl, onSuccess, onFail) {
-  // Google News works better via allorigins; other feeds via corsproxy
-  var isGoogle = feedUrl.includes('news.google.com');
-  var proxy1 = isGoogle
-    ? 'https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl)
-    : 'https://corsproxy.io/?' + feedUrl;
-  var proxy2 = isGoogle
-    ? 'https://corsproxy.io/?' + feedUrl
-    : 'https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl);
-
-  fetch(proxy1)
+  /* Try corsproxy.io first, then allorigins as backup */
+  fetch('https://corsproxy.io/?' + feedUrl)
     .then(function(r) {
       if (!r.ok) throw new Error('bad status');
       return r.text();
     })
     .then(onSuccess)
     .catch(function() {
-      fetch(proxy2)
+      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl))
         .then(function(r) { return r.text(); })
         .then(onSuccess)
         .catch(onFail);
@@ -2343,51 +2227,30 @@ function loadNews(force) {
   var grid   = document.getElementById('news-grid');
   var status = document.getElementById('news-status');
   var now    = Date.now();
-
   if (!force && _newsCache.data && _newsCache.src === feed.label && (now - _newsCache.ts) < 300000) {
     renderNewsGrid(_newsCache.data, _newsCache.src); return;
   }
-
-  grid.innerHTML = '';
-
-  // ALL NEWS — fetch every feed and combine
-  if (feed.url === 'ALL') {
-    status.textContent = 'Loading all sources...';
-    var allFeeds = NEWS_FEEDS.filter(function(f){ return f.url !== 'ALL'; });
-    var combined = [];
-    var done = 0;
-    var total = allFeeds.length;
-
-    allFeeds.forEach(function(f) {
-      fetchRSS(f.url,
-        function(xml) {
-          var arts = extractArticles(xml, f.label);
-          combined = combined.concat(arts);
-          done++;
-          status.textContent = 'Loading all sources... (' + done + '/' + total + ')';
-          if (done === total) {
-            combined.sort(function(a,b){ return new Date(b.pubDate||0) - new Date(a.pubDate||0); });
-            _newsCache = { data: combined.slice(0,50), src: feed.label, ts: Date.now() };
-            renderNewsGrid(_newsCache.data, 'All News');
-          }
-        },
-        function() {
-          done++;
-          if (done === total && combined.length) {
-            combined.sort(function(a,b){ return new Date(b.pubDate||0) - new Date(a.pubDate||0); });
-            _newsCache = { data: combined.slice(0,50), src: feed.label, ts: Date.now() };
-            renderNewsGrid(_newsCache.data, 'All News');
-          }
+  grid.innerHTML = ''; status.textContent = 'Loading ' + feed.label + '...';
+  if (idx === 0) {
+    /* All Home Care: fetch top 3 sources and combine */
+    var combined = []; var done = 0; var sources = [NEWS_FEEDS[0], NEWS_FEEDS[1], NEWS_FEEDS[2]];
+    sources.forEach(function(src) {
+      fetchRSS(src.url, function(xml) {
+        var arts = extractArticles(xml, src.label);
+        combined = combined.concat(arts);
+        done++;
+        if (done === sources.length) {
+          combined.sort(function(a,b){ return new Date(b.pubDate||0)-new Date(a.pubDate||0); });
+          _newsCache = {data:combined.slice(0,20), src:feed.label, ts:Date.now()};
+          renderNewsGrid(_newsCache.data, 'All Home Care');
         }
-      );
+      }, function() { done++; if (done===sources.length && combined.length) renderNewsGrid(combined,'All Home Care'); });
     });
     return;
   }
-
-  status.textContent = 'Loading ' + feed.label + '...';
   fetchRSS(feed.url,
     function(xml) { parseAndRender(xml, feed.label, grid, status); },
-    function()    { status.innerHTML = '<span style="color:var(--amber)">⚠️ ' + feed.label + ' unavailable. Try another source.</span>'; }
+    function()    { status.textContent = feed.label + ' is unavailable. Try another source.'; }
   );
 }
 
@@ -3660,199 +3523,6 @@ function haPrint() {
   w.document.close();
   w.focus();
   setTimeout(function(){ w.print(); }, 500);
-}
-
-
-
-// ─── PAYROLL HOURS ────────────────────────────────────────────────────────
-var prFiles = { w1: null, w2: null };
-var prData = { w1: [], w2: [] };
-var prPivot = [];
-
-function prSetFile(file, week) {
-  if (!file) return;
-  prFiles[week] = file;
-  var bar = document.getElementById('pr-' + week + 'Bar');
-  bar.style.display = 'block';
-  bar.textContent = '✅ ' + file.name;
-
-  // Show analyze button when both files uploaded
-  if (prFiles.w1 && prFiles.w2) {
-    document.getElementById('pr-analyzeBtn').style.display = 'inline-block';
-  }
-}
-
-function prAnalyze() {
-  if (!prFiles.w1 || !prFiles.w2) return;
-  document.getElementById('pr-loading').style.display = 'block';
-  document.getElementById('pr-uploadWrap').style.display = 'none';
-  document.getElementById('pr-dashboard').style.display = 'none';
-
-  prLoadXLSX(function() {
-    var reader1 = new FileReader();
-    reader1.onload = function(e1) {
-      try {
-        var wb1 = XLSX.read(new Uint8Array(e1.target.result), {type:'array'});
-        var sheetName1 = wb1.SheetNames[0];
-        var rows1 = XLSX.utils.sheet_to_json(wb1.Sheets[sheetName1], {defval:''});
-
-        // Find actual data rows (skip headers) - look for row with Caregiver Name
-        var headerIdx1 = -1;
-        for (var i = 0; i < rows1.length; i++) {
-          if (rows1[i]['Caregiver Name']) { headerIdx1 = i; break; }
-        }
-        if (headerIdx1 >= 0) prData.w1 = rows1.slice(headerIdx1);
-        console.log('Week 1 loaded:', prData.w1.length, 'rows');
-
-        var reader2 = new FileReader();
-        reader2.onload = function(e2) {
-          try {
-            var wb2 = XLSX.read(new Uint8Array(e2.target.result), {type:'array'});
-            var sheetName2 = wb2.SheetNames[0];
-            var rows2 = XLSX.utils.sheet_to_json(wb2.Sheets[sheetName2], {defval:''});
-
-            var headerIdx2 = -1;
-            for (var i = 0; i < rows2.length; i++) {
-              if (rows2[i]['Caregiver Name']) { headerIdx2 = i; break; }
-            }
-            if (headerIdx2 >= 0) prData.w2 = rows2.slice(headerIdx2);
-            console.log('Week 2 loaded:', prData.w2.length, 'rows');
-
-            prBuildPivot();
-          } catch(err) {
-            document.getElementById('pr-loading').style.display = 'none';
-            alert('Error reading Week 2: ' + err.message);
-          }
-        };
-        reader2.readAsArrayBuffer(prFiles.w2);
-      } catch(err) {
-        document.getElementById('pr-loading').style.display = 'none';
-        alert('Error reading Week 1: ' + err.message);
-      }
-    };
-    reader1.readAsArrayBuffer(prFiles.w1);
-  });
-}
-
-function prBuildPivot() {
-  // Create pivot: caregiver name + SSN as row key, week1/week2 as columns, phd as values
-  var pivotMap = {};
-
-  // Add Week 1 data
-  prData.w1.forEach(function(r) {
-    var cg = (r['Caregiver Name']||'').toString().trim();
-    var ssn = (r['SSN']||'').toString().trim();
-    if (!cg || !ssn) return;
-
-    var key = cg + '||' + ssn;
-    if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
-
-    var phd = parseFloat(r['phd'] || 0);
-    pivotMap[key].w1 += phd;
-  });
-
-  // Add Week 2 data
-  prData.w2.forEach(function(r) {
-    var cg = (r['Caregiver Name']||'').toString().trim();
-    var ssn = (r['SSN']||'').toString().trim();
-    if (!cg || !ssn) return;
-
-    var key = cg + '||' + ssn;
-    if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
-
-    var phd = parseFloat(r['phd'] || 0);
-    pivotMap[key].w2 += phd;
-  });
-
-  // Convert to array and sort by caregiver name
-  prPivot = Object.values(pivotMap).sort(function(a,b) {
-    return a.cg.localeCompare(b.cg);
-  });
-
-  // Calculate totals
-  var totW1 = 0, totW2 = 0;
-  prPivot.forEach(function(r) {
-    totW1 += r.w1;
-    totW2 += r.w2;
-  });
-
-  // Display
-  document.getElementById('pr-loading').style.display = 'none';
-  document.getElementById('pr-dashboard').style.display = 'block';
-  document.getElementById('pr-totalCG').textContent = prPivot.length;
-  document.getElementById('pr-w1Total').textContent = totW1.toFixed(2) + ' hrs';
-  document.getElementById('pr-w2Total').textContent = totW2.toFixed(2) + ' hrs';
-  document.getElementById('pr-grandTotal').textContent = (totW1 + totW2).toFixed(2) + ' hrs';
-
-  // Render table
-  var tbody = document.getElementById('pr-tbody');
-  var rows = prPivot.map(function(r) {
-    var total = r.w1 + r.w2;
-    return '<tr style="border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
-      + '<td style="padding:10px 12px">'
-      + '<div style="font-weight:600;font-size:13px">' + r.cg + '</div>'
-      + '<div style="font-size:10px;color:var(--text3)">' + r.ssn + '</div>'
-      + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + r.w1.toFixed(2) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + r.w2.toFixed(2) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--teal);font-size:13px">' + total.toFixed(2) + '</td>'
-      + '</tr>';
-  }).join('');
-
-  // Add totals row
-  rows += '<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">'
-    + '<td style="padding:10px 12px;font-weight:700">TOTAL</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--green);font-weight:700">' + totW1.toFixed(2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--amber);font-weight:700">' + totW2.toFixed(2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--teal);font-weight:700">' + (totW1 + totW2).toFixed(2) + '</td>'
-    + '</tr>';
-
-  tbody.innerHTML = rows;
-}
-
-function prFmtHours(decimal) {
-  if (!decimal || decimal === 0) return '0h';
-  var h = Math.floor(decimal);
-  var m = Math.round((decimal - h) * 60);
-  return h + 'h ' + (m > 0 ? m + 'm' : '');
-}
-
-function prLoadXLSX(cb) {
-  if (window.XLSX) { cb(); return; }
-  var s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-  s.onload = cb; document.head.appendChild(s);
-}
-
-function prExportExcel() {
-  var rows = [['Caregiver', 'SSN', 'Week 1', 'Week 2', 'Total']];
-  var totW1 = 0, totW2 = 0;
-
-  prPivot.forEach(function(r) {
-    var total = r.w1 + r.w2;
-    totW1 += r.w1;
-    totW2 += r.w2;
-    rows.push([r.cg, r.ssn, r.w1, r.w2, total]);
-  });
-
-  rows.push(['TOTAL', '', totW1.toFixed(2), totW2.toFixed(2), (totW1 + totW2).toFixed(2)]);
-
-  var ws = XLSX.utils.aoa_to_sheet(rows);
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Payroll Hours');
-  ws['!cols'] = [25, 15, 12, 12, 12].map(function(w){ return {wch:w}; });
-  XLSX.writeFile(wb, 'Payroll_Hours_' + new Date().toISOString().slice(0,10) + '.xlsx');
-}
-
-function prReset() {
-  prFiles = { w1: null, w2: null };
-  prData = { w1: [], w2: [] };
-  prPivot = [];
-  document.getElementById('pr-uploadWrap').style.display = 'block';
-  document.getElementById('pr-dashboard').style.display = 'none';
-  document.getElementById('pr-w1Bar').style.display = 'none';
-  document.getElementById('pr-w2Bar').style.display = 'none';
-  document.getElementById('pr-analyzeBtn').style.display = 'none';
 }
 
 </script>
