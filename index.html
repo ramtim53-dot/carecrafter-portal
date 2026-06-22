@@ -1088,8 +1088,8 @@ textarea.field-input{resize:vertical;min-height:80px}
 <script>
 
 // ─── CONFIG ───
-const SB_URL = 'https://kgekaljkjgrjbxjxotbg.supabase.co';
-const SB_KEY = 'sb_publishable_f41PbhJlO6JXYYnUugLvgA_VGmZeQgP';
+const SB_URL = 'https://tqkdwykzdkivshxbcrar.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxa2R3eWt6ZGtpdnNoeGJjcmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDkwODEsImV4cCI6MjA5NzcyNTA4MX0.KvCSufDfVu4dkI21pOSz3JTus6VFIeaPAfjAO_R-fz4';
 
 const USERS = [
   { email:'ram@carecrafter.tools',   password:'CareCrafter2024!', name:'Ram',   role:'Owner · Administrator' },
@@ -2168,7 +2168,7 @@ td{padding:10px 14px;border-bottom:1px solid rgba(37,40,48,.4);vertical-align:mi
   <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Agency</th><th>User</th><th>Status</th><th>Activated</th><th>Expires</th><th>Time Left</th></tr></thead><tbody id="codesBody"></tbody></table><div class="loading-state" id="codesLoading" style="display:none"><div class="spin"></div><div>Loading...</div></div></div>
 </div>
 <script>
-const SB_URL='https://kgekaljkjgrjbxjxotbg.supabase.co',SB_KEY='sb_publishable_f41PbhJlO6JXYYnUugLvgA_VGmZeQgP';
+const SB_URL='https://tqkdwykzdkivshxbcrar.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxa2R3eWt6ZGtpdnNoeGJjcmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDkwODEsImV4cCI6MjA5NzcyNTA4MX0.KvCSufDfVu4dkI21pOSz3JTus6VFIeaPAfjAO_R-fz4';
 let allData=[],codesFilter='all',sortCol='used_at',sortDir='desc';
 async function loadAll(){document.getElementById('codesLoading').style.display='block';document.getElementById('lastSync').textContent='Loading...';try{const r=await fetch(SB_URL+'/rest/v1/activation_codes?select=*&order=created_at.desc&limit=5000',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(!r.ok)throw new Error('HTTP '+r.status);const raw=await r.json();allData=raw.map((x,i)=>{const act=x.used_at?new Date(x.used_at):null;const dur=x.duration_days||30;const exp=act?new Date(act.getTime()+dur*86400000):null;const now=Date.now();const status=!act?'unused':(exp&&exp>now?'active':'expired');return{...x,idx:i+1,activatedAt:act,expiry:exp,status};});updateSummary();renderRecent();renderAgencies();renderCodes();document.getElementById('lastSync').textContent='Updated '+new Date().toLocaleTimeString();document.getElementById('codesLoading').style.display='none';}catch(e){document.getElementById('lastSync').textContent='Error: '+e.message;document.getElementById('codesLoading').style.display='none';}}
 function updateSummary(){const active=allData.filter(r=>r.status==='active').length,expired=allData.filter(r=>r.status==='expired').length,unused=allData.filter(r=>r.status==='unused').length,soon=allData.filter(r=>r.status==='active'&&r.expiry&&(r.expiry-Date.now())<7*86400000).length;document.getElementById('sTotal').textContent=allData.length;document.getElementById('sActive').textContent=active;document.getElementById('sExpired').textContent=expired;document.getElementById('sSoon').textContent=soon;document.getElementById('sUnused').textContent=unused;}
