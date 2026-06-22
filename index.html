@@ -1383,7 +1383,7 @@ function renderChangelog() {
   el.innerHTML = changelog.map(c => `<div class="cl-item"><div class="cl-dot"></div><div><div class="cl-ver">${c.version}</div><div class="cl-text">${c.text}</div><div class="cl-date">${fmtDate(c.date)}</div></div></div>`).join('');
 }
 
-async function loadCodes() {
+async async function loadCodes() {
   try {
     const r = await fetch(`${SB_URL}/rest/v1/activation_codes?select=*&order=created_at.desc&limit=5000`, {headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -1405,7 +1405,7 @@ async function loadCodes() {
   } catch(e) { document.getElementById('codesTbody').innerHTML = `<tr class="empty-row"><td colspan="7">⚠ Supabase: ${e.message}</td></tr>`; }
 }
 
-function generateCode() {
+async function generateCode() {
   const prefix = document.getElementById('codePrefix').value;
   const dur    = document.getElementById('codeDur').value;
   const agency = document.getElementById('codeAgency').value.trim();
