@@ -3735,37 +3735,48 @@ function prAnalyze() {
 }
 
 function prBuildPivot() {
-  var map = {};
+  // Create pivot: caregiver name + SSN as row key, week1/week2 as columns, phd as values
+  var pivotMap = {};
 
-  // Process Week 1 - extract ONLY: Caregiver, SSN, W1 PHD
+  // Add Week 1 data
   prData.w1.forEach(function(r) {
-    var cg = r['Caregiver'] || r['Caregiver Name'] || '';
-    var ssn = r['SSN'] || '';
-    var w1 = r['W1 PHD'] || 0;
-
+    var cg = (r['Caregiver Name']||'').toString().trim();
+    var ssn = (r['SSN']||'').toString().trim();
     if (!cg || !ssn) return;
+
     var key = cg + '||' + ssn;
-    if (!map[key]) map[key] = {cg: cg, ssn: ssn, w1: 0, w2: 0};
-    map[key].w1 = parseFloat(w1) || 0;
+    if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
+
+    var phd = parseFloat(r['phd'] || 0);
+    pivotMap[key].w1 += phd;
   });
 
-  // Process Week 2 - extract ONLY: Caregiver, SSN, W2 PHD
+  // Add Week 2 data
   prData.w2.forEach(function(r) {
-    var cg = r['Caregiver'] || r['Caregiver Name'] || '';
-    var ssn = r['SSN'] || '';
-    var w2 = r['W2 PHD'] || 0;
-
+    var cg = (r['Caregiver Name']||'').toString().trim();
+    var ssn = (r['SSN']||'').toString().trim();
     if (!cg || !ssn) return;
+
     var key = cg + '||' + ssn;
-    if (!map[key]) map[key] = {cg: cg, ssn: ssn, w1: 0, w2: 0};
-    map[key].w2 = parseFloat(w2) || 0;
+    if (!pivotMap[key]) pivotMap[key] = { cg: cg, ssn: ssn, w1: 0, w2: 0 };
+
+    var phd = parseFloat(r['phd'] || 0);
+    pivotMap[key].w2 += phd;
   });
 
-  prPivot = Object.values(map).sort(function(a,b) { return a.cg.localeCompare(b.cg); });
+  // Convert to array and sort by caregiver name
+  prPivot = Object.values(pivotMap).sort(function(a,b) {
+    return a.cg.localeCompare(b.cg);
+  });
 
+  // Calculate totals
   var totW1 = 0, totW2 = 0;
-  prPivot.forEach(function(r) { totW1 += r.w1; totW2 += r.w2; });
+  prPivot.forEach(function(r) {
+    totW1 += r.w1;
+    totW2 += r.w2;
+  });
 
+  // Display
   document.getElementById('pr-loading').style.display = 'none';
   document.getElementById('pr-dashboard').style.display = 'block';
   document.getElementById('pr-totalCG').textContent = prPivot.length;
@@ -3773,24 +3784,30 @@ function prBuildPivot() {
   document.getElementById('pr-w2Total').textContent = totW2.toFixed(2) + ' hrs';
   document.getElementById('pr-grandTotal').textContent = (totW1 + totW2).toFixed(2) + ' hrs';
 
-  var html = prPivot.map(function(r) {
-    var t = r.w1 + r.w2;
-    return '<tr style="border-top:1px solid var(--border)">'
-      + '<td style="padding:10px 12px"><strong>' + r.cg + '</strong><br><small style="color:var(--text3)">' + r.ssn + '</small></td>'
-      + '<td style="padding:10px 12px;text-align:center;color:var(--green);font-weight:600">' + r.w1.toFixed(2) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;color:var(--amber);font-weight:600">' + r.w2.toFixed(2) + '</td>'
-      + '<td style="padding:10px 12px;text-align:center;color:var(--teal);font-weight:700">' + t.toFixed(2) + '</td>'
+  // Render table
+  var tbody = document.getElementById('pr-tbody');
+  var rows = prPivot.map(function(r) {
+    var total = r.w1 + r.w2;
+    return '<tr style="border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'transparent\'">'
+      + '<td style="padding:10px 12px">'
+      + '<div style="font-weight:600;font-size:13px">' + r.cg + '</div>'
+      + '<div style="font-size:10px;color:var(--text3)">' + r.ssn + '</div>'
+      + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--green);font-size:13px">' + r.w1.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--amber);font-size:13px">' + r.w2.toFixed(2) + '</td>'
+      + '<td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--teal);font-size:13px">' + total.toFixed(2) + '</td>'
       + '</tr>';
   }).join('');
 
-  html += '<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">'
-    + '<td style="padding:10px 12px">TOTAL</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--green)">' + totW1.toFixed(2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--amber)">' + totW2.toFixed(2) + '</td>'
-    + '<td style="padding:10px 12px;text-align:center;color:var(--teal)">' + (totW1 + totW2).toFixed(2) + '</td>'
+  // Add totals row
+  rows += '<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">'
+    + '<td style="padding:10px 12px;font-weight:700">TOTAL</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--green);font-weight:700">' + totW1.toFixed(2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--amber);font-weight:700">' + totW2.toFixed(2) + '</td>'
+    + '<td style="padding:10px 12px;text-align:center;color:var(--teal);font-weight:700">' + (totW1 + totW2).toFixed(2) + '</td>'
     + '</tr>';
 
-  document.getElementById('pr-tbody').innerHTML = html;
+  tbody.innerHTML = rows;
 }
 
 function prFmtHours(decimal) {
