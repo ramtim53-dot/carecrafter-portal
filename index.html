@@ -1193,6 +1193,12 @@ function seedChangelog() {
 function saveVersions()  { localStorage.setItem('cc_vers', JSON.stringify(versions)); }
 function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(changelog)); }
 
+// Auto-navigate if opened from extension with ?v=viewname
+(function() {
+  const v = new URLSearchParams(window.location.search).get('v');
+  if (v) window.addEventListener('DOMContentLoaded', () => showView(v));
+})();
+
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
