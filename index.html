@@ -264,6 +264,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('timesheets')"><span class="nav-icon">📲</span>Timesheet Alerts</button>
         <button class="nav-btn" onclick="showView('hours')"><span class="nav-icon">💰</span>Hours Analysis</button>
         <button class="nav-btn" onclick="showView('overlaps')"><span class="nav-icon">🔄</span>Overlapping Shifts</button>
+        <button class="nav-btn" onclick="showView('authanalysis')"><span class="nav-icon">🔐</span>Auth Analysis</button>
         <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon">💬</span>Quick Text</button>
       </div>
       <div class="sidebar-footer">
@@ -1064,6 +1065,87 @@ textarea.field-input{resize:vertical;min-height:80px}
         </div>
       </div>
 
+      <!-- AUTH ANALYSIS VIEW -->
+      <div class="view" id="v-authanalysis">
+        <div class="view-title">🔐 Auth Analysis</div>
+        <div class="view-sub">In HHAeXchange: <strong>Reports</strong> → <strong>Authorizations</strong> → <strong>Comparison of Hours</strong> → Export Excel</div>
+
+        <!-- Upload -->
+        <div id="aa-uploadWrap">
+          <div id="aa-dropArea" style="background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:3rem;text-align:center;cursor:pointer"
+            ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+            ondragleave="this.style.borderColor='var(--border2)'"
+            ondrop="event.preventDefault();this.style.borderColor='var(--border2)';aaSetFile(event.dataTransfer.files[0])">
+            <input type="file" id="aa-fileInp" accept=".xlsx,.xls" style="display:none" onchange="aaSetFile(this.files[0])">
+            <div style="font-size:40px;margin-bottom:0.75rem">🔐</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:6px">Drop Comparison of Hours Report Here</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:1.25rem">HHAeXchange → <strong>Reports</strong> → <strong>Authorizations</strong> → <strong>Comparison of Hours</strong> → Export Excel</div>
+            <button onclick="document.getElementById('aa-fileInp').click()" style="background:var(--accent);color:#000;border:none;border-radius:var(--radius);padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Choose File</button>
+          </div>
+          <div id="aa-fileBar" style="display:none;align-items:center;gap:12px;background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.2);border-radius:var(--radius);padding:12px 16px;margin-top:12px">
+            <span>📄</span>
+            <span id="aa-fileName" style="color:var(--accent);font-weight:600;flex:1;font-size:13px"></span>
+            <button onclick="aaAnalyze()" id="aa-analyzeBtn" style="background:var(--accent);color:#000;border:none;border-radius:var(--radius);padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">Analyze</button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="aa-results" style="display:none;margin-top:1.5rem">
+          <!-- Summary Cards -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.5rem">
+            <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;text-align:center">
+              <div style="font-size:28px;font-weight:900;color:var(--text)" id="aa-totalMembers">0</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px">Total Members</div>
+            </div>
+            <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);padding:16px;text-align:center">
+              <div style="font-size:28px;font-weight:900;color:#ef4444" id="aa-overCount">0</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px">Over-Scheduled</div>
+            </div>
+            <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius);padding:16px;text-align:center">
+              <div style="font-size:28px;font-weight:900;color:#22c55e" id="aa-withinCount">0</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px">Within Auth</div>
+            </div>
+            <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius);padding:16px;text-align:center">
+              <div style="font-size:28px;font-weight:900;color:var(--amber)" id="aa-totalOver">0:00</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px">Total Over-Auth Hrs</div>
+            </div>
+          </div>
+
+          <!-- Filter Bar -->
+          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+            <input type="text" id="aa-search" placeholder="Search member..." oninput="aaFilter()" style="flex:1;min-width:160px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:8px 12px;font-size:13px">
+            <select id="aa-filter" onchange="aaFilter()" style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:8px 12px;font-size:13px">
+              <option value="all">All Members</option>
+              <option value="over">Over-Scheduled Only</option>
+              <option value="within">Within Auth Only</option>
+            </select>
+          </div>
+
+          <!-- Table -->
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px" id="aa-table">
+              <thead>
+                <tr style="background:var(--bg2);border-bottom:2px solid var(--border2)">
+                  <th style="padding:10px 12px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Member</th>
+                  <th style="padding:10px 12px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Period</th>
+                  <th style="padding:10px 12px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Auth Hrs</th>
+                  <th style="padding:10px 12px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sched Hrs</th>
+                  <th style="padding:10px 12px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Confirmed</th>
+                  <th style="padding:10px 12px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Auth/Sched Gap</th>
+                  <th style="padding:10px 12px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody id="aa-tbody"></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:1rem;display:flex;gap:8px;justify-content:flex-end">
+            <button onclick="aaExport()" style="background:var(--green);color:#000;border:none;border-radius:var(--radius);padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">📥 Export Excel</button>
+            <button onclick="aaReset()" style="background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer">↺ Upload New</button>
+          </div>
+        </div>
+      </div>
+
 </div><!-- end .main -->
   </div><!-- end .app-shell -->
 </div><!-- end #s-app -->
@@ -1203,7 +1285,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -3529,6 +3611,155 @@ function haPrint() {
   w.document.close();
   w.focus();
   setTimeout(function(){ w.print(); }, 500);
+}
+
+
+// ─── AUTH ANALYSIS ───────────────────────────────────────────────────────────
+var aaRows = [];
+
+function aaLoadXLSX(cb){if(window.XLSX){cb();return;}var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=cb;document.head.appendChild(s);}
+
+function aaSetFile(f) {
+  if (!f) return;
+  document.getElementById('aa-fileName').textContent = f.name;
+  document.getElementById('aa-fileBar').style.display = 'flex';
+  aaLoadXLSX(function() {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      var sheet = wb.Sheets['Detail Data'] || wb.Sheets[wb.SheetNames[0]];
+      var data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      // Find header row
+      var hdrIdx = -1;
+      for (var i = 0; i < Math.min(data.length, 10); i++) {
+        if (data[i] && data[i].some(function(c){ return typeof c === 'string' && c.includes('Auth'); })) {
+          hdrIdx = i; break;
+        }
+      }
+      if (hdrIdx < 0) { alert('Could not find header row. Make sure to use "Comparison of Hours" report.'); return; }
+      var hdrs = data[hdrIdx].map(function(h){ return (h||'').toString().trim(); });
+      var ci = {
+        member:     hdrs.findIndex(function(h){ return h.toLowerCase().includes('member') && !h.toLowerCase().includes('phone'); }),
+        period:     hdrs.findIndex(function(h){ return h.toLowerCase().includes('weekly period'); }),
+        authHrs:    hdrs.findIndex(function(h){ return h.toLowerCase().includes('auth') && h.toLowerCase().includes('hour') && !h.toLowerCase().includes('bill'); }),
+        schedHrs:   hdrs.findIndex(function(h){ return h.toLowerCase().includes('scheduled hours'); }),
+        authSched:  hdrs.findIndex(function(h){ return h.toLowerCase().includes('auth') && h.toLowerCase().includes('sch') && h.toLowerCase().includes('discrepancy'); }),
+        confHrs:    hdrs.findIndex(function(h){ return h.toLowerCase().includes('confirmed hours'); }),
+        schConf:    hdrs.findIndex(function(h){ return h.toLowerCase().includes('sch') && h.toLowerCase().includes('conf') && h.toLowerCase().includes('discrepancy'); }),
+      };
+      aaRows = [];
+      for (var r = hdrIdx + 1; r < data.length; r++) {
+        var row = data[r];
+        if (!row || !row[ci.member]) continue;
+        var mem = (row[ci.member] || '').toString().trim();
+        if (!mem) continue;
+        aaRows.push({
+          member:    mem,
+          period:    ci.period >= 0 ? (row[ci.period] || '') : '',
+          authHrs:   ci.authHrs >= 0 ? (row[ci.authHrs] || '0:00') : '0:00',
+          schedHrs:  ci.schedHrs >= 0 ? (row[ci.schedHrs] || '0:00') : '0:00',
+          confHrs:   ci.confHrs >= 0 ? (row[ci.confHrs] || '0:00') : '0:00',
+          authSched: ci.authSched >= 0 ? (row[ci.authSched] || '00:00') : '00:00',
+          schConf:   ci.schConf >= 0 ? (row[ci.schConf] || '00:00') : '00:00',
+        });
+      }
+      aaAnalyze();
+    } catch(err) { alert('Error reading file: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(f);
+  }); // end aaLoadXLSX
+}
+
+function aaHrsToMins(s) {
+  s = (s || '').toString().trim();
+  var neg = s.startsWith('-');
+  s = s.replace(/^[+\-]/, '');
+  var parts = s.split(':');
+  var m = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+  return neg ? -m : m;
+}
+
+function aaMinsToHrs(m) {
+  var neg = m < 0; m = Math.abs(m);
+  var h = Math.floor(m / 60), mn = m % 60;
+  return (neg ? '-' : '') + h + ':' + (mn < 10 ? '0' : '') + mn;
+}
+
+function aaAnalyze() {
+  if (!aaRows.length) return;
+  document.getElementById('aa-results').style.display = 'block';
+  aaFilter();
+}
+
+function aaFilter() {
+  var search = (document.getElementById('aa-search').value || '').toLowerCase();
+  var filter = document.getElementById('aa-filter').value;
+  var overCount = 0, withinCount = 0, totalOverMins = 0;
+  var filtered = aaRows.filter(function(r) {
+    var authSchedMins = aaHrsToMins(r.authSched);
+    // negative authSched = over-scheduled (scheduled > auth)
+    var isOver = authSchedMins < 0;
+    if (isOver) { overCount++; totalOverMins += Math.abs(authSchedMins); }
+    else withinCount++;
+    if (filter === 'over' && !isOver) return false;
+    if (filter === 'within' && isOver) return false;
+    if (search && !r.member.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  document.getElementById('aa-totalMembers').textContent = aaRows.length;
+  document.getElementById('aa-overCount').textContent = overCount;
+  document.getElementById('aa-withinCount').textContent = withinCount;
+  document.getElementById('aa-totalOver').textContent = aaMinsToHrs(totalOverMins);
+
+  var tbody = document.getElementById('aa-tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">No records match filter</td></tr>';
+    return;
+  }
+  // Sort: over-scheduled first (most negative authSched first)
+  filtered.sort(function(a, b) { return aaHrsToMins(a.authSched) - aaHrsToMins(b.authSched); });
+
+  tbody.innerHTML = filtered.map(function(r) {
+    var authSchedMins = aaHrsToMins(r.authSched);
+    var isOver = authSchedMins < 0;
+    var statusBg = isOver ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
+    var statusColor = isOver ? '#ef4444' : '#22c55e';
+    var statusLabel = isOver ? '⚠ OVER-SCHEDULED' : '✅ Within Auth';
+    var gapStyle = isOver ? 'color:#ef4444;font-weight:700' : 'color:#22c55e';
+    var rowBg = isOver ? 'rgba(239,68,68,0.04)' : '';
+    return '<tr style="border-bottom:1px solid var(--border2);background:' + rowBg + '">' +
+      '<td style="padding:9px 12px;color:var(--text);font-weight:600;font-size:12px">' + r.member + '</td>' +
+      '<td style="padding:9px 12px;color:var(--text3);font-size:11px">' + r.period + '</td>' +
+      '<td style="padding:9px 12px;text-align:center;color:var(--text2)">' + r.authHrs + '</td>' +
+      '<td style="padding:9px 12px;text-align:center;color:var(--text2)">' + r.schedHrs + '</td>' +
+      '<td style="padding:9px 12px;text-align:center;color:var(--text2)">' + r.confHrs + '</td>' +
+      '<td style="padding:9px 12px;text-align:center;' + gapStyle + '">' + r.authSched + '</td>' +
+      '<td style="padding:9px 12px;text-align:center"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap">' + statusLabel + '</span></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function aaExport() {
+  if (!aaRows.length) return;
+  var ws_data = [['Member','Period','Auth Hours','Scheduled Hours','Confirmed Hours','Auth/Sched Gap','Status']];
+  aaRows.forEach(function(r) {
+    var isOver = aaHrsToMins(r.authSched) < 0;
+    ws_data.push([r.member, r.period, r.authHrs, r.schedHrs, r.confHrs, r.authSched, isOver ? 'OVER-SCHEDULED' : 'Within Auth']);
+  });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws_data), 'Auth Analysis');
+  XLSX.writeFile(wb, 'auth-analysis.xlsx');
+}
+
+function aaReset() {
+  aaRows = [];
+  document.getElementById('aa-fileBar').style.display = 'none';
+  document.getElementById('aa-results').style.display = 'none';
+  document.getElementById('aa-fileInp').value = '';
+  document.getElementById('aa-search').value = '';
+  document.getElementById('aa-filter').value = 'all';
 }
 
 </script>
