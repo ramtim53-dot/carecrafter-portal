@@ -1197,11 +1197,24 @@ try {
   loginAttempts = att.c; lockoutUntil = att.u;
 } catch(e){}
 
-if (!currentUser && new URLSearchParams(window.location.search).get('ext') === '1')
-  currentUser = { name: 'Care Crafter', role: 'HHA Extension User' };
-if (currentUser) showApp(); else bootLogin();
+var _isExt = new URLSearchParams(window.location.search).get('ext') === '1';
+if (_isExt && !currentUser) currentUser = { name: 'Care Crafter', role: 'HHA Extension User' };
+if (currentUser) { try { showApp(); } catch(e){} } else bootLogin();
 
-function bootLogin() { document.getElementById('s-login').classList.add('active'); }
+function bootLogin() {
+  var _ext2 = new URLSearchParams(window.location.search).get('ext') === '1';
+  if (_ext2) {
+    if (!currentUser) currentUser = { name: 'Care Crafter', role: 'HHA Extension User' };
+    document.getElementById('s-login').style.display = 'none';
+    document.getElementById('s-app').style.display = 'flex';
+    try { showApp(); } catch(e) {
+      document.getElementById('s-login').style.display = 'none';
+      document.getElementById('s-app').style.display = 'flex';
+    }
+    return;
+  }
+  document.getElementById('s-login').classList.add('active');
+}
 
 function doLogin() {
   const now = Date.now();
