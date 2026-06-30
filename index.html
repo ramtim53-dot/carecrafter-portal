@@ -2557,6 +2557,26 @@ function tsToggleAll(cb) {
   tsSyncSelectAll();
 }
 
+function tsFmtTime(raw) {
+  if (!raw) return '';
+  // Convert a single HH:MM or HHMM military time token to 12-hr AM/PM
+  function toAmPm(t) {
+    t = t.replace(':', '');
+    if (t.length < 3 || t.length > 4 || isNaN(t)) return t;
+    var h = parseInt(t.slice(0, t.length - 2), 10);
+    var m = t.slice(-2);
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + (m !== '00' ? ':' + m : '') + ' ' + ampm;
+  }
+  // Handle range like "14:00-16:00" or "1400-1600"
+  if (raw.indexOf('-') !== -1) {
+    var parts = raw.split('-');
+    return toAmPm(parts[0].trim()) + ' - ' + toAmPm(parts[1].trim());
+  }
+  return toAmPm(raw.trim());
+}
+
 function tsFmtName(raw) {
   // HHAeXchange stores as "LAST... FIRST" — last word is first name, everything before is last name
   var parts = raw.trim().split(/\s+/);
@@ -2601,7 +2621,7 @@ function tsExportExcel() {
     if (!dcwVisits[code]) dcwVisits[code] = { name: name, visits: [] };
     if ((r['Problem'] || '').toLowerCase().includes('incomplete')) {
       var rawDate = r['Date'] ? new Date(r['Date']).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
-      var time = (r['Scheduled Time'] || '').trim();
+      var time = tsFmtTime((r['Scheduled Time'] || '').trim());
       var client = (r['Member Name'] || '').trim();
       dcwVisits[code].visits.push({ date: rawDate, time: time, client: client });
     }
