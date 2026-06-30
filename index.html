@@ -2557,12 +2557,32 @@ function tsToggleAll(cb) {
   tsSyncSelectAll();
 }
 
-function tsGetMessage(dcwName, visitCount) {
+function tsFmtName(raw) {
+  // HHAeXchange stores as "LAST FIRST" — reverse to "First Last"
+  var parts = raw.trim().split(/\s+/);
+  if (parts.length < 2) return raw.trim();
+  var last = parts[0];
+  var first = parts.slice(1).join(' ');
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() + ' ' + last.charAt(0).toUpperCase() + last.slice(1).toLowerCase();
+}
+
+function tsGetMessage(dcwName, visitCount, visits) {
   var tpl = document.getElementById('ts-msg-tpl').value;
-  // Use full name (first + last) — HHAeXchange stores as "LAST FIRST", so join all parts
-  var fullName = dcwName.trim();
-  return tpl.replace('[NAME]', fullName)
+  var firstName = tsFmtName(dcwName).split(' ')[0];
+  // Build visit detail lines: "Date at Time for Client"
+  var visitLines = '';
+  if (visits && visits.length) {
+    visitLines = ' ' + visits.slice(0,2).map(function(v) {
+      var parts = [];
+      if (v.date) parts.push(v.date);
+      if (v.time) parts.push('at ' + v.time);
+      if (v.client) parts.push('for ' + v.client);
+      return parts.join(' ');
+    }).join('; ') + '.';
+  }
+  return tpl.replace('[NAME]', firstName)
             .replace('[COUNT]', visitCount)
+            .replace('[VISITS]', visitLines)
             .replace('[AGENCY]', 'Care Crafter Home Care')
             .replace('[PHONE]', '412-308-5300');
 }
@@ -2571,7 +2591,7 @@ function tsExportExcel() {
   var checked = document.querySelectorAll('.ts-chk:checked');
   if (!checked.length) { alert('No DCWs selected.'); return; }
 
-  // Collect incomplete visits per DCW (capped at 2), with date + client
+  // Collect incomplete visits per DCW (capped at 2), with date + time + client
   var dcwVisits = {};
   tsParsedRows.forEach(function(r) {
     var name = (r['Caregiver Name'] || '').trim();
@@ -2580,30 +2600,33 @@ function tsExportExcel() {
     if (!dcwVisits[code]) dcwVisits[code] = { name: name, visits: [] };
     if ((r['Problem'] || '').toLowerCase().includes('incomplete')) {
       var rawDate = r['Date'] ? new Date(r['Date']).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+      var time = (r['Scheduled Time'] || '').trim();
       var client = (r['Member Name'] || '').trim();
-      dcwVisits[code].visits.push({ date: rawDate, client: client });
+      dcwVisits[code].visits.push({ date: rawDate, time: time, client: client });
     }
   });
 
-  var rows = [['Name', 'Phone Number', 'Timesheet Count (Max 2)', 'Visit Date(s)', 'Client Name(s)', 'Message']];
+  var rows = [['Name', 'Phone Number', 'Timesheet Count (Max 2)', 'Visit Date(s)', 'Visit Time(s)', 'Client Name(s)', 'Message']];
 
   Array.from(checked).forEach(function(cb) {
     var code = cb.dataset.code;
     var name = cb.dataset.name;
+    var fmtName = tsFmtName(name);
     var phone = tsPhoneBook[code] || '';
     var fmtPhone = phone ? (phone.length === 10 ? '(' + phone.slice(0,3) + ') ' + phone.slice(3,6) + '-' + phone.slice(6) : phone) : '';
     var visits = dcwVisits[code] ? dcwVisits[code].visits.slice(0, 2) : [];
     var count = visits.length || 1;
     var dates = visits.map(function(v){ return v.date; }).filter(Boolean).join(', ');
+    var times = visits.map(function(v){ return v.time; }).filter(Boolean).join(', ');
     var clients = visits.map(function(v){ return v.client; }).filter(Boolean).join(', ');
-    var msg = tsGetMessage(name, count);
-    rows.push([name, fmtPhone, count, dates, clients, msg]);
+    var msg = tsGetMessage(name, count, visits);
+    rows.push([fmtName, fmtPhone, count, dates, times, clients, msg]);
   });
 
   tsLoadXLSX(function() {
     var wb = XLSX.utils.book_new();
     var ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:30},{wch:18},{wch:22},{wch:30},{wch:40},{wch:100}];
+    ws['!cols'] = [{wch:30},{wch:18},{wch:22},{wch:30},{wch:20},{wch:40},{wch:120}];
     XLSX.utils.book_append_sheet(wb, ws, 'Timesheet Alerts');
     XLSX.writeFile(wb, 'timesheet-alerts-' + new Date().toISOString().slice(0,10) + '.xlsx');
   });
