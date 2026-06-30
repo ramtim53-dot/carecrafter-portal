@@ -2558,21 +2558,22 @@ function tsToggleAll(cb) {
 }
 
 function tsFmtName(raw) {
-  // HHAeXchange stores as "LAST FIRST" — reverse to "First Last"
+  // HHAeXchange stores as "LAST... FIRST" — last word is first name, everything before is last name
   var parts = raw.trim().split(/\s+/);
   if (parts.length < 2) return raw.trim();
-  var last = parts[0];
-  var first = parts.slice(1).join(' ');
-  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() + ' ' + last.charAt(0).toUpperCase() + last.slice(1).toLowerCase();
+  var first = parts[parts.length - 1];
+  var last = parts.slice(0, parts.length - 1).join(' ');
+  var cap = function(s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); };
+  return cap(first) + ' ' + last.split(' ').map(cap).join(' ');
 }
 
 function tsGetMessage(dcwName, visitCount, visits) {
   var tpl = document.getElementById('ts-msg-tpl').value;
   var firstName = tsFmtName(dcwName).split(' ')[0];
-  // Build visit detail lines: "Date at Time for Client"
+  // Build visit detail lines appended after the template
   var visitLines = '';
   if (visits && visits.length) {
-    visitLines = ' ' + visits.slice(0,2).map(function(v) {
+    visitLines = ' Visit(s): ' + visits.slice(0,2).map(function(v) {
       var parts = [];
       if (v.date) parts.push(v.date);
       if (v.time) parts.push('at ' + v.time);
@@ -2580,11 +2581,11 @@ function tsGetMessage(dcwName, visitCount, visits) {
       return parts.join(' ');
     }).join('; ') + '.';
   }
-  return tpl.replace('[NAME]', firstName)
-            .replace('[COUNT]', visitCount)
-            .replace('[VISITS]', visitLines)
-            .replace('[AGENCY]', 'Care Crafter Home Care')
-            .replace('[PHONE]', '412-308-5300');
+  var base = tpl.replace('[NAME]', firstName)
+               .replace('[COUNT]', visitCount)
+               .replace('[AGENCY]', 'Care Crafter Home Care')
+               .replace('[PHONE]', '412-308-5300');
+  return base + visitLines;
 }
 
 function tsExportExcel() {
