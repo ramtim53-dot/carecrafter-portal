@@ -810,6 +810,7 @@ textarea.field-input{resize:vertical;min-height:80px}
 
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                 <button onclick="tsSendAll()" style="background:var(--green);color:#fff;border:none;border-radius:var(--radius);padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer">📤 Send Texts</button>
+                <button onclick="tsExportExcel()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer">📥 Export Excel</button>
                 <span id="ts-send-status" style="font-size:12px"></span>
               </div>
               <div style="font-size:11px;color:var(--text3);margin-top:10px">💡 Texts are sent via <b>Twilio A2P</b>. Once your campaign is approved (24-48hrs), messages will deliver to all US carriers.</div>
@@ -2562,6 +2563,42 @@ function tsGetMessage(dcwName, visitCount) {
             .replace('[COUNT]', visitCount)
             .replace('[AGENCY]', 'Care Crafter Home Care')
             .replace('[PHONE]', '412-308-5300');
+}
+
+function tsExportExcel() {
+  var checked = document.querySelectorAll('.ts-chk:checked');
+  if (!checked.length) { alert('No DCWs selected.'); return; }
+
+  // Count incomplete visits per DCW (capped at 2)
+  var dcwVisits = {};
+  tsParsedRows.forEach(function(r) {
+    var name = (r['Caregiver Name'] || '').trim();
+    var code = (r['Caregiver Code'] || '').trim();
+    if (!dcwVisits[code]) dcwVisits[code] = { name: name, count: 0 };
+    if ((r['Problem'] || '').toLowerCase().includes('incomplete')) dcwVisits[code].count++;
+  });
+
+  var rows = [['Name', 'Phone Number', 'Timesheet Count (Max 2)', 'Message']];
+
+  Array.from(checked).forEach(function(cb) {
+    var code = cb.dataset.code;
+    var name = cb.dataset.name;
+    var phone = tsPhoneBook[code] || '';
+    var fmtPhone = phone ? (phone.length === 10 ? '(' + phone.slice(0,3) + ') ' + phone.slice(3,6) + '-' + phone.slice(6) : phone) : '';
+    var rawCount = dcwVisits[code] ? dcwVisits[code].count : 1;
+    var count = Math.min(rawCount, 2); // cap at 2
+    var msg = tsGetMessage(name, count);
+    rows.push([name, fmtPhone, count, msg]);
+  });
+
+  tsLoadXLSX(function() {
+    var wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    // Column widths
+    ws['!cols'] = [{wch:30},{wch:18},{wch:22},{wch:100}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Timesheet Alerts');
+    XLSX.writeFile(wb, 'timesheet-alerts-' + new Date().toISOString().slice(0,10) + '.xlsx');
+  });
 }
 
 function tsSendAll() {
