@@ -2559,7 +2559,9 @@ function tsToggleAll(cb) {
 
 function tsGetMessage(dcwName, visitCount) {
   var tpl = document.getElementById('ts-msg-tpl').value;
-  return tpl.replace('[NAME]', dcwName.split(' ')[0])
+  // Use full name (first + last) — HHAeXchange stores as "LAST FIRST", so join all parts
+  var fullName = dcwName.trim();
+  return tpl.replace('[NAME]', fullName)
             .replace('[COUNT]', visitCount)
             .replace('[AGENCY]', 'Care Crafter Home Care')
             .replace('[PHONE]', '412-308-5300');
@@ -2569,33 +2571,39 @@ function tsExportExcel() {
   var checked = document.querySelectorAll('.ts-chk:checked');
   if (!checked.length) { alert('No DCWs selected.'); return; }
 
-  // Count incomplete visits per DCW (capped at 2)
+  // Collect incomplete visits per DCW (capped at 2), with date + client
   var dcwVisits = {};
   tsParsedRows.forEach(function(r) {
     var name = (r['Caregiver Name'] || '').trim();
     var code = (r['Caregiver Code'] || '').trim();
-    if (!dcwVisits[code]) dcwVisits[code] = { name: name, count: 0 };
-    if ((r['Problem'] || '').toLowerCase().includes('incomplete')) dcwVisits[code].count++;
+    if (!code) return;
+    if (!dcwVisits[code]) dcwVisits[code] = { name: name, visits: [] };
+    if ((r['Problem'] || '').toLowerCase().includes('incomplete')) {
+      var rawDate = r['Date'] ? new Date(r['Date']).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+      var client = (r['Member Name'] || '').trim();
+      dcwVisits[code].visits.push({ date: rawDate, client: client });
+    }
   });
 
-  var rows = [['Name', 'Phone Number', 'Timesheet Count (Max 2)', 'Message']];
+  var rows = [['Name', 'Phone Number', 'Timesheet Count (Max 2)', 'Visit Date(s)', 'Client Name(s)', 'Message']];
 
   Array.from(checked).forEach(function(cb) {
     var code = cb.dataset.code;
     var name = cb.dataset.name;
     var phone = tsPhoneBook[code] || '';
     var fmtPhone = phone ? (phone.length === 10 ? '(' + phone.slice(0,3) + ') ' + phone.slice(3,6) + '-' + phone.slice(6) : phone) : '';
-    var rawCount = dcwVisits[code] ? dcwVisits[code].count : 1;
-    var count = Math.min(rawCount, 2); // cap at 2
+    var visits = dcwVisits[code] ? dcwVisits[code].visits.slice(0, 2) : [];
+    var count = visits.length || 1;
+    var dates = visits.map(function(v){ return v.date; }).filter(Boolean).join(', ');
+    var clients = visits.map(function(v){ return v.client; }).filter(Boolean).join(', ');
     var msg = tsGetMessage(name, count);
-    rows.push([name, fmtPhone, count, msg]);
+    rows.push([name, fmtPhone, count, dates, clients, msg]);
   });
 
   tsLoadXLSX(function() {
     var wb = XLSX.utils.book_new();
     var ws = XLSX.utils.aoa_to_sheet(rows);
-    // Column widths
-    ws['!cols'] = [{wch:30},{wch:18},{wch:22},{wch:100}];
+    ws['!cols'] = [{wch:30},{wch:18},{wch:22},{wch:30},{wch:40},{wch:100}];
     XLSX.utils.book_append_sheet(wb, ws, 'Timesheet Alerts');
     XLSX.writeFile(wb, 'timesheet-alerts-' + new Date().toISOString().slice(0,10) + '.xlsx');
   });
