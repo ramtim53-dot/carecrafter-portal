@@ -31,16 +31,19 @@ module.exports = async (req, res) => {
     const contentType = r.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const data = await r.json();
-      res.status(r.status >= 400 ? r.status : 502).json({ error: { message: data.error || 'Hugging Face error' } });
+      let msg = data.error || 'Hugging Face error';
+      if (data.error && data.estimated_time) msg += ' (~' + Math.ceil(data.estimated_time) + 's) — the model is loading, try again shortly.';
+      res.status(r.status >= 400 ? r.status : 502).json({ error: { message: msg } });
       return;
     }
     if (!r.ok) {
-      res.status(r.status).json({ error: { message: 'Hugging Face error (HTTP ' + r.status + ')' } });
+      const bodyText = await r.text().catch(() => '');
+      res.status(r.status).json({ error: { message: 'Hugging Face error (HTTP ' + r.status + '): ' + bodyText.slice(0, 200) } });
       return;
     }
     const buf = Buffer.from(await r.arrayBuffer());
     res.status(200).json({ base64: buf.toString('base64') });
   } catch (e) {
-    res.status(502).json({ error: { message: 'Engine connection failed — try again.' } });
+    res.status(502).json({ error: { message: 'Engine connection failed: ' + (e && e.message ? e.message : 'unknown error') } });
   }
 };
