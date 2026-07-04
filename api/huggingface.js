@@ -19,12 +19,14 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const model = image ? 'timbrooks/instruct-pix2pix' : 'stabilityai/stable-diffusion-xl-base-1.0';
+    const model = image ? 'timbrooks/instruct-pix2pix' : 'black-forest-labs/FLUX.1-schnell';
     const body = image
       ? { inputs: image, parameters: { prompt } }
       : { inputs: prompt };
 
-    const r = await fetch('https://api-inference.huggingface.co/models/' + model, {
+    // Hugging Face retired api-inference.huggingface.co — requests now go through
+    // the router, routed to the hf-inference provider.
+    const r = await fetch('https://router.huggingface.co/hf-inference/models/' + model, {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + process.env.HF_KEY.trim(),
