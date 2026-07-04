@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
-          'Authorization': 'Bearer ' + process.env.STABILITY_KEY
+          'Authorization': 'Bearer ' + process.env.STABILITY_KEY.trim()
         },
         body: form
       });
@@ -45,7 +45,7 @@ module.exports = async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer ' + process.env.STABILITY_KEY
+          'Authorization': 'Bearer ' + process.env.STABILITY_KEY.trim()
         },
         body: JSON.stringify({
           text_prompts: [{ text: prompt }],
@@ -68,6 +68,7 @@ module.exports = async (req, res) => {
     }
     res.status(200).json({ base64: b64 });
   } catch (e) {
-    res.status(502).json({ error: { message: 'Engine connection failed: ' + (e && e.message ? e.message : 'unknown error') } });
+    const detail = (e && e.cause && e.cause.message) ? e.cause.message : (e && e.message) || 'unknown error';
+    res.status(502).json({ error: { message: 'Engine connection failed: ' + detail } });
   }
 };

@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
     const r = await fetch('https://api-inference.huggingface.co/models/' + model, {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + process.env.HF_KEY,
+        'Authorization': 'Bearer ' + process.env.HF_KEY.trim(),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(body)
@@ -49,6 +49,7 @@ module.exports = async (req, res) => {
     const buf = Buffer.from(await r.arrayBuffer());
     res.status(200).json({ base64: buf.toString('base64') });
   } catch (e) {
-    res.status(502).json({ error: { message: 'Engine connection failed: ' + (e && e.message ? e.message : 'unknown error') } });
+    const detail = (e && e.cause && e.cause.message) ? e.cause.message : (e && e.message) || 'unknown error';
+    res.status(502).json({ error: { message: 'Engine connection failed: ' + detail } });
   }
 };
