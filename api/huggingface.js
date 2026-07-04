@@ -12,20 +12,25 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const { prompt } = req.body || {};
+  const { prompt, image } = req.body || {};
   if (!prompt || !prompt.trim()) {
     res.status(400).json({ error: { message: 'Bad request' } });
     return;
   }
 
   try {
-    const r = await fetch('https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0', {
+    const model = image ? 'timbrooks/instruct-pix2pix' : 'stabilityai/stable-diffusion-xl-base-1.0';
+    const body = image
+      ? { inputs: image, parameters: { prompt } }
+      : { inputs: prompt };
+
+    const r = await fetch('https://api-inference.huggingface.co/models/' + model, {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + process.env.HF_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ inputs: prompt })
+      body: JSON.stringify(body)
     });
 
     const contentType = r.headers.get('content-type') || '';

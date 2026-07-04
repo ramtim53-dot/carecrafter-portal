@@ -213,6 +213,12 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
       <img class="result-img" id="pe-preview" alt="Photo to edit" style="display:none;max-height:220px">
       <label class="lbl" for="pe-instruction">What should change?</label>
       <textarea id="pe-instruction" rows="2" placeholder='Example: Change the text "GRAND OPENING" to "NOW OPEN" keeping the exact same font, color and style'></textarea>
+      <label class="lbl" for="pe-engine">Engine</label>
+      <select id="pe-engine">
+        <option value="nano">Nano Banana / Gemini (needs Gemini key in Settings)</option>
+        <option value="stability">Stability AI (needs key)</option>
+        <option value="huggingface">Hugging Face — Instruct-Pix2Pix (needs key)</option>
+      </select>
       <div style="margin-top:14px"><button class="btn" id="pe-go">Edit photo</button></div>
       <div class="status" id="pe-status"></div>
       <img class="result-img" id="pe-result" alt="Edited photo" style="display:none">
@@ -520,12 +526,24 @@ $('pe-go').addEventListener('click', async ()=>{
   if(!peImageB64){ st.className='status err'; st.textContent='Choose a photo first.'; return; }
   if(!instr){ st.className='status err'; st.textContent='Tell me what to change.'; return; }
   $('pe-go').disabled = true;
+  const engine = $('pe-engine').value;
   st.textContent = 'Editing photo — keeping the same font & style…';
   try{
-    const b64 = await geminiImage([
-      {inlineData:{mimeType: peMime, data: peImageB64}},
-      {text: instr + ' Keep everything else in the image exactly the same, and match the original font, size, color and lighting of the text.'}
-    ]);
+    let b64;
+    if(engine === 'stability' || engine === 'huggingface'){
+      const r = await fetch('/api/'+engine, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ prompt: instr, image: peImageB64, mime: peMime })
+      });
+      const data = await r.json();
+      if(data.error) throw new Error(data.error.message || 'Engine error');
+      b64 = data.base64;
+    } else {
+      b64 = await geminiImage([
+        {inlineData:{mimeType: peMime, data: peImageB64}},
+        {text: instr + ' Keep everything else in the image exactly the same, and match the original font, size, color and lighting of the text.'}
+      ]);
+    }
     $('pe-result').src = 'data:image/png;base64,'+b64;
     $('pe-result').style.display='block';
     $('pe-download').href = $('pe-result').src;
