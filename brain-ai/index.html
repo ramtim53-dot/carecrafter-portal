@@ -191,6 +191,8 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
       <select id="img-engine">
         <option value="free">Free engine (no key needed)</option>
         <option value="nano">Nano Banana HD (needs Gemini key in Settings)</option>
+        <option value="stability">Stability AI (needs key)</option>
+        <option value="huggingface">Hugging Face (needs key)</option>
       </select>
       <div style="margin-top:14px"><button class="btn" id="img-go">Create image</button></div>
       <div class="status" id="img-status"></div>
@@ -453,6 +455,23 @@ $('img-go').addEventListener('click', async ()=>{
     img.onload = ()=>{ st.textContent='Done ✓'; img.style.display='block'; dl.href=url; dl.style.display='inline-block'; $('img-go').disabled=false; };
     img.onerror = ()=>{ st.className='status err'; st.textContent='Free engine could not load here — try again, or use Nano Banana HD with your Gemini key.'; $('img-go').disabled=false; };
     img.src = url;
+    return;
+  }
+
+  if($('img-engine').value === 'stability' || $('img-engine').value === 'huggingface'){
+    const engine = $('img-engine').value;
+    const label = engine === 'stability' ? 'Stability AI' : 'Hugging Face';
+    st.textContent = 'Creating image ('+label+')…';
+    try{
+      const r = await fetch('/api/'+engine, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({prompt}) });
+      const data = await r.json();
+      if(data.error) throw new Error(data.error.message || 'Engine error');
+      img.src = 'data:image/png;base64,'+data.base64;
+      img.style.display='block';
+      dl.href = img.src; dl.style.display='inline-block';
+      st.textContent='Done ✓';
+    }catch(err){ st.className='status err'; st.textContent='⚠️ '+err.message; }
+    $('img-go').disabled = false;
     return;
   }
 
