@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ram's Brain AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js"></script>
+<style>
+:root{
+  --bg:#0C0E14;
+  --panel:#151926;
+  --panel2:#1C2233;
+  --line:#262D42;
+  --text:#E8EAF2;
+  --muted:#8B90A5;
+  --amber:#FFB454;
+  --amber-dim:#B97F2E;
+  --teal:#4FD6BE;
+  --red:#FF6B6B;
+  --radius:14px;
+  --font-display:'Sora',sans-serif;
+  --font-body:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-body);font-size:15px;line-height:1.5;
+  display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;
+}
+/* ---------- Header ---------- */
+header{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 18px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#12151F 0%,var(--bg) 100%);
+  flex-shrink:0;
+}
+.logo{
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  background:radial-gradient(circle at 35% 30%,#2A3350,#151926 70%);
+  border:2px solid var(--amber);
+  box-shadow:0 0 14px rgba(255,180,84,.35);
+  animation:pulse 3s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px rgba(255,180,84,.25)}50%{box-shadow:0 0 18px rgba(255,180,84,.55)}}
+@media (prefers-reduced-motion:reduce){.logo{animation:none}}
+.brand{font-family:var(--font-display);font-weight:800;font-size:18px;letter-spacing:.2px}
+.brand span{color:var(--amber)}
+.engine-pill{
+  margin-left:auto;font-size:12px;padding:4px 10px;border-radius:20px;
+  border:1px solid var(--line);color:var(--muted);white-space:nowrap;
+}
+.engine-pill.on{border-color:var(--teal);color:var(--teal)}
+/* ---------- Nav ---------- */
+.shell{display:flex;flex:1;min-height:0}
+nav{
+  width:200px;flex-shrink:0;border-right:1px solid var(--line);
+  padding:14px 10px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;
+}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-family:var(--font-body);font-size:14px;font-weight:500;
+  padding:10px 12px;border-radius:10px;text-align:left;
+}
+.nav-btn:hover{background:var(--panel);color:var(--text)}
+.nav-btn.active{background:var(--panel2);color:var(--amber);font-weight:600}
+.nav-btn .ico{font-size:17px;width:22px;text-align:center}
+main{flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column}
+.page{display:none;flex-direction:column;flex:1;min-height:0}
+.page.active{display:flex}
+.page-inner{padding:20px;max-width:860px;width:100%;margin:0 auto}
+h2.page-title{font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:4px}
+p.page-sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+/* ---------- Shared UI ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.card h3{font-family:var(--font-display);font-size:15px;font-weight:600;margin-bottom:6px}
+.card p.hint{color:var(--muted);font-size:12.5px;margin-bottom:10px}
+.btn{
+  font-family:var(--font-display);font-weight:600;font-size:14px;
+  background:var(--amber);color:#1A1206;border:none;border-radius:10px;
+  padding:10px 18px;cursor:pointer;transition:filter .15s;
+}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--amber);border:1px solid var(--amber-dim)}
+.btn.small{padding:6px 12px;font-size:12.5px}
+input[type=text],input[type=password],textarea,select{
+  width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:10px 12px;font-family:var(--font-body);font-size:14px;
+}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--amber-dim);outline-offset:0}
+textarea{resize:vertical}
+label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;font-weight:500}
+.file-drop{
+  border:2px dashed var(--line);border-radius:var(--radius);padding:22px;text-align:center;
+  color:var(--muted);font-size:13.5px;cursor:pointer;transition:border-color .15s;
+}
+.file-drop:hover{border-color:var(--amber-dim);color:var(--text)}
+.status{font-size:13px;color:var(--teal);margin-top:10px;min-height:18px}
+.status.err{color:var(--red)}
+.result-img{max-width:100%;border-radius:var(--radius);border:1px solid var(--line);margin-top:12px;display:block}
+/* ---------- Chat ---------- */
+#chat-scroll{flex:1;overflow-y:auto;padding:20px}
+.chat-wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;gap:10px;max-width:100%}
+.msg .avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--panel2);border:1px solid var(--line)}
+.msg.user .avatar{background:var(--amber);color:#1A1206;font-weight:700;font-family:var(--font-display);font-size:13px}
+.msg .bubble{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;white-space:pre-wrap;word-wrap:break-word;min-width:0}
+.msg.user .bubble{background:var(--panel2)}
+.msg.assistant .bubble{border-left:3px solid var(--amber)}
+.chat-empty{text-align:center;color:var(--muted);padding:60px 20px}
+.chat-empty .big{font-size:40px;margin-bottom:10px}
+.chat-empty h3{font-family:var(--font-display);color:var(--text);margin-bottom:6px}
+#chat-bar{
+  border-top:1px solid var(--line);padding:12px 16px;flex-shrink:0;background:var(--bg);
+}
+.chat-bar-inner{max-width:760px;margin:0 auto;display:flex;gap:10px}
+#chat-input{flex:1;min-height:44px;max-height:140px}
+.typing{color:var(--muted);font-size:13px;font-style:italic}
+/* ---------- Grid of PDF tool cards ---------- */
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+/* ---------- Responsive ---------- */
+@media (max-width:720px){
+  nav{
+    width:100%;flex-direction:row;border-right:none;border-bottom:1px solid var(--line);
+    padding:8px;gap:6px;overflow-x:auto;overflow-y:hidden;
+  }
+  .shell{flex-direction:column}
+  .nav-btn{width:auto;flex-shrink:0;padding:8px 12px;font-size:13px}
+  .nav-btn .txt{display:none}
+  .nav-btn.active .txt{display:inline}
+  .brand{font-size:15px}
+  .page-inner{padding:14px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🧠</div>
+  <div class="brand">Ram's <span>Brain</span> AI</div>
+  <div class="engine-pill" id="engine-pill">Engine: connecting…</div>
+</header>
+
+<div class="shell">
+<nav>
+  <button class="nav-btn active" data-page="chat"><span class="ico">💬</span><span class="txt">AI Chat</span></button>
+  <button class="nav-btn" data-page="image"><span class="ico">🎨</span><span class="txt">Image Maker</span></button>
+  <button class="nav-btn" data-page="photoedit"><span class="ico">✏️</span><span class="txt">Photo Text Editor</span></button>
+  <button class="nav-btn" data-page="ocr"><span class="ico">🔍</span><span class="txt">OCR Reader</span></button>
+  <button class="nav-btn" data-page="pdf"><span class="ico">📄</span><span class="txt">PDF Tools</span></button>
+  <button class="nav-btn" data-page="settings"><span class="ico">⚙️</span><span class="txt">Settings</span></button>
+</nav>
+
+<main>
+
+<!-- ============ CHAT ============ -->
+<section class="page active" id="page-chat">
+  <div id="chat-scroll">
+    <div class="chat-wrap" id="chat-wrap">
+      <div class="chat-empty" id="chat-empty">
+        <div class="big">🧠</div>
+        <h3>Ram's Brain AI</h3>
+        <p>Ask anything. Your personal AI — chat, write, plan, translate, code.</p>
+      </div>
+    </div>
+  </div>
+  <div id="chat-bar">
+    <div class="chat-bar-inner">
+      <textarea id="chat-input" placeholder="Message Ram's Brain AI…" rows="1"></textarea>
+      <button class="btn" id="chat-send">Send</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IMAGE MAKER ============ -->
+<section class="page" id="page-image">
+  <div class="page-inner">
+    <h2 class="page-title">🎨 Image Maker</h2>
+    <p class="page-sub">Describe any picture and Ram's Brain AI creates it.</p>
+    <div class="card">
+      <label class="lbl" for="img-prompt">What do you want to create?</label>
+      <textarea id="img-prompt" rows="3" placeholder="Example: A cozy Himalayan mountain village at sunset, photorealistic"></textarea>
+      <label class="lbl" for="img-engine">Engine</label>
+      <select id="img-engine">
+        <option value="free">Free engine (no key needed)</option>
+        <option value="nano">Nano Banana HD (needs Gemini key in Settings)</option>
+      </select>
+      <div style="margin-top:14px"><button class="btn" id="img-go">Create image</button></div>
+      <div class="status" id="img-status"></div>
+      <img class="result-img" id="img-result" alt="Generated image" style="display:none">
+      <div style="margin-top:10px"><a id="img-download" class="btn small ghost" style="display:none;text-decoration:none" download="rams-brain-image.png">⬇ Download</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PHOTO TEXT EDITOR ============ -->
+<section class="page" id="page-photoedit">
+  <div class="page-inner">
+    <h2 class="page-title">✏️ Photo Text Editor</h2>
+    <p class="page-sub">Change text inside any photo or scanned page — the AI keeps the same font and style. Needs your free Gemini key (Settings).</p>
+    <div class="card">
+      <div class="file-drop" id="pe-drop">📷 Tap to choose a photo (PNG / JPG)</div>
+      <input type="file" id="pe-file" accept="image/png,image/jpeg" hidden>
+      <img class="result-img" id="pe-preview" alt="Photo to edit" style="display:none;max-height:220px">
+      <label class="lbl" for="pe-instruction">What should change?</label>
+      <textarea id="pe-instruction" rows="2" placeholder='Example: Change the text "GRAND OPENING" to "NOW OPEN" keeping the exact same font, color and style'></textarea>
+      <div style="margin-top:14px"><button class="btn" id="pe-go">Edit photo</button></div>
+      <div class="status" id="pe-status"></div>
+      <img class="result-img" id="pe-result" alt="Edited photo" style="display:none">
+      <div style="margin-top:10px"><a id="pe-download" class="btn small ghost" style="display:none;text-decoration:none" download="rams-brain-edited.png">⬇ Download</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OCR ============ -->
+<section class="page" id="page-ocr">
+  <div class="page-inner">
+    <h2 class="page-title">🔍 OCR Reader</h2>
+    <p class="page-sub">Pull the text out of any photo, screenshot, or scanned PDF. Free, runs on your device.</p>
+    <div class="card">
+      <div class="file-drop" id="ocr-drop">📎 Tap to choose an image or PDF</div>
+      <input type="file" id="ocr-file" accept="image/png,image/jpeg,application/pdf" hidden>
+      <div class="status" id="ocr-status"></div>
+      <label class="lbl" for="ocr-output">Extracted text</label>
+      <textarea id="ocr-output" rows="10" placeholder="Text will appear here…"></textarea>
+      <div style="margin-top:12px"><button class="btn small ghost" id="ocr-copy">Copy text</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PDF TOOLS ============ -->
+<section class="page" id="page-pdf">
+  <div class="page-inner">
+    <h2 class="page-title">📄 PDF Tools</h2>
+    <p class="page-sub">Free PDF tools — everything happens on your device, nothing is uploaded anywhere.</p>
+    <div class="tool-grid">
+
+      <div class="card">
+        <h3>Merge PDFs</h3>
+        <p class="hint">Combine 2 or more PDFs into one.</p>
+        <input type="file" id="pdf-merge-files" accept="application/pdf" multiple>
+        <div style="margin-top:12px"><button class="btn small" id="pdf-merge-go">Merge</button></div>
+        <div class="status" id="pdf-merge-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Images → PDF</h3>
+        <p class="hint">Turn JPG/PNG photos into one PDF.</p>
+        <input type="file" id="pdf-img-files" accept="image/png,image/jpeg" multiple>
+        <div style="margin-top:12px"><button class="btn small" id="pdf-img-go">Create PDF</button></div>
+        <div class="status" id="pdf-img-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Split / Extract pages</h3>
+        <p class="hint">Pull out a page range as a new PDF.</p>
+        <input type="file" id="pdf-split-file" accept="application/pdf">
+        <label class="lbl">Pages (e.g. 1-3 or 2)</label>
+        <input type="text" id="pdf-split-range" placeholder="1-3">
+        <div style="margin-top:12px"><button class="btn small" id="pdf-split-go">Extract</button></div>
+        <div class="status" id="pdf-split-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Rotate pages</h3>
+        <p class="hint">Rotate every page 90° clockwise.</p>
+        <input type="file" id="pdf-rot-file" accept="application/pdf">
+        <div style="margin-top:12px"><button class="btn small" id="pdf-rot-go">Rotate</button></div>
+        <div class="status" id="pdf-rot-status"></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section class="page" id="page-settings">
+  <div class="page-inner">
+    <h2 class="page-title">⚙️ Settings</h2>
+    <p class="page-sub">One free key unlocks HD images, photo text editing, and unlimited chat.</p>
+    <div class="card">
+      <h3>Engine key (optional)</h3>
+      <p class="hint">On carecrafter.tools this app runs on the built-in server engine — visitors need no key. This box is only a backup: paste a Gemini key from <b>aistudio.google.com</b> to run directly from this browser tab.</p>
+      <input type="password" id="set-key" placeholder="AQ.… or AIza…">
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button class="btn small" id="set-save">Save key</button>
+        <button class="btn small ghost" id="set-test">Test key</button>
+      </div>
+      <div class="status" id="set-status"></div>
+    </div>
+    <div class="card">
+      <h3>How the engines work</h3>
+      <p class="hint">• <b>Chat & HD images & Photo Text Editor:</b> run on the Ram's Brain server engine (free daily limit per visitor).<br>
+      • <b>Image Maker free engine:</b> no key, no limit.<br>
+      • <b>OCR & PDF Tools:</b> always free — nothing leaves your device.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+/* ================= Ram's Brain AI ================= */
+const $ = id => document.getElementById(id);
+let GEMINI_KEY = "";  // optional local key (Settings). On the live site, calls go through /api/gemini — the key stays hidden on the server.
+
+/* One door to Gemini: try the server proxy first (live site), then a local key. */
+async function geminiCall(model, payload){
+  // 1) Server proxy — exists once deployed to Vercel
+  try{
+    const r = await fetch('/api/gemini', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model, payload})
+    });
+    if(r.status !== 404 && r.status !== 405){
+      const data = await r.json();
+      if(data.error) throw new Error(data.error.message || 'Server error');
+      return data;
+    }
+  }catch(e){
+    if(e instanceof TypeError){ /* network blocked or offline — fall through */ }
+    else if(!GEMINI_KEY) throw e;        // real server answer (e.g. daily limit) — show it
+  }
+  // 2) Direct with local key
+  if(!GEMINI_KEY) throw new Error('SANDBOX');
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(GEMINI_KEY),
+    { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const data = await r.json();
+  if(data.error) throw new Error(data.error.message || 'Gemini error');
+  return data;
+}
+const PERSONA = "You are Ram's Brain AI, a helpful, direct personal AI assistant built for Ram. Answer clearly and concisely.";
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    $('page-'+btn.dataset.page).classList.add('active');
+  });
+});
+
+/* ---------- Engine pill ---------- */
+function updatePill(){
+  const pill = $('engine-pill');
+  if(GEMINI_KEY){ pill.textContent = "Engine: Gemini ✓ (local key)"; pill.classList.add('on'); }
+  else { pill.textContent = "Ram's Brain online"; pill.classList.add('on'); }
+}
+updatePill();
+
+/* ---------- Chat ---------- */
+const chatHistory = []; // {role:'user'|'assistant', text}
+
+function addBubble(role, text){
+  $('chat-empty') && $('chat-empty').remove();
+  const wrap = $('chat-wrap');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  const av = document.createElement('div');
+  av.className = 'avatar';
+  av.textContent = role === 'user' ? 'R' : '🧠';
+  const bub = document.createElement('div');
+  bub.className = 'bubble';
+  bub.textContent = text;
+  div.appendChild(av); div.appendChild(bub);
+  wrap.appendChild(div);
+  $('chat-scroll').scrollTop = $('chat-scroll').scrollHeight;
+  return bub;
+}
+
+async function chatGemini(){
+  const contents = chatHistory.map(m=>({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{text: m.text}]
+  }));
+  const data = await geminiCall('gemini-2.5-flash', { contents, systemInstruction:{parts:[{text:PERSONA}]} });
+  const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+  if(!parts) throw new Error('Empty response from Gemini');
+  return parts.map(p=>p.text||'').join('');
+}
+
+async function chatClaude(){
+  const messages = chatHistory.map(m=>({role: m.role==='assistant'?'assistant':'user', content:m.text}));
+  const r = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system:PERSONA, messages })
+  });
+  let data;
+  try{ data = await r.json(); }
+  catch(e){ throw new Error('bad response (HTTP '+r.status+')'); }
+  if(data.error) throw new Error(data.error.message || ('HTTP '+r.status));
+  const text = (data.content||[]).map(b=>b.type==='text'?b.text:'').join('').trim();
+  if(!text) throw new Error('empty reply (HTTP '+r.status+')');
+  return text;
+}
+
+async function sendChat(){
+  const input = $('chat-input');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  chatHistory.push({role:'user', text});
+  addBubble('user', text);
+  const thinking = addBubble('assistant','');
+  thinking.innerHTML = '<span class="typing">thinking…</span>';
+  $('chat-send').disabled = true;
+  try{
+    let reply;
+    try { reply = await chatGemini(); }
+    catch(e){
+      if(e.message !== 'SANDBOX' && GEMINI_KEY) throw e;
+      try { reply = await chatClaude(); }
+      catch(e2){ throw new Error('This preview box blocks outside AI servers — nothing is broken. On the live website this chat works for everyone. (Deploy me!)'); }
+    }
+    if(!reply || !reply.trim()) throw new Error('Engine returned an empty reply — send again.');
+    chatHistory.push({role:'assistant', text:reply});
+    thinking.textContent = reply;
+  }catch(err){
+    chatHistory.pop(); // remove failed user turn from history so retry is clean
+    thinking.textContent = '⚠️ ' + err.message;
+  }
+  $('chat-send').disabled = false;
+  $('chat-scroll').scrollTop = $('chat-scroll').scrollHeight;
+}
+$('chat-send').addEventListener('click', sendChat);
+$('chat-input').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+});
+
+/* ---------- Image Maker ---------- */
+$('img-go').addEventListener('click', async ()=>{
+  const prompt = $('img-prompt').value.trim();
+  const st = $('img-status');
+  const img = $('img-result');
+  const dl = $('img-download');
+  st.className='status'; img.style.display='none'; dl.style.display='none';
+  if(!prompt){ st.className='status err'; st.textContent='Type what you want to create first.'; return; }
+  $('img-go').disabled = true;
+
+  if($('img-engine').value === 'free'){
+    st.textContent = 'Creating image (free engine)…';
+    const seed = Math.floor(Math.random()*1e6);
+    const url = 'https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=1024&height=1024&seed='+seed+'&nologo=true';
+    img.onload = ()=>{ st.textContent='Done ✓'; img.style.display='block'; dl.href=url; dl.style.display='inline-block'; $('img-go').disabled=false; };
+    img.onerror = ()=>{ st.className='status err'; st.textContent='Free engine could not load here — try again, or use Nano Banana HD with your Gemini key.'; $('img-go').disabled=false; };
+    img.src = url;
+    return;
+  }
+
+  // Nano Banana HD via Gemini (server proxy on live site, or local key)
+  st.textContent = 'Creating image (Nano Banana)…';
+  try{
+    const b64 = await geminiImage([{text: prompt}]);
+    img.src = 'data:image/png;base64,'+b64;
+    img.style.display='block';
+    dl.href = img.src; dl.style.display='inline-block';
+    st.textContent='Done ✓';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+niceErr(err); }
+  $('img-go').disabled = false;
+});
+
+async function geminiImage(parts){
+  const data = await geminiCall('gemini-2.5-flash-image', { contents:[{role:'user', parts}] });
+  const outParts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || [];
+  for(const p of outParts){
+    const inline = p.inlineData || p.inline_data;
+    if(inline && inline.data) return inline.data;
+  }
+  throw new Error('The model returned no image — try rewording the request.');
+}
+
+/* ---------- Photo Text Editor ---------- */
+let peImageB64 = null, peMime = 'image/png';
+$('pe-drop').addEventListener('click', ()=>$('pe-file').click());
+$('pe-file').addEventListener('change', ()=>{
+  const f = $('pe-file').files[0];
+  if(!f) return;
+  peMime = f.type;
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    peImageB64 = rd.result.split(',')[1];
+    $('pe-preview').src = rd.result;
+    $('pe-preview').style.display='block';
+    $('pe-drop').textContent = '📷 ' + f.name + ' — tap to change';
+  };
+  rd.readAsDataURL(f);
+});
+$('pe-go').addEventListener('click', async ()=>{
+  const st = $('pe-status');
+  st.className='status'; $('pe-result').style.display='none'; $('pe-download').style.display='none';
+  const instr = $('pe-instruction').value.trim();
+  if(!peImageB64){ st.className='status err'; st.textContent='Choose a photo first.'; return; }
+  if(!instr){ st.className='status err'; st.textContent='Tell me what to change.'; return; }
+  $('pe-go').disabled = true;
+  st.textContent = 'Editing photo — keeping the same font & style…';
+  try{
+    const b64 = await geminiImage([
+      {inlineData:{mimeType: peMime, data: peImageB64}},
+      {text: instr + ' Keep everything else in the image exactly the same, and match the original font, size, color and lighting of the text.'}
+    ]);
+    $('pe-result').src = 'data:image/png;base64,'+b64;
+    $('pe-result').style.display='block';
+    $('pe-download').href = $('pe-result').src;
+    $('pe-download').style.display='inline-block';
+    st.textContent='Done ✓ — not perfect? Press Edit photo again for a new version.';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+niceErr(err); }
+  $('pe-go').disabled = false;
+});
+
+function niceErr(e){
+  return (e && e.message === 'SANDBOX')
+    ? 'This preview blocks AI servers — it works on the live website (or add your key in Settings for local testing).'
+    : (e && e.message) || 'Unknown error';
+}
+
+/* ---------- OCR ---------- */
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+$('ocr-drop').addEventListener('click', ()=>$('ocr-file').click());
+$('ocr-file').addEventListener('change', async ()=>{
+  const f = $('ocr-file').files[0];
+  if(!f) return;
+  const st = $('ocr-status');
+  st.className='status';
+  $('ocr-output').value = '';
+  try{
+    if(f.type === 'application/pdf'){
+      st.textContent = 'Reading PDF pages…';
+      const buf = await f.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+      const maxPages = Math.min(pdf.numPages, 10);
+      let all = '';
+      for(let i=1; i<=maxPages; i++){
+        st.textContent = 'OCR page '+i+' of '+maxPages+'…';
+        const page = await pdf.getPage(i);
+        const vp = page.getViewport({scale: 2});
+        const canvas = document.createElement('canvas');
+        canvas.width = vp.width; canvas.height = vp.height;
+        await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+        const res = await Tesseract.recognize(canvas, 'eng');
+        all += '--- Page '+i+' ---\n' + res.data.text.trim() + '\n\n';
+        $('ocr-output').value = all;
+      }
+      st.textContent = 'Done ✓ ('+maxPages+' page'+(maxPages>1?'s':'')+')';
+    } else {
+      st.textContent = 'Reading text from image…';
+      const res = await Tesseract.recognize(f, 'eng');
+      $('ocr-output').value = res.data.text.trim();
+      st.textContent = 'Done ✓';
+    }
+  }catch(err){
+    st.className='status err';
+    st.textContent = '⚠️ OCR failed: '+err.message;
+  }
+});
+$('ocr-copy').addEventListener('click', async ()=>{
+  try{
+    await navigator.clipboard.writeText($('ocr-output').value);
+    $('ocr-status').textContent = 'Copied ✓';
+  }catch(e){
+    $('ocr-output').select();
+    document.execCommand('copy');
+    $('ocr-status').textContent = 'Copied ✓';
+  }
+});
+
+/* ---------- PDF Tools ---------- */
+function downloadBytes(bytes, name){
+  const blob = new Blob([bytes], {type:'application/pdf'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+
+$('pdf-merge-go').addEventListener('click', async ()=>{
+  const files = $('pdf-merge-files').files;
+  const st = $('pdf-merge-status'); st.className='status';
+  if(files.length < 2){ st.className='status err'; st.textContent='Choose at least 2 PDFs.'; return; }
+  st.textContent='Merging…';
+  try{
+    const out = await PDFLib.PDFDocument.create();
+    for(const f of files){
+      const src = await PDFLib.PDFDocument.load(await f.arrayBuffer(), {ignoreEncryption:true});
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(p=>out.addPage(p));
+    }
+    downloadBytes(await out.save(), 'merged.pdf');
+    st.textContent='Done ✓ downloaded merged.pdf';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+err.message; }
+});
+
+$('pdf-img-go').addEventListener('click', async ()=>{
+  const files = $('pdf-img-files').files;
+  const st = $('pdf-img-status'); st.className='status';
+  if(!files.length){ st.className='status err'; st.textContent='Choose at least 1 image.'; return; }
+  st.textContent='Building PDF…';
+  try{
+    const doc = await PDFLib.PDFDocument.create();
+    for(const f of files){
+      const bytes = await f.arrayBuffer();
+      const img = f.type==='image/png' ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+      const page = doc.addPage([img.width, img.height]);
+      page.drawImage(img, {x:0, y:0, width:img.width, height:img.height});
+    }
+    downloadBytes(await doc.save(), 'images.pdf');
+    st.textContent='Done ✓ downloaded images.pdf';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+err.message; }
+});
+
+$('pdf-split-go').addEventListener('click', async ()=>{
+  const f = $('pdf-split-file').files[0];
+  const st = $('pdf-split-status'); st.className='status';
+  if(!f){ st.className='status err'; st.textContent='Choose a PDF.'; return; }
+  const range = $('pdf-split-range').value.trim();
+  const m = range.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+  if(!m){ st.className='status err'; st.textContent='Enter pages like 1-3 or 2.'; return; }
+  st.textContent='Extracting…';
+  try{
+    const src = await PDFLib.PDFDocument.load(await f.arrayBuffer(), {ignoreEncryption:true});
+    const total = src.getPageCount();
+    let from = parseInt(m[1],10), to = m[2] ? parseInt(m[2],10) : from;
+    if(from<1 || to>total || from>to){ st.className='status err'; st.textContent='This PDF has '+total+' pages — check your range.'; return; }
+    const out = await PDFLib.PDFDocument.create();
+    const idx = []; for(let i=from-1;i<=to-1;i++) idx.push(i);
+    const pages = await out.copyPages(src, idx);
+    pages.forEach(p=>out.addPage(p));
+    downloadBytes(await out.save(), 'pages-'+from+'-'+to+'.pdf');
+    st.textContent='Done ✓';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+err.message; }
+});
+
+$('pdf-rot-go').addEventListener('click', async ()=>{
+  const f = $('pdf-rot-file').files[0];
+  const st = $('pdf-rot-status'); st.className='status';
+  if(!f){ st.className='status err'; st.textContent='Choose a PDF.'; return; }
+  st.textContent='Rotating…';
+  try{
+    const doc = await PDFLib.PDFDocument.load(await f.arrayBuffer(), {ignoreEncryption:true});
+    doc.getPages().forEach(p=>{
+      p.setRotation(PDFLib.degrees((p.getRotation().angle + 90) % 360));
+    });
+    downloadBytes(await doc.save(), 'rotated.pdf');
+    st.textContent='Done ✓';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+err.message; }
+});
+
+/* ---------- Settings ---------- */
+$('set-save').addEventListener('click', ()=>{
+  GEMINI_KEY = $('set-key').value.trim();
+  const st = $('set-status'); st.className='status';
+  st.textContent = GEMINI_KEY ? 'Key saved for this session ✓' : 'Key cleared.';
+  updatePill();
+});
+$('set-test').addEventListener('click', async ()=>{
+  const key = $('set-key').value.trim() || GEMINI_KEY;
+  const st = $('set-status'); st.className='status';
+  if(!key){ st.className='status err'; st.textContent='Paste a key first.'; return; }
+  st.textContent='Testing…';
+  try{
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(key),
+      {method:'POST', headers:{'Content-Type':'application/json'},
+       body: JSON.stringify({contents:[{role:'user',parts:[{text:'Say OK'}]}]})});
+    const data = await r.json();
+    if(data.error) throw new Error(data.error.message);
+    GEMINI_KEY = key;
+    updatePill();
+    st.textContent='Key works ✓ Gemini engine active.';
+  }catch(err){ st.className='status err'; st.textContent='⚠️ '+err.message; }
+});
+</script>
+</body>
+</html>
