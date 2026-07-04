@@ -162,6 +162,13 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
 
 <!-- ============ CHAT ============ -->
 <section class="page active" id="page-chat">
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line);flex-shrink:0">
+    <select id="chat-engine" style="width:auto;font-size:13px;padding:6px 10px">
+      <option value="gemini">Gemini</option>
+      <option value="huggingface">Hugging Face</option>
+    </select>
+    <button class="btn ghost small" id="chat-clear" style="margin-left:auto">🗑 Clear chat</button>
+  </div>
   <div id="chat-scroll">
     <div class="chat-wrap" id="chat-wrap">
       <div class="chat-empty" id="chat-empty">
@@ -366,7 +373,13 @@ function updatePill(){
 updatePill();
 
 /* ---------- Chat ---------- */
-const chatHistory = []; // {role:'user'|'assistant', text}
+const CHAT_STORAGE_KEY = 'rbaChatHistory';
+let chatHistory = []; // {role:'user'|'assistant', text}
+try { chatHistory = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]'); } catch(e) { chatHistory = []; }
+
+function saveChatHistory(){
+  try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatHistory)); } catch(e) {}
+}
 
 function addBubble(role, text){
   $('chat-empty') && $('chat-empty').remove();
@@ -385,6 +398,9 @@ function addBubble(role, text){
   return bub;
 }
 
+// Restore any saved conversation on load
+chatHistory.forEach(m => addBubble(m.role, m.text));
+
 async function chatGemini(){
   const contents = chatHistory.map(m=>({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -394,6 +410,21 @@ async function chatGemini(){
   const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
   if(!parts) throw new Error('Empty response from Gemini');
   return parts.map(p=>p.text||'').join('');
+}
+
+async function chatHF(){
+  const messages = [
+    {role:'system', content: PERSONA},
+    ...chatHistory.map(m=>({role: m.role==='assistant'?'assistant':'user', content:m.text}))
+  ];
+  const r = await fetch('/api/hf-chat', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ messages })
+  });
+  const data = await r.json();
+  if(data.error) throw new Error(data.error.message || 'Hugging Face error');
+  if(!data.text || !data.text.trim()) throw new Error('Empty response from Hugging Face');
+  return data.text;
 }
 
 async function chatClaude(){
@@ -423,15 +454,20 @@ async function sendChat(){
   $('chat-send').disabled = true;
   try{
     let reply;
-    try { reply = await chatGemini(); }
-    catch(e){
-      if(e.message !== 'SANDBOX' && GEMINI_KEY) throw e;
-      try { reply = await chatClaude(); }
-      catch(e2){ throw new Error('This preview box blocks outside AI servers — nothing is broken. On the live website this chat works for everyone. (Deploy me!)'); }
+    if($('chat-engine').value === 'huggingface'){
+      reply = await chatHF();
+    } else {
+      try { reply = await chatGemini(); }
+      catch(e){
+        if(e.message !== 'SANDBOX' && GEMINI_KEY) throw e;
+        try { reply = await chatClaude(); }
+        catch(e2){ throw new Error('This preview box blocks outside AI servers — nothing is broken. On the live website this chat works for everyone. (Deploy me!)'); }
+      }
     }
     if(!reply || !reply.trim()) throw new Error('Engine returned an empty reply — send again.');
     chatHistory.push({role:'assistant', text:reply});
     thinking.textContent = reply;
+    saveChatHistory();
   }catch(err){
     chatHistory.pop(); // remove failed user turn from history so retry is clean
     thinking.textContent = '⚠️ ' + err.message;
@@ -442,6 +478,11 @@ async function sendChat(){
 $('chat-send').addEventListener('click', sendChat);
 $('chat-input').addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+});
+$('chat-clear').addEventListener('click', ()=>{
+  chatHistory = [];
+  saveChatHistory();
+  $('chat-wrap').innerHTML = '<div class="chat-empty" id="chat-empty"><div class="big">🧠</div><h3>Ram\'s Brain AI</h3><p>Ask anything. Your personal AI — chat, write, plan, translate, code.</p></div>';
 });
 
 /* ---------- Image Maker ---------- */
