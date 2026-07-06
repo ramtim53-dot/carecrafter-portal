@@ -7,6 +7,11 @@ const ALLOWED = ['gemini-2.5-flash', 'gemini-2.5-flash-image'];
 const usage = {};                          // { ip: { day, count } } per warm instance
 
 module.exports = async (req, res) => {
+  // Allow calls from the Care Crafter Chrome extension (chrome-extension:// origin)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'POST') {
     res.status(405).json({ error: { message: 'POST only' } });
     return;
