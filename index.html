@@ -415,10 +415,11 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div id="pv-tableWrap" style="display:none" class="codes-wrap">
           <table class="codes-tbl" style="width:100%">
             <thead><tr>
-              <th>Caregiver Name</th><th>SSN</th>
-              <th style="text-align:right;color:var(--teal)">W1 VSD</th><th style="text-align:right;color:var(--teal)">W1 PHD</th><th style="text-align:right;color:var(--amber)">W1 DIFF</th>
-              <th style="text-align:right;color:var(--blue2)">W2 VSD</th><th style="text-align:right;color:var(--blue2)">W2 PHD</th><th style="text-align:right;color:var(--amber)">W2 DIFF</th>
-              <th style="text-align:right;color:var(--green)">Grand Total PHD</th>
+              <th>Row Labels</th>
+              <th style="text-align:right;color:var(--teal)">Week1</th>
+              <th style="text-align:right;color:var(--blue2)">Week2</th>
+              <th style="text-align:right;color:var(--green)">Grand Total</th>
+              <th style="text-align:right;color:var(--amber)">Diff</th>
             </tr></thead>
             <tbody id="pv-tbody"></tbody><tfoot id="pv-tfoot"></tfoot>
           </table>
@@ -1685,12 +1686,85 @@ function pvFile(e,n){if(e.target.files[0])pvSetFile(e.target.files[0],n);}
 function pvSetFile(f,n){if(n===1){pvW1=f;document.getElementById('pv-lbl1').textContent='✅ '+f.name;document.getElementById('pv-drop1').style.borderColor='var(--teal)';}else{pvW2=f;document.getElementById('pv-lbl2').textContent='✅ '+f.name;document.getElementById('pv-drop2').style.borderColor='var(--blue)';}if(pvW1&&pvW2){const b=document.getElementById('pv-runBtn');b.disabled=false;b.style.opacity='1';}}
 function pvReset(){pvW1=null;pvW2=null;pvData=[];pvFilter='all';['pv-lbl1','pv-lbl2'].forEach((id,i)=>document.getElementById(id).textContent='Drop Week '+(i+1)+' .xlsx here or click');['pv-drop1','pv-drop2'].forEach(id=>{document.getElementById(id).style.borderColor='';document.getElementById(id).style.background='var(--bg2)';});document.getElementById('pv-runBtn').disabled=true;document.getElementById('pv-runBtn').style.opacity='0.4';['pv-cards','pv-toolbar','pv-tableWrap'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('pv-exportBtn').style.display='none';document.getElementById('pv-status').textContent='';document.getElementById('pv-inp1').value='';document.getElementById('pv-inp2').value='';}
 function pvParseHrs(v){if(!v&&v!==0)return null;const s=String(v).trim();const m=s.match(/^(\d+):(\d{2})$/);if(m)return parseInt(m[1])+parseInt(m[2])/60;const n=parseFloat(s);return isNaN(n)?null:n;}
-function pvReadFile(file,cb){const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const sn=wb.SheetNames[0];const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:'',range:15});cb(null,rows);}catch(err){cb(err,null);}};r.readAsArrayBuffer(file);}
-function pvExtract(rows){const res={};rows.forEach(r=>{const keys=Object.keys(r);let name='',ssn='',vsh=null,phh=null;keys.forEach(k=>{const kl=k.toLowerCase().replace(/\s+/g,'');const v=String(r[k]||'').trim();if(!name&&(kl.includes('caregivername')||kl==='caregivername'))name=v;if(!ssn&&kl==='ssn')ssn=v;if(vsh===null&&(kl.includes('visithour')||kl.includes('visithours')))vsh=pvParseHrs(r[k]);if(phh===null&&(kl.includes('payhour')||kl.includes('payhours')))phh=pvParseHrs(r[k]);});if(!name&&keys.length>0)name=String(r[keys[0]]||'').trim();if(!ssn&&keys.length>1)ssn=String(r[keys[1]]||'').trim();if(vsh===null&&keys.length>2)vsh=pvParseHrs(r[keys[2]]);if(phh===null&&keys.length>8)phh=pvParseHrs(r[keys[8]]);if(!name||name.length<2)return;const key=(ssn||name).replace(/\s/g,'');if(!res[key])res[key]={name,ssn,vsh:0,phh:0};if(vsh!==null)res[key].vsh+=vsh;if(phh!==null)res[key].phh+=phh;});return res;}
-function pvProcess(){if(!pvW1||!pvW2)return;document.getElementById('pv-status').textContent='⏳ Loading...';document.getElementById('pv-runBtn').disabled=true;pvLoadXLSX(()=>{pvReadFile(pvW1,(e1,r1)=>{if(e1){document.getElementById('pv-status').textContent='❌ Week 1: '+e1.message;document.getElementById('pv-runBtn').disabled=false;return;}pvReadFile(pvW2,(e2,r2)=>{if(e2){document.getElementById('pv-status').textContent='❌ Week 2: '+e2.message;document.getElementById('pv-runBtn').disabled=false;return;}const d1=pvExtract(r1),d2=pvExtract(r2);const allKeys=new Set([...Object.keys(d1),...Object.keys(d2)]);pvData=[];allKeys.forEach(k=>{const w1=d1[k],w2=d2[k];const vsd1=w1?+(w1.vsh).toFixed(4):null,phd1=w1?+(w1.phh).toFixed(4):null,vsd2=w2?+(w2.vsh).toFixed(4):null,phd2=w2?+(w2.phh).toFixed(4):null;const diff1=vsd1!==null&&phd1!==null?+(vsd1-phd1).toFixed(4):null,diff2=vsd2!==null&&phd2!==null?+(vsd2-phd2).toFixed(4):null;const total=+((phd1||0)+(phd2||0)).toFixed(4);pvData.push({name:(w1||w2).name,ssn:(w1||w2).ssn||'',vsd1,phd1,diff1,vsd2,phd2,diff2,total,inW1:!!w1,inW2:!!w2});});document.getElementById('pv-cW1').textContent=Object.keys(d1).length;document.getElementById('pv-cW2').textContent=Object.keys(d2).length;document.getElementById('pv-cBoth').textContent=pvData.filter(x=>x.inW1&&x.inW2).length;document.getElementById('pv-cOne').textContent=pvData.filter(x=>!(x.inW1&&x.inW2)).length;document.getElementById('pv-cards').style.display='grid';document.getElementById('pv-toolbar').style.display='flex';document.getElementById('pv-tableWrap').style.display='block';document.getElementById('pv-exportBtn').style.display='block';document.getElementById('pv-status').textContent='✅ '+pvData.length+' caregivers';document.getElementById('pv-runBtn').disabled=false;pvRenderTable();});});})}
+function pvReadFile(file,cb){const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const sn=wb.SheetNames.find(n=>/payroll/i.test(n))||wb.SheetNames[0];
+  // "Payroll Hours by Caregiver" is a pivot-style export: header labels sit in merged
+  // cells (blank "" cells between them), so reading it as named objects collides on
+  // those duplicate blank keys and silently corrupts columns. Read as a raw grid
+  // instead, find the real header row by label text, then walk data rows by index.
+  const grid = XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+  cb(null,grid);
+  }catch(err){cb(err,null);}};r.readAsArrayBuffer(file);}
+function pvExtract(grid){
+  const res={};
+  if(!grid||!grid.length) return res;
+  // Find the real header row by label text (handles the merged-cell pivot export —
+  // reading it as named objects collides on duplicate blank "" keys and corrupts data).
+  const norm=s=>String(s||'').trim().toLowerCase();
+  let headerIdx=-1;
+  for(let i=0;i<Math.min(grid.length,40);i++){
+    if(norm(grid[i][0])==='caregiver name'){headerIdx=i;break;}
+  }
+  if(headerIdx===-1) return res;
+  const header=grid[headerIdx];
+  const findCol=label=>header.findIndex(c=>norm(c)===label);
+  const cName=findCol('caregiver name'), cSSN=findCol('ssn'),
+        cVisit=findCol('visit hours'), cPay=findCol('pay hours');
+  if(cName===-1||cVisit===-1||cPay===-1) return res;
+  for(let i=headerIdx+1;i<grid.length;i++){
+    const row=grid[i];
+    const name=String(row[cName]||'').trim();
+    if(!name||name.length<2) continue;   // blank/spacer rows — keep scanning to the end
+    const ssn=cSSN!==-1?String(row[cSSN]||'').trim():'';
+    const vsh=pvParseHrs(row[cVisit]);
+    const phh=pvParseHrs(row[cPay]);
+    const key=(ssn||name).replace(/\s/g,'');
+    if(!res[key]) res[key]={name,ssn,vsh:0,phh:0};
+    if(vsh!==null) res[key].vsh+=vsh;
+    if(phh!==null) res[key].phh+=phh;
+  }
+  return res;
+}
+function pvProcess(){if(!pvW1||!pvW2)return;document.getElementById('pv-status').textContent='⏳ Loading...';document.getElementById('pv-runBtn').disabled=true;pvLoadXLSX(()=>{pvReadFile(pvW1,(e1,r1)=>{if(e1){document.getElementById('pv-status').textContent='❌ Week 1: '+e1.message;document.getElementById('pv-runBtn').disabled=false;return;}pvReadFile(pvW2,(e2,r2)=>{if(e2){document.getElementById('pv-status').textContent='❌ Week 2: '+e2.message;document.getElementById('pv-runBtn').disabled=false;return;}const d1=pvExtract(r1),d2=pvExtract(r2);const allKeys=new Set([...Object.keys(d1),...Object.keys(d2)]);pvData=[];allKeys.forEach(k=>{const w1=d1[k],w2=d2[k];const vsd1=w1?+(w1.vsh).toFixed(4):null,phd1=w1?+(w1.phh).toFixed(4):null,vsd2=w2?+(w2.vsh).toFixed(4):null,phd2=w2?+(w2.phh).toFixed(4):null;const diff1=vsd1!==null&&phd1!==null?+(vsd1-phd1).toFixed(4):null,diff2=vsd2!==null&&phd2!==null?+(vsd2-phd2).toFixed(4):null;const total=+((phd1||0)+(phd2||0)).toFixed(4);const pivotDiff=+(((vsd1||0)+(vsd2||0))-((phd1||0)+(phd2||0))).toFixed(4);pvData.push({name:(w1||w2).name,ssn:(w1||w2).ssn||'',vsd1,phd1,diff1,vsd2,phd2,diff2,total,pivotDiff,inW1:!!w1,inW2:!!w2});});document.getElementById('pv-cW1').textContent=Object.keys(d1).length;document.getElementById('pv-cW2').textContent=Object.keys(d2).length;document.getElementById('pv-cBoth').textContent=pvData.filter(x=>x.inW1&&x.inW2).length;document.getElementById('pv-cOne').textContent=pvData.filter(x=>!(x.inW1&&x.inW2)).length;document.getElementById('pv-cards').style.display='grid';document.getElementById('pv-toolbar').style.display='flex';document.getElementById('pv-tableWrap').style.display='block';document.getElementById('pv-exportBtn').style.display='block';document.getElementById('pv-status').textContent='✅ '+pvData.length+' caregivers';document.getElementById('pv-runBtn').disabled=false;pvRenderTable();});});})}
 function pvSetFilter(f,btn){pvFilter=f;document.querySelectorAll('#pv-toolbar .pill').forEach(p=>p.classList.remove('on'));btn.classList.add('on');pvRenderTable();}
-function pvRenderTable(){const q=(document.getElementById('pv-search')?.value||'').toLowerCase();let data=pvData.filter(r=>{if(pvFilter==='both'&&!(r.inW1&&r.inW2))return false;if(pvFilter==='w1only'&&!(r.inW1&&!r.inW2))return false;if(pvFilter==='w2only'&&!(!r.inW1&&r.inW2))return false;if(pvFilter==='bigdiff'&&Math.abs(r.diff1||0)<1&&Math.abs(r.diff2||0)<1)return false;if(q&&!r.name.toLowerCase().includes(q)&&!r.ssn.includes(q))return false;return true;});data.sort((a,b)=>{let va=a[pvSortCol],vb=b[pvSortCol];if(pvSortCol==='name'){va=a.name;vb=b.name;}if(va===null&&vb===null)return 0;if(va===null)return 1;if(vb===null)return -1;const c=va<vb?-1:va>vb?1:0;return pvSortDir==='asc'?c:-c;});document.getElementById('pv-count').textContent=data.length+' caregivers';const fn=(v,warn)=>{if(v===null)return '<span style="color:var(--text3)">—</span>';let col='var(--text)';if(warn&&Math.abs(v)>=1)col=v>0?'var(--red)':'var(--green)';return '<span style="color:'+col+'">'+v.toFixed(2)+'</span>';};document.getElementById('pv-tbody').innerHTML=data.map(r=>'<tr style="'+((!r.inW1||!r.inW2)?'background:rgba(245,158,11,0.04)':'')+'"><td style="font-weight:600">'+r.name+((!r.inW1||!r.inW2)?'<span style="font-size:9px;font-weight:700;margin-left:6px;color:var(--amber)">'+(r.inW1?'W1 ONLY':'W2 ONLY')+'</span>':'')+'</td><td style="font-family:var(--mono);font-size:11px;color:var(--text3)">'+r.ssn+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.vsd1,false)+'</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">'+fn(r.phd1,false)+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.diff1,true)+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.vsd2,false)+'</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--blue2)">'+fn(r.phd2,false)+'</td><td style="text-align:right;font-family:var(--mono)">'+fn(r.diff2,true)+'</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--green)">'+fn(r.total,false)+'</td></tr>').join('');const t1=data.reduce((s,r)=>s+(r.phd1||0),0),t2=data.reduce((s,r)=>s+(r.phd2||0),0),tA=data.reduce((s,r)=>s+(r.total||0),0);document.getElementById('pv-tfoot').innerHTML='<tr style="background:var(--bg3);font-weight:800;font-size:12px"><td colspan="3" style="padding:10px 14px;color:var(--text2)">TOTALS — '+data.length+' caregivers</td><td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">'+t1.toFixed(2)+'</td><td></td><td></td><td style="text-align:right;font-family:var(--mono);color:var(--blue2);padding:10px 14px">'+t2.toFixed(2)+'</td><td></td><td style="text-align:right;font-family:var(--mono);color:var(--green);padding:10px 14px">'+tA.toFixed(2)+'</td></tr>';}
-function pvExport(){const hdr=['Caregiver Name','SSN','W1 VSD','W1 PHD','W1 DIFF','W2 VSD','W2 PHD','W2 DIFF','Grand Total PHD'];const rows=pvData.map(r=>[r.name,r.ssn,r.vsd1?.toFixed(2)||'',r.phd1?.toFixed(2)||'',r.diff1?.toFixed(2)||'',r.vsd2?.toFixed(2)||'',r.phd2?.toFixed(2)||'',r.diff2?.toFixed(2)||'',r.total.toFixed(2)]);const csv=[hdr,...rows].map(r=>r.map(v=>'"'+v+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='payroll-'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+function pvRenderTable(){
+  const q=(document.getElementById('pv-search')?.value||'').toLowerCase();
+  let data=pvData.filter(r=>{
+    if(pvFilter==='both'&&!(r.inW1&&r.inW2))return false;
+    if(pvFilter==='w1only'&&!(r.inW1&&!r.inW2))return false;
+    if(pvFilter==='w2only'&&!(!r.inW1&&r.inW2))return false;
+    if(pvFilter==='bigdiff'&&Math.abs(r.pivotDiff||0)<1)return false;
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ssn.includes(q))return false;
+    return true;
+  });
+  data.sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('pv-count').textContent=data.length+' caregivers';
+  const fn=v=>v===null?'<span style="color:var(--text3)">—</span>':v.toFixed(2);
+  const fnDiff=v=>{const col=Math.abs(v)>=1?(v>0?'var(--red)':'var(--green)'):'var(--text2)';return '<span style="color:'+col+'">'+(v>=0?'+':'')+v.toFixed(2)+'</span>';};
+  // Pivot layout: Name row, then SSN row nested directly below with the same values
+  // (matches Excel's compact-form pivot with two row fields: Caregiver Name > SSN).
+  document.getElementById('pv-tbody').innerHTML=data.map(r=>{
+    const flag=(!r.inW1||!r.inW2)?'<span style="font-size:9px;font-weight:700;margin-left:6px;color:var(--amber)">'+(r.inW1?'W1 ONLY':'W2 ONLY')+'</span>':'';
+    const rowBg=(!r.inW1||!r.inW2)?'background:rgba(245,158,11,0.04)':'';
+    return '<tr style="'+rowBg+'"><td style="font-weight:700">'+r.name+flag+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);color:var(--teal)">'+fn(r.phd1)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);color:var(--blue2)">'+fn(r.phd2)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--green)">'+fn(r.total)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono)">'+fnDiff(r.pivotDiff)+'</td></tr>'
+      +'<tr style="'+rowBg+'"><td style="padding-left:1.5rem;font-family:var(--mono);font-size:11px;color:var(--text3)">'+(r.ssn||'—')+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);color:var(--teal)">'+fn(r.phd1)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);color:var(--blue2)">'+fn(r.phd2)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--green)">'+fn(r.total)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono)">'+fnDiff(r.pivotDiff)+'</td></tr>';
+  }).join('');
+  const t1=data.reduce((s,r)=>s+(r.phd1||0),0),t2=data.reduce((s,r)=>s+(r.phd2||0),0),tA=data.reduce((s,r)=>s+(r.total||0),0),tD=data.reduce((s,r)=>s+(r.pivotDiff||0),0);
+  document.getElementById('pv-tfoot').innerHTML='<tr style="background:var(--bg3);font-weight:800;font-size:12px">'
+    +'<td style="padding:10px 14px;color:var(--text2)">Grand Total — '+data.length+' caregivers</td>'
+    +'<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">'+t1.toFixed(2)+'</td>'
+    +'<td style="text-align:right;font-family:var(--mono);color:var(--blue2);padding:10px 14px">'+t2.toFixed(2)+'</td>'
+    +'<td style="text-align:right;font-family:var(--mono);color:var(--green);padding:10px 14px">'+tA.toFixed(2)+'</td>'
+    +'<td style="text-align:right;font-family:var(--mono);color:var(--amber);padding:10px 14px">'+tD.toFixed(2)+'</td></tr>';
+}
+function pvExport(){const hdr=['Row Labels','SSN','Week1','Week2','Grand Total','Diff'];const rows=[];pvData.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{rows.push([r.name,'',r.phd1?.toFixed(2)||'',r.phd2?.toFixed(2)||'',r.total.toFixed(2),r.pivotDiff.toFixed(2)]);rows.push([r.ssn,'',r.phd1?.toFixed(2)||'',r.phd2?.toFixed(2)||'',r.total.toFixed(2),r.pivotDiff.toFixed(2)]);});const t1=pvData.reduce((s,r)=>s+(r.phd1||0),0),t2=pvData.reduce((s,r)=>s+(r.phd2||0),0),tA=pvData.reduce((s,r)=>s+(r.total||0),0),tD=pvData.reduce((s,r)=>s+(r.pivotDiff||0),0);rows.push(['Grand Total','',t1.toFixed(2),t2.toFixed(2),tA.toFixed(2),tD.toFixed(2)]);const csv=[hdr,...rows].map(r=>r.map(v=>'"'+v+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='payroll-pivot-'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
 
 // ─── RATE CALCULATOR ─────────────────────────────────────────────────────────
 function rcCalc(){
