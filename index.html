@@ -602,7 +602,13 @@ textarea.field-input{resize:vertical;min-height:80px}
             <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:1.25rem">EMPLOYEE DETAILS</div>
             <div class="field-group"><label class="field-label">Date</label><input type="date" class="field-input" id="lv-date" oninput="lvUpdate()"/></div>
             <div class="field-group"><label class="field-label">Employee Full Name</label><input type="text" class="field-input" id="lv-name" placeholder="e.g. Richa Sharma" oninput="lvUpdate()"/></div>
-            <div class="field-group"><label class="field-label">Employee Address</label><input type="text" class="field-input" id="lv-addr" placeholder="e.g. 4921 FRICH DR PITTSBURGH, PA, 15227" oninput="lvUpdate()"/></div>
+            <div class="field-group"><label class="field-label">Employee Address</label>
+              <div style="display:flex;gap:8px">
+                <input type="text" class="field-input" id="lv-addr" placeholder="e.g. 4921 FRICH DR PITTSBURGH, PA, 15227" oninput="lvUpdate()" style="flex:1"/>
+                <button type="button" class="btn-sec" onclick="lvVerifyAddr('lv-addr','lv-addr-check')" style="white-space:nowrap;padding:0 14px">✓ Verify</button>
+              </div>
+              <div id="lv-addr-check" style="font-size:11px;margin-top:6px;display:none"></div>
+            </div>
             <div class="field-group"><label class="field-label">Employment Start Date</label><input type="date" class="field-input" id="lv-start" oninput="lvUpdate()"/></div>
             <div id="lv-waiver-fields">
               <div class="field-group"><label class="field-label">Client Name</label>
@@ -614,7 +620,11 @@ textarea.field-input{resize:vertical;min-height:80px}
               </div>
               <div id="lv-client-addr-wrap" style="display:none" class="field-group">
                 <label class="field-label">Client Address</label>
-                <input type="text" class="field-input" id="lv-clientaddr" placeholder="Client address" oninput="lvUpdate()"/>
+                <div style="display:flex;gap:8px">
+                  <input type="text" class="field-input" id="lv-clientaddr" placeholder="Client address" oninput="lvUpdate()" style="flex:1"/>
+                  <button type="button" class="btn-sec" onclick="lvVerifyAddr('lv-clientaddr','lv-clientaddr-check')" style="white-space:nowrap;padding:0 14px">✓ Verify</button>
+                </div>
+                <div id="lv-clientaddr-check" style="font-size:11px;margin-top:6px;display:none"></div>
               </div>
             </div>
             <div id="lv-emp-fields" style="display:none">
@@ -1687,6 +1697,31 @@ function rcCalc(){
 
 // ─── LETTER GENERATOR ────────────────────────────────────────────────────────
 function lvInit(){const today=new Date().toISOString().split('T')[0];document.getElementById('lv-date').value=today;lvUpdate();}
+
+// Verify a plain-text address against OpenStreetMap's Nominatim (free, no key needed)
+async function lvVerifyAddr(inputId, checkId){
+  var input = document.getElementById(inputId);
+  var check = document.getElementById(checkId);
+  var addr = input.value.trim();
+  if (!addr) { check.style.display='block'; check.style.color='var(--amber)'; check.textContent='Type an address first.'; return; }
+  check.style.display='block'; check.style.color='var(--text2)'; check.textContent='Checking address...';
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(addr), {
+      headers: { 'Accept-Language': 'en' }
+    });
+    var data = await r.json();
+    if (!data || !data.length) {
+      check.style.color='var(--red)';
+      check.textContent = '⚠ Address not found — double-check spelling and formatting.';
+      return;
+    }
+    check.style.color='var(--green)';
+    check.textContent = '✓ Found: ' + data[0].display_name;
+  } catch (e) {
+    check.style.color='var(--red)';
+    check.textContent = '⚠ Could not verify right now — try again in a moment.';
+  }
+}
 function lvUpdate(){
   var type     = document.getElementById('lv-type') ? document.getElementById('lv-type').value : 'employment';
   var agency   = document.getElementById('lv-agency');
