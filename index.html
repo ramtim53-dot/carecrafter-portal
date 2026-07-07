@@ -1525,6 +1525,18 @@ function dcParseTimeRange(str){if(!str)return null;const parts=String(str).split
 function dcFt(n){return Math.round(n).toLocaleString()+' ft';}
 function dcMins(n){return Math.round(n)+' min';}
 function dcMapsUrl(hLat,hLon,cLat,cLon){return`https://www.google.com/maps/dir/${hLat},${hLon}/${cLat},${cLon}`;}
+// Reverse-geocode a flagged GPS point into a real address via Nominatim (free, no key needed)
+async function dcResolveAddr(lat,lon,targetId){
+  var el=document.getElementById(targetId);
+  if(!el)return;
+  el.textContent='Looking up address...'; el.style.color='var(--text2)';
+  try{
+    var r=await fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lon,{headers:{'Accept-Language':'en'}});
+    var data=await r.json();
+    if(data&&data.display_name){el.textContent='📍 '+data.display_name;el.style.color='var(--teal)';}
+    else{el.textContent='⚠ No address found for this location.';el.style.color='var(--amber)';}
+  }catch(e){el.textContent='⚠ Could not look up address right now.';el.style.color='var(--red)';}
+}
 function dcDistColor(d){return d>=DC_OUT_FT?'var(--red)':d>=500?'var(--amber)':'var(--green)';}
 function dcDistPct(d){return Math.min((d/2000)*100,100);}
 function dcProcessRows(rows){
@@ -1609,8 +1621,9 @@ function dcBuildCard(a,idx){
   body += '<div><strong>EVV Time:</strong> '+(outV.evvStr||'N/A')+'</div>';
   if(outHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+outHrs+' hrs</span></div>';
   body += '<div><strong>Dist from Client:</strong> <span style="color:var(--red);font-weight:700">'+(outV.coutDist?Math.round(outV.coutDist).toLocaleString()+' ft':'N/A')+'</span></div>';
-  var outGPSstr = gStr(outGPS) || gStr(outCinGPS);
-  if(outGPSstr) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+outGPSstr+'</code></div>';
+  var outGPSObj = outGPS || outCinGPS;
+  var outGPSstr = gStr(outGPSObj);
+  if(outGPSstr) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+outGPSstr+'</code> <button onclick="dcResolveAddr(\''+outGPSObj.lat+'\',\''+outGPSObj.lon+'\',\'dc-addr-'+idx+'-out\')" style="font-size:9px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer;color:var(--text2)" title="Look up real address">📍 Address</button><div id="dc-addr-'+idx+'-out" style="font-size:10px;color:var(--text3);margin-top:3px"></div></div>';
   else body += '<div style="color:var(--amber)"><strong>GPS:</strong> ⚠️ Not recorded</div>';
   if(outV.tasksDone) body += '<div style="margin-top:4px"><strong>✅ Duties:</strong> <span style="color:var(--green);font-size:10px">'+outV.tasksDone+'</span></div>';
   if(outV.tasksNot)  body += '<div><strong>❌ Not done:</strong> <span style="color:var(--red);font-size:10px">'+outV.tasksNot+'</span></div>';
@@ -1626,9 +1639,9 @@ function dcBuildCard(a,idx){
   var rHrs = hrs(rightV.evvStr);
   if(rHrs) body += '<div><strong>Hours Worked:</strong> <span style="color:var(--amber);font-weight:700">'+rHrs+' hrs</span></div>';
   body += '<div><strong>Dist from Client:</strong> <span style="color:var(--green);font-weight:700">'+(rightV.cinDist!==undefined?Math.round(rightV.cinDist).toLocaleString()+' ft':'N/A')+'</span></div>';
-  if(rightGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+gStr(rightGPS)+'</code></div>';
+  if(rightGPS) body += '<div><strong>GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+gStr(rightGPS)+'</code> <button onclick="dcResolveAddr(\''+rightGPS.lat+'\',\''+rightGPS.lon+'\',\'dc-addr-'+idx+'-in\')" style="font-size:9px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer;color:var(--text2)" title="Look up real address">📍 Address</button><div id="dc-addr-'+idx+'-in" style="font-size:10px;color:var(--text3);margin-top:3px"></div></div>';
   else body += '<div style="color:var(--amber)"><strong>GPS:</strong> ⚠️ Not recorded</div>';
-  if(homeGPS) body += '<div style="margin-top:4px"><strong>🏠 Client Home GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+gStr(homeGPS)+'</code></div>';
+  if(homeGPS) body += '<div style="margin-top:4px"><strong>🏠 Client Home GPS:</strong> <code style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px">'+gStr(homeGPS)+'</code> <button onclick="dcResolveAddr(\''+homeGPS.lat+'\',\''+homeGPS.lon+'\',\'dc-addr-'+idx+'-home\')" style="font-size:9px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer;color:var(--text2)" title="Look up real address">📍 Address</button><div id="dc-addr-'+idx+'-home" style="font-size:10px;color:var(--text3);margin-top:3px"></div></div>';
   if(rightV.tasksDone) body += '<div style="margin-top:4px"><strong>✅ Duties:</strong> <span style="color:var(--green);font-size:10px">'+rightV.tasksDone+'</span></div>';
   if(rightV.tasksNot)  body += '<div><strong>❌ Not done:</strong> <span style="color:var(--red);font-size:10px">'+rightV.tasksNot+'</span></div>';
   body += '</div></div>';
