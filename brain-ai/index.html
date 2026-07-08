@@ -851,25 +851,64 @@ function searchCountry(){
   }).catch(()=>{ $('country-status').textContent = 'Could not search right now — try again.'; });
 }
 
+function row(label, value){
+  if(!value) return '';
+  return `<div style="display:flex;gap:6px;padding:5px 0;border-bottom:1px solid var(--line)"><b style="color:var(--text);min-width:130px;flex-shrink:0">${label}</b><span style="color:var(--muted)">${value}</span></div>`;
+}
+
 function renderCountryGrid(countries){
+  $('country-grid').style.gridTemplateColumns = '1fr';
   $('country-grid').innerHTML = countries.map(c=>{
     const name = (c.name && c.name.common) || 'Unknown';
+    const official = (c.name && c.name.official) || '—';
+    const native = c.name && c.name.native ? Object.values(c.name.native).map(n=>n.common).join(', ') : '';
     const capital = (c.capital && c.capital[0]) || '—';
     const region = [c.subregion, c.region].filter(Boolean).join(', ') || '—';
     const area = c.area ? Math.round(c.area).toLocaleString()+' km²' : '—';
     const langs = c.languages ? Object.values(c.languages).join(', ') : '—';
     const currencies = c.currencies ? Object.values(c.currencies).map(cur=>cur.name+(cur.symbol?' ('+cur.symbol+')':'')).join(', ') : '—';
     const flag = c.flag || '';
+    const demonym = c.demonyms && c.demonyms.eng ? c.demonyms.eng.m : '';
+    const calling = c.idd && c.idd.root ? c.idd.root + ((c.idd.suffixes||[]).length===1 ? c.idd.suffixes[0] : (c.idd.suffixes||[]).join('/')) : '';
+    const codes = [c.cca2, c.cca3, c.ccn3].filter(Boolean).join(' / ');
+    const latlng = c.latlng ? c.latlng.join(', ') : '';
+    const landlocked = c.landlocked ? 'Yes' : 'No';
+    const independent = c.independent === true ? 'Yes' : c.independent === false ? 'No' : '—';
+    const unMember = c.unMember ? 'Yes' : 'No';
+    const tld = (c.tld || []).join(', ');
+    const altSpellings = (c.altSpellings || []).slice(0, 5).join(', ');
+    const borderNames = (c.borders || []).map(code => {
+      const m = ALL_COUNTRIES && ALL_COUNTRIES.find(x => x.cca3 === code);
+      return m ? m.name.common : code;
+    }).join(', ');
+    const translations = c.translations
+      ? Object.values(c.translations).map(t=>t.common).filter((v,i,a)=>a.indexOf(v)===i).slice(0, 15).join(', ')
+      : '';
+
     return `<div class="card" style="margin-bottom:0">
-      <div style="font-size:48px;text-align:center;margin-bottom:8px">${flag}</div>
-      <h3>${name}</h3>
-      <p class="hint" style="line-height:1.8">
-        <b style="color:var(--text)">Capital:</b> ${capital}<br>
-        <b style="color:var(--text)">Region:</b> ${region}<br>
-        <b style="color:var(--text)">Area:</b> ${area}<br>
-        <b style="color:var(--text)">Languages:</b> ${langs}<br>
-        <b style="color:var(--text)">Currency:</b> ${currencies}
-      </p></div>`;
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+        <div style="font-size:48px;line-height:1">${flag}</div>
+        <div><h3 style="margin-bottom:2px">${name}</h3><p class="hint" style="margin:0">${official}</p></div>
+      </div>
+      <div>
+        ${row('Native name', native)}
+        ${row('Capital', capital)}
+        ${row('Region', region)}
+        ${row('Area', area)}
+        ${row('Languages', langs)}
+        ${row('Currency', currencies)}
+        ${row('Demonym', demonym)}
+        ${row('Calling code', calling)}
+        ${row('Country codes', codes)}
+        ${row('Coordinates', latlng)}
+        ${row('Landlocked', landlocked)}
+        ${row('Borders', borderNames || 'None')}
+        ${row('Independent', independent)}
+        ${row('UN Member', unMember)}
+        ${row('Internet TLD', tld)}
+        ${row('Alt. spellings', altSpellings)}
+        ${row('Translations', translations)}
+      </div></div>`;
   }).join('');
 }
 
