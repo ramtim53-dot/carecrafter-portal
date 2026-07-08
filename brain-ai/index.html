@@ -808,33 +808,47 @@ $('ocr-copy').addEventListener('click', async ()=>{
   }
 });
 
-/* ---------- Country Info — via restcountries.com (free, no key needed) ---------- */
+/* ---------- Country Info — via mledoze/countries static dataset (free, no key, no auth) ----------
+   restcountries.com's public v3.1 API was deprecated (now returns success:false on every call,
+   and the new v5 API requires paid authentication) — this static JSON dataset is the reliable
+   free replacement, served off jsDelivr's CDN. */
 let countryLoaded = false;
+let ALL_COUNTRIES = null;
 const DEFAULT_COUNTRIES = ['Nepal','Bhutan','India','Iraq','United States','Pakistan'];
-const COUNTRY_FIELDS = 'name,capital,region,subregion,population,languages,currencies,flags';
+
+function fetchAllCountries(){
+  if(ALL_COUNTRIES) return Promise.resolve(ALL_COUNTRIES);
+  return fetch('https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json')
+    .then(r=>{ if(!r.ok) throw new Error('Could not load country dataset'); return r.json(); })
+    .then(data=>{ ALL_COUNTRIES = data; return data; });
+}
 
 function loadDefaultCountries(){
   $('country-status').textContent = 'Loading country info…';
-  Promise.all(DEFAULT_COUNTRIES.map(name =>
-    fetch('https://restcountries.com/v3.1/name/'+encodeURIComponent(name)+'?fields='+COUNTRY_FIELDS)
-      .then(r=>r.ok?r.json():[]).catch(()=>[])
-  )).then(results=>{
-    const countries = results.map(r=>r[0]).filter(Boolean);
-    if(!countries.length){ $('country-status').textContent = 'Could not load country info.'; return; }
+  fetchAllCountries().then(all=>{
+    const countries = DEFAULT_COUNTRIES
+      .map(name => all.find(c => c.name.common.toLowerCase() === name.toLowerCase()))
+      .filter(Boolean);
     $('country-status').textContent = '';
     renderCountryGrid(countries);
-  });
+  }).catch(()=>{ $('country-status').textContent = 'Could not load country info.'; });
 }
 
 function searchCountry(){
-  const q = $('country-search').value.trim();
+  const q = $('country-search').value.trim().toLowerCase();
   if(!q) return;
   $('country-grid').innerHTML = '';
   $('country-status').textContent = 'Searching "'+q+'"…';
-  fetch('https://restcountries.com/v3.1/name/'+encodeURIComponent(q)+'?fields='+COUNTRY_FIELDS)
-    .then(r=>{ if(!r.ok) throw new Error('Country not found'); return r.json(); })
-    .then(countries=>{ $('country-status').textContent=''; renderCountryGrid(countries); })
-    .catch(()=>{ $('country-status').textContent = 'No country found matching "'+q+'".'; });
+  fetchAllCountries().then(all=>{
+    const matches = all.filter(c =>
+      c.name.common.toLowerCase().includes(q) ||
+      c.name.official.toLowerCase().includes(q) ||
+      (c.altSpellings || []).some(a => a.toLowerCase().includes(q))
+    ).slice(0, 12);
+    if(!matches.length){ $('country-status').textContent = 'No country found matching "'+q+'".'; return; }
+    $('country-status').textContent = '';
+    renderCountryGrid(matches);
+  }).catch(()=>{ $('country-status').textContent = 'Could not search right now — try again.'; });
 }
 
 function renderCountryGrid(countries){
@@ -842,17 +856,17 @@ function renderCountryGrid(countries){
     const name = (c.name && c.name.common) || 'Unknown';
     const capital = (c.capital && c.capital[0]) || '—';
     const region = [c.subregion, c.region].filter(Boolean).join(', ') || '—';
-    const pop = c.population ? c.population.toLocaleString() : '—';
+    const area = c.area ? Math.round(c.area).toLocaleString()+' km²' : '—';
     const langs = c.languages ? Object.values(c.languages).join(', ') : '—';
     const currencies = c.currencies ? Object.values(c.currencies).map(cur=>cur.name+(cur.symbol?' ('+cur.symbol+')':'')).join(', ') : '—';
-    const flag = (c.flags && (c.flags.png || c.flags.svg)) || '';
-    const imgH = flag ? `<div style="height:110px;overflow:hidden;border-radius:10px;margin-bottom:10px"><img src="${flag}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>` : '';
-    return `<div class="card" style="margin-bottom:0">${imgH}
+    const flag = c.flag || '';
+    return `<div class="card" style="margin-bottom:0">
+      <div style="font-size:48px;text-align:center;margin-bottom:8px">${flag}</div>
       <h3>${name}</h3>
       <p class="hint" style="line-height:1.8">
         <b style="color:var(--text)">Capital:</b> ${capital}<br>
         <b style="color:var(--text)">Region:</b> ${region}<br>
-        <b style="color:var(--text)">Population:</b> ${pop}<br>
+        <b style="color:var(--text)">Area:</b> ${area}<br>
         <b style="color:var(--text)">Languages:</b> ${langs}<br>
         <b style="color:var(--text)">Currency:</b> ${currencies}
       </p></div>`;
