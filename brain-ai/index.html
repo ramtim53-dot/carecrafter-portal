@@ -166,6 +166,7 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
   <button class="nav-btn" data-page="photoedit"><span class="ico">✏️</span><span class="txt">Photo Text Editor</span></button>
   <button class="nav-btn" data-page="ocr"><span class="ico">🔍</span><span class="txt">OCR Reader</span></button>
   <button class="nav-btn" data-page="pdf"><span class="ico">📄</span><span class="txt">PDF Tools</span></button>
+  <button class="nav-btn" data-page="country"><span class="ico">🌍</span><span class="txt">Country Info</span></button>
   <button class="nav-btn" data-page="settings"><span class="ico">⚙️</span><span class="txt">Settings</span></button>
 </nav>
 
@@ -316,6 +317,23 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
   </div>
 </section>
 
+<!-- ============ COUNTRY INFO ============ -->
+<section class="page" id="page-country">
+  <div class="page-inner">
+    <h2 class="page-title">🌍 Country Info</h2>
+    <p class="page-sub">Look up any country — capital, region, population, languages, currency. Free public data, no key needed.</p>
+    <div class="card">
+      <label class="lbl" for="country-search">Search a country</label>
+      <div style="display:flex;gap:10px">
+        <input type="text" id="country-search" placeholder="e.g. Nepal, Bhutan, India" style="flex:1">
+        <button class="btn" id="country-go" style="white-space:nowrap">Search</button>
+      </div>
+      <div class="status" id="country-status"></div>
+    </div>
+    <div class="tool-grid" id="country-grid"></div>
+  </div>
+</section>
+
 <!-- ============ SETTINGS ============ -->
 <section class="page" id="page-settings">
   <div class="page-inner">
@@ -382,6 +400,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     $('page-'+btn.dataset.page).classList.add('active');
+    if(btn.dataset.page==='country' && !countryLoaded){ countryLoaded=true; loadDefaultCountries(); }
   });
 });
 
@@ -788,6 +807,60 @@ $('ocr-copy').addEventListener('click', async ()=>{
     $('ocr-status').textContent = 'Copied ✓';
   }
 });
+
+/* ---------- Country Info — via restcountries.com (free, no key needed) ---------- */
+let countryLoaded = false;
+const DEFAULT_COUNTRIES = ['Nepal','Bhutan','India','Iraq','United States','Pakistan'];
+const COUNTRY_FIELDS = 'name,capital,region,subregion,population,languages,currencies,flags';
+
+function loadDefaultCountries(){
+  $('country-status').textContent = 'Loading country info…';
+  Promise.all(DEFAULT_COUNTRIES.map(name =>
+    fetch('https://restcountries.com/v3.1/name/'+encodeURIComponent(name)+'?fields='+COUNTRY_FIELDS)
+      .then(r=>r.ok?r.json():[]).catch(()=>[])
+  )).then(results=>{
+    const countries = results.map(r=>r[0]).filter(Boolean);
+    if(!countries.length){ $('country-status').textContent = 'Could not load country info.'; return; }
+    $('country-status').textContent = '';
+    renderCountryGrid(countries);
+  });
+}
+
+function searchCountry(){
+  const q = $('country-search').value.trim();
+  if(!q) return;
+  $('country-grid').innerHTML = '';
+  $('country-status').textContent = 'Searching "'+q+'"…';
+  fetch('https://restcountries.com/v3.1/name/'+encodeURIComponent(q)+'?fields='+COUNTRY_FIELDS)
+    .then(r=>{ if(!r.ok) throw new Error('Country not found'); return r.json(); })
+    .then(countries=>{ $('country-status').textContent=''; renderCountryGrid(countries); })
+    .catch(()=>{ $('country-status').textContent = 'No country found matching "'+q+'".'; });
+}
+
+function renderCountryGrid(countries){
+  $('country-grid').innerHTML = countries.map(c=>{
+    const name = (c.name && c.name.common) || 'Unknown';
+    const capital = (c.capital && c.capital[0]) || '—';
+    const region = [c.subregion, c.region].filter(Boolean).join(', ') || '—';
+    const pop = c.population ? c.population.toLocaleString() : '—';
+    const langs = c.languages ? Object.values(c.languages).join(', ') : '—';
+    const currencies = c.currencies ? Object.values(c.currencies).map(cur=>cur.name+(cur.symbol?' ('+cur.symbol+')':'')).join(', ') : '—';
+    const flag = (c.flags && (c.flags.png || c.flags.svg)) || '';
+    const imgH = flag ? `<div style="height:110px;overflow:hidden;border-radius:10px;margin-bottom:10px"><img src="${flag}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>` : '';
+    return `<div class="card" style="margin-bottom:0">${imgH}
+      <h3>${name}</h3>
+      <p class="hint" style="line-height:1.8">
+        <b style="color:var(--text)">Capital:</b> ${capital}<br>
+        <b style="color:var(--text)">Region:</b> ${region}<br>
+        <b style="color:var(--text)">Population:</b> ${pop}<br>
+        <b style="color:var(--text)">Languages:</b> ${langs}<br>
+        <b style="color:var(--text)">Currency:</b> ${currencies}
+      </p></div>`;
+  }).join('');
+}
+
+$('country-go').addEventListener('click', searchCountry);
+$('country-search').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); searchCountry(); } });
 
 /* ---------- PDF Tools ---------- */
 function downloadBytes(bytes, name){
