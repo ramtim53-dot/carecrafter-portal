@@ -166,7 +166,6 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
   <button class="nav-btn" data-page="photoedit"><span class="ico">✏️</span><span class="txt">Photo Text Editor</span></button>
   <button class="nav-btn" data-page="ocr"><span class="ico">🔍</span><span class="txt">OCR Reader</span></button>
   <button class="nav-btn" data-page="pdf"><span class="ico">📄</span><span class="txt">PDF Tools</span></button>
-  <button class="nav-btn" data-page="country"><span class="ico">🌍</span><span class="txt">Country Info</span></button>
   <button class="nav-btn" data-page="settings"><span class="ico">⚙️</span><span class="txt">Settings</span></button>
 </nav>
 
@@ -317,23 +316,6 @@ label.lbl{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px;fo
   </div>
 </section>
 
-<!-- ============ COUNTRY INFO ============ -->
-<section class="page" id="page-country">
-  <div class="page-inner">
-    <h2 class="page-title">🌍 Country Info</h2>
-    <p class="page-sub">Look up any country — capital, region, population, languages, currency. Free public data, no key needed.</p>
-    <div class="card">
-      <label class="lbl" for="country-search">Search a country</label>
-      <div style="display:flex;gap:10px">
-        <input type="text" id="country-search" placeholder="e.g. Nepal, Bhutan, India" style="flex:1">
-        <button class="btn" id="country-go" style="white-space:nowrap">Search</button>
-      </div>
-      <div class="status" id="country-status"></div>
-    </div>
-    <div class="tool-grid" id="country-grid"></div>
-  </div>
-</section>
-
 <!-- ============ SETTINGS ============ -->
 <section class="page" id="page-settings">
   <div class="page-inner">
@@ -400,7 +382,6 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     $('page-'+btn.dataset.page).classList.add('active');
-    if(btn.dataset.page==='country' && !countryLoaded){ countryLoaded=true; loadDefaultCountries(); }
   });
 });
 
@@ -808,112 +789,6 @@ $('ocr-copy').addEventListener('click', async ()=>{
   }
 });
 
-/* ---------- Country Info — via mledoze/countries static dataset (free, no key, no auth) ----------
-   restcountries.com's public v3.1 API was deprecated (now returns success:false on every call,
-   and the new v5 API requires paid authentication) — this static JSON dataset is the reliable
-   free replacement, served off jsDelivr's CDN. */
-let countryLoaded = false;
-let ALL_COUNTRIES = null;
-const DEFAULT_COUNTRIES = ['Nepal','Bhutan','India','Iraq','United States','Pakistan'];
-
-function fetchAllCountries(){
-  if(ALL_COUNTRIES) return Promise.resolve(ALL_COUNTRIES);
-  return fetch('https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json')
-    .then(r=>{ if(!r.ok) throw new Error('Could not load country dataset'); return r.json(); })
-    .then(data=>{ ALL_COUNTRIES = data; return data; });
-}
-
-function loadDefaultCountries(){
-  $('country-status').textContent = 'Loading country info…';
-  fetchAllCountries().then(all=>{
-    const countries = DEFAULT_COUNTRIES
-      .map(name => all.find(c => c.name.common.toLowerCase() === name.toLowerCase()))
-      .filter(Boolean);
-    $('country-status').textContent = '';
-    renderCountryGrid(countries);
-  }).catch(()=>{ $('country-status').textContent = 'Could not load country info.'; });
-}
-
-function searchCountry(){
-  const q = $('country-search').value.trim().toLowerCase();
-  if(!q) return;
-  $('country-grid').innerHTML = '';
-  $('country-status').textContent = 'Searching "'+q+'"…';
-  fetchAllCountries().then(all=>{
-    const matches = all.filter(c =>
-      c.name.common.toLowerCase().includes(q) ||
-      c.name.official.toLowerCase().includes(q) ||
-      (c.altSpellings || []).some(a => a.toLowerCase().includes(q))
-    ).slice(0, 12);
-    if(!matches.length){ $('country-status').textContent = 'No country found matching "'+q+'".'; return; }
-    $('country-status').textContent = '';
-    renderCountryGrid(matches);
-  }).catch(()=>{ $('country-status').textContent = 'Could not search right now — try again.'; });
-}
-
-function row(label, value){
-  if(!value) return '';
-  return `<div style="display:flex;gap:6px;padding:5px 0;border-bottom:1px solid var(--line)"><b style="color:var(--text);min-width:130px;flex-shrink:0">${label}</b><span style="color:var(--muted)">${value}</span></div>`;
-}
-
-function renderCountryGrid(countries){
-  $('country-grid').style.gridTemplateColumns = '1fr';
-  $('country-grid').innerHTML = countries.map(c=>{
-    const name = (c.name && c.name.common) || 'Unknown';
-    const official = (c.name && c.name.official) || '—';
-    const native = c.name && c.name.native ? Object.values(c.name.native).map(n=>n.common).join(', ') : '';
-    const capital = (c.capital && c.capital[0]) || '—';
-    const region = [c.subregion, c.region].filter(Boolean).join(', ') || '—';
-    const area = c.area ? Math.round(c.area).toLocaleString()+' km²' : '—';
-    const langs = c.languages ? Object.values(c.languages).join(', ') : '—';
-    const currencies = c.currencies ? Object.values(c.currencies).map(cur=>cur.name+(cur.symbol?' ('+cur.symbol+')':'')).join(', ') : '—';
-    const flag = c.flag || '';
-    const demonym = c.demonyms && c.demonyms.eng ? c.demonyms.eng.m : '';
-    const calling = c.idd && c.idd.root ? c.idd.root + ((c.idd.suffixes||[]).length===1 ? c.idd.suffixes[0] : (c.idd.suffixes||[]).join('/')) : '';
-    const codes = [c.cca2, c.cca3, c.ccn3].filter(Boolean).join(' / ');
-    const latlng = c.latlng ? c.latlng.join(', ') : '';
-    const landlocked = c.landlocked ? 'Yes' : 'No';
-    const independent = c.independent === true ? 'Yes' : c.independent === false ? 'No' : '—';
-    const unMember = c.unMember ? 'Yes' : 'No';
-    const tld = (c.tld || []).join(', ');
-    const altSpellings = (c.altSpellings || []).slice(0, 5).join(', ');
-    const borderNames = (c.borders || []).map(code => {
-      const m = ALL_COUNTRIES && ALL_COUNTRIES.find(x => x.cca3 === code);
-      return m ? m.name.common : code;
-    }).join(', ');
-    const translations = c.translations
-      ? Object.values(c.translations).map(t=>t.common).filter((v,i,a)=>a.indexOf(v)===i).slice(0, 15).join(', ')
-      : '';
-
-    return `<div class="card" style="margin-bottom:0">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
-        <div style="font-size:48px;line-height:1">${flag}</div>
-        <div><h3 style="margin-bottom:2px">${name}</h3><p class="hint" style="margin:0">${official}</p></div>
-      </div>
-      <div>
-        ${row('Native name', native)}
-        ${row('Capital', capital)}
-        ${row('Region', region)}
-        ${row('Area', area)}
-        ${row('Languages', langs)}
-        ${row('Currency', currencies)}
-        ${row('Demonym', demonym)}
-        ${row('Calling code', calling)}
-        ${row('Country codes', codes)}
-        ${row('Coordinates', latlng)}
-        ${row('Landlocked', landlocked)}
-        ${row('Borders', borderNames || 'None')}
-        ${row('Independent', independent)}
-        ${row('UN Member', unMember)}
-        ${row('Internet TLD', tld)}
-        ${row('Alt. spellings', altSpellings)}
-        ${row('Translations', translations)}
-      </div></div>`;
-  }).join('');
-}
-
-$('country-go').addEventListener('click', searchCountry);
-$('country-search').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); searchCountry(); } });
 
 /* ---------- PDF Tools ---------- */
 function downloadBytes(bytes, name){

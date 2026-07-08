@@ -273,6 +273,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('authanalysis')"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Auth Analysis</button>
         <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/></svg></span>Quick Text</button>
         <button class="nav-btn" onclick="showView('brainai')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4v1a3 3 0 0 0-2 2.8V13a3 3 0 0 0 2 2.8V17a4 4 0 0 0 4 4 4 4 0 0 0 4-4v-1.2a3 3 0 0 0 2-2.8v-2.2a3 3 0 0 0-2-2.8V7a4 4 0 0 0-4-4z"/></svg></span>Brain AI</button>
+        <button class="nav-btn" onclick="showView('countryinfo')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>Country Info</button>
       </div>
       <div class="sidebar-footer">
         <div class="user-name" id="sidebarName">Ram</div>
@@ -960,6 +961,18 @@ textarea.field-input{resize:vertical;min-height:80px}
         <iframe src="brain-ai/index.html" title="Ram's Brain AI" style="width:100%;height:82vh;border:1px solid var(--border);border-radius:var(--radius-lg);background:#0C0E14"></iframe>
       </div>
 
+      <!-- COUNTRY INFO VIEW -->
+      <div class="view" id="v-countryinfo">
+        <div class="view-title">🌍 Country Info</div>
+        <div class="view-sub">Look up any country — capital, region, area, languages, currency, and more. Free public data, no key needed.</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:1.25rem">
+          <input type="text" id="ci-search" class="srch" placeholder="🔍 Search any country (e.g. Nepal, Bhutan, India)..." style="width:320px" onkeydown="if(event.key==='Enter')searchCountryInfo()">
+          <button onclick="searchCountryInfo()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">Search</button>
+        </div>
+        <div id="ci-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
+        <div id="ci-grid" style="display:grid;grid-template-columns:1fr;gap:1rem"></div>
+      </div>
+
       <!-- HOURS ANALYSIS VIEW -->
       <div class="view" id="v-hours">
         <div class="view-title">💰 Hours & Billing Analysis</div>
@@ -1342,7 +1355,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,countryinfo:16};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -1352,6 +1365,7 @@ function showView(id) {
   if (id === 'letters') { setTimeout(lvInit, 100); }
   if (id === 'news') loadNews();
   if (id === 'timesheets') { setTimeout(function(){ document.getElementById('ts-status').textContent='Upload a Prebilling Review report to begin.'; },100); }
+  if (id === 'countryinfo' && !window._countryLoaded) { window._countryLoaded = true; loadDefaultCountries(); }
 }
 
 function renderVersionTable() {
@@ -2540,24 +2554,21 @@ function loadNews(force) {
   var now    = Date.now();
 
   if (idx === 0) {
-    /* Regular News (Top Headlines) — via NewsAPI.org server proxy */
+    /* Regular News (Top Headlines) — via Google News RSS (free, no key, no server proxy needed) */
     var label = 'Regular News';
     if (!force && _newsCache.data && _newsCache.src === label && (now - _newsCache.ts) < 300000) {
       renderNewsGrid(_newsCache.data, _newsCache.src); return;
     }
     grid.innerHTML = ''; status.textContent = 'Loading ' + label + '...';
-    fetch('/api/news?category=general&country=us')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (data.error) throw new Error(data.error.message || 'News error');
-        var arts = (data.articles || []).map(function(a) {
-          return { title: a.title || '', link: a.url || '#', pubDate: a.publishedAt || '', desc: a.description || '', img: a.urlToImage || '' };
-        }).filter(function(a) { return a.title && a.title !== '[Removed]'; });
+    fetchRSS('https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
+      function(xml) {
+        var arts = extractArticles(xml, label);
         if (!arts.length) { status.textContent = 'No headlines available right now.'; return; }
         _newsCache = { data: arts, src: label, ts: Date.now() };
         renderNewsGrid(arts, label);
-      })
-      .catch(function(err) { status.textContent = 'Regular News unavailable: ' + err.message; });
+      },
+      function() { status.textContent = 'Regular News is unavailable right now. Try again later.'; }
+    );
     return;
   }
 
@@ -2587,6 +2598,106 @@ function loadNews(force) {
     function(xml) { parseAndRender(xml, feed.label, grid, status); },
     function()    { status.textContent = feed.label + ' is unavailable. Try another source.'; }
   );
+}
+
+// ─── COUNTRY INFO — via mledoze/countries static dataset (free, no key/auth needed) ──────────
+// restcountries.com's public v3.1 API was deprecated (returns success:false on every call);
+// their new v5 API requires paid auth. This static JSON dataset is the reliable free replacement.
+var CI_ALL = null;
+var CI_DEFAULTS = ['Nepal', 'Bhutan', 'India', 'Iraq', 'United States', 'Pakistan'];
+
+function ciFetchAll() {
+  if (CI_ALL) return Promise.resolve(CI_ALL);
+  return fetch('https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json')
+    .then(function(r) { if (!r.ok) throw new Error('Could not load country dataset'); return r.json(); })
+    .then(function(data) { CI_ALL = data; return data; });
+}
+
+function loadDefaultCountries() {
+  document.getElementById('ci-status').textContent = 'Loading country info...';
+  ciFetchAll().then(function(all) {
+    var countries = CI_DEFAULTS
+      .map(function(name) { return all.find(function(c) { return c.name.common.toLowerCase() === name.toLowerCase(); }); })
+      .filter(Boolean);
+    document.getElementById('ci-status').textContent = '';
+    renderCountryInfoGrid(countries);
+  }).catch(function() { document.getElementById('ci-status').textContent = 'Could not load country info.'; });
+}
+
+function searchCountryInfo() {
+  var q = document.getElementById('ci-search').value.trim().toLowerCase();
+  if (!q) return;
+  document.getElementById('ci-grid').innerHTML = '';
+  document.getElementById('ci-status').textContent = 'Searching "' + q + '"...';
+  ciFetchAll().then(function(all) {
+    var matches = all.filter(function(c) {
+      return c.name.common.toLowerCase().includes(q)
+        || c.name.official.toLowerCase().includes(q)
+        || (c.altSpellings || []).some(function(a) { return a.toLowerCase().includes(q); });
+    }).slice(0, 12);
+    if (!matches.length) { document.getElementById('ci-status').textContent = 'No country found matching "' + q + '".'; return; }
+    document.getElementById('ci-status').textContent = '';
+    renderCountryInfoGrid(matches);
+  }).catch(function() { document.getElementById('ci-status').textContent = 'Could not search right now — try again.'; });
+}
+
+function ciRow(label, value) {
+  if (!value) return '';
+  return '<div style="display:flex;gap:6px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);min-width:140px;flex-shrink:0;font-size:12px">' + label + '</b><span style="color:var(--text2);font-size:12px">' + value + '</span></div>';
+}
+
+function renderCountryInfoGrid(countries) {
+  document.getElementById('ci-grid').innerHTML = countries.map(function(c) {
+    var name = (c.name && c.name.common) || 'Unknown';
+    var official = (c.name && c.name.official) || '—';
+    var native = c.name && c.name.native ? Object.values(c.name.native).map(function(n) { return n.common; }).join(', ') : '';
+    var capital = (c.capital && c.capital[0]) || '—';
+    var region = [c.subregion, c.region].filter(Boolean).join(', ') || '—';
+    var area = c.area ? Math.round(c.area).toLocaleString() + ' km²' : '—';
+    var langs = c.languages ? Object.values(c.languages).join(', ') : '—';
+    var currencies = c.currencies ? Object.values(c.currencies).map(function(cur) { return cur.name + (cur.symbol ? ' (' + cur.symbol + ')' : ''); }).join(', ') : '—';
+    var flag = c.flag || '';
+    var demonym = c.demonyms && c.demonyms.eng ? c.demonyms.eng.m : '';
+    var calling = c.idd && c.idd.root ? c.idd.root + ((c.idd.suffixes || []).length === 1 ? c.idd.suffixes[0] : (c.idd.suffixes || []).join('/')) : '';
+    var codes = [c.cca2, c.cca3, c.ccn3].filter(Boolean).join(' / ');
+    var latlng = c.latlng ? c.latlng.join(', ') : '';
+    var landlocked = c.landlocked ? 'Yes' : 'No';
+    var independent = c.independent === true ? 'Yes' : c.independent === false ? 'No' : '—';
+    var unMember = c.unMember ? 'Yes' : 'No';
+    var tld = (c.tld || []).join(', ');
+    var altSpellings = (c.altSpellings || []).slice(0, 5).join(', ');
+    var borderNames = (c.borders || []).map(function(code) {
+      var m = CI_ALL && CI_ALL.find(function(x) { return x.cca3 === code; });
+      return m ? m.name.common : code;
+    }).join(', ');
+    var translations = c.translations
+      ? Object.values(c.translations).map(function(t) { return t.common; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).slice(0, 15).join(', ')
+      : '';
+
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">'
+      + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">'
+      + '<div style="font-size:44px;line-height:1">' + flag + '</div>'
+      + '<div><div style="font-size:17px;font-weight:700">' + name + '</div><div style="font-size:12px;color:var(--text3)">' + official + '</div></div>'
+      + '</div><div>'
+      + ciRow('Native name', native)
+      + ciRow('Capital', capital)
+      + ciRow('Region', region)
+      + ciRow('Area', area)
+      + ciRow('Languages', langs)
+      + ciRow('Currency', currencies)
+      + ciRow('Demonym', demonym)
+      + ciRow('Calling code', calling)
+      + ciRow('Country codes', codes)
+      + ciRow('Coordinates', latlng)
+      + ciRow('Landlocked', landlocked)
+      + ciRow('Borders', borderNames || 'None')
+      + ciRow('Independent', independent)
+      + ciRow('UN Member', unMember)
+      + ciRow('Internet TLD', tld)
+      + ciRow('Alt. spellings', altSpellings)
+      + ciRow('Translations', translations)
+      + '</div></div>';
+  }).join('');
 }
 
 function parseAndRender(xmlStr, label, grid, status) {
