@@ -798,7 +798,6 @@ textarea.field-input{resize:vertical;min-height:80px}
         <div class="view-sub">Latest home care, Medicaid &amp; caregiving headlines</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem">
           <select id="news-topic" class="select-field" style="width:260px" onchange="loadNews()">
-             <option>Regular News (Top Headlines)</option>
              <option>All Home Care News</option>
              <option>Home Care Magazine</option>
              <option>PA Home Care</option>
@@ -971,6 +970,16 @@ textarea.field-input{resize:vertical;min-height:80px}
         </div>
         <div id="ci-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
         <div id="ci-grid" style="display:grid;grid-template-columns:1fr;gap:1rem"></div>
+
+        <div style="margin-top:2.5rem;padding-top:2rem;border-top:1px solid var(--border)">
+          <div class="view-title" style="font-size:18px;margin-bottom:4px">📰 Regular News (Top Headlines)</div>
+          <div class="view-sub">General top headlines, unrelated to home care</div>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:1.25rem">
+            <button onclick="loadRegularNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
+          </div>
+          <div id="rn-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
+          <div id="rn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
+        </div>
       </div>
 
       <!-- HOURS ANALYSIS VIEW -->
@@ -1364,6 +1373,7 @@ function showView(id) {
   if (id === 'ratecalc') { setTimeout(rcCalc, 100); }
   if (id === 'letters') { setTimeout(lvInit, 100); }
   if (id === 'news') loadNews();
+  if (id === 'countryinfo') { loadDefaultCountries(); loadRegularNews(); }
   if (id === 'timesheets') { setTimeout(function(){ document.getElementById('ts-status').textContent='Upload a Prebilling Review report to begin.'; },100); }
   if (id === 'countryinfo' && !window._countryLoaded) { window._countryLoaded = true; loadDefaultCountries(); }
 }
@@ -2552,6 +2562,27 @@ function fetchRSS(feedUrl, onSuccess, onFail) {
     });
 }
 
+var _rnCache = {};
+function loadRegularNews(force) {
+  var status = document.getElementById('rn-status');
+  var grid   = document.getElementById('rn-grid');
+  var label  = 'Regular News';
+  var now    = Date.now();
+  if (!force && _rnCache.data && (now - _rnCache.ts) < 300000) {
+    renderNewsGrid(_rnCache.data, label, 'rn-grid', 'rn-status', null); return;
+  }
+  grid.innerHTML = ''; status.textContent = 'Loading ' + label + '...';
+  fetchRSS('https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
+    function(xml) {
+      var arts = extractArticles(xml, label);
+      if (!arts.length) { status.textContent = 'No headlines available right now.'; return; }
+      _rnCache = { data: arts, ts: Date.now() };
+      renderNewsGrid(arts, label, 'rn-grid', 'rn-status', null);
+    },
+    function() { status.textContent = 'Regular News is unavailable right now. Try again later.'; }
+  );
+}
+
 function loadNews(force) {
   var sel    = document.getElementById('news-topic');
   var idx    = sel ? sel.selectedIndex : 0;
@@ -2559,31 +2590,12 @@ function loadNews(force) {
   var status = document.getElementById('news-status');
   var now    = Date.now();
 
-  if (idx === 0) {
-    /* Regular News (Top Headlines) — via Google News RSS (free, no key, no server proxy needed) */
-    var label = 'Regular News';
-    if (!force && _newsCache.data && _newsCache.src === label && (now - _newsCache.ts) < 300000) {
-      renderNewsGrid(_newsCache.data, _newsCache.src); return;
-    }
-    grid.innerHTML = ''; status.textContent = 'Loading ' + label + '...';
-    fetchRSS('https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
-      function(xml) {
-        var arts = extractArticles(xml, label);
-        if (!arts.length) { status.textContent = 'No headlines available right now.'; return; }
-        _newsCache = { data: arts, src: label, ts: Date.now() };
-        renderNewsGrid(arts, label);
-      },
-      function() { status.textContent = 'Regular News is unavailable right now. Try again later.'; }
-    );
-    return;
-  }
-
-  var feed = NEWS_FEEDS[idx - 1] || NEWS_FEEDS[0];
+  var feed = NEWS_FEEDS[idx] || NEWS_FEEDS[0];
   if (!force && _newsCache.data && _newsCache.src === feed.label && (now - _newsCache.ts) < 300000) {
     renderNewsGrid(_newsCache.data, _newsCache.src); return;
   }
   grid.innerHTML = ''; status.textContent = 'Loading ' + feed.label + '...';
-  if (idx === 1) {
+  if (idx === 0) {
     /* All Home Care: fetch top 3 sources and combine */
     var combined = []; var done = 0; var sources = [NEWS_FEEDS[0], NEWS_FEEDS[1], NEWS_FEEDS[2]];
     sources.forEach(function(src) {
@@ -2777,11 +2789,12 @@ function extractArticles(xmlStr, label) {
   } catch(e) { return []; }
 }
 
-function renderNewsGrid(articles, label) {
-  var grid   = document.getElementById('news-grid');
-  var status = document.getElementById('news-status');
+function renderNewsGrid(articles, label, gridId, statusId, tsId) {
+  var grid   = document.getElementById(gridId || 'news-grid');
+  var status = document.getElementById(statusId || 'news-status');
   status.textContent = '';
-  document.getElementById('news-ts').textContent = label + ' · ' + new Date().toLocaleTimeString();
+  var tsEl = document.getElementById(tsId || 'news-ts');
+  if (tsEl) tsEl.textContent = label + ' · ' + new Date().toLocaleTimeString();
 
   grid.innerHTML = articles.map(function(a) {
     var date = '';
