@@ -273,6 +273,7 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('authanalysis')"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Auth Analysis</button>
         <button class="nav-btn" onclick="showView('quicktext')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/></svg></span>Quick Text</button>
         <button class="nav-btn" onclick="showView('brainai')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4v1a3 3 0 0 0-2 2.8V13a3 3 0 0 0 2 2.8V17a4 4 0 0 0 4 4 4 4 0 0 0 4-4v-1.2a3 3 0 0 0 2-2.8v-2.2a3 3 0 0 0-2-2.8V7a4 4 0 0 0-4-4z"/></svg></span>Brain AI</button>
+        <button class="nav-btn" onclick="showView('regularnews')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H5a1 1 0 0 1-1-1z"/><path d="M17 8h2a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1M7 8h7M7 12h7M7 16h4"/></svg></span>Regular News</button>
         <button class="nav-btn" onclick="showView('countryinfo')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>Country Info</button>
       </div>
       <div class="sidebar-footer">
@@ -960,6 +961,17 @@ textarea.field-input{resize:vertical;min-height:80px}
         <iframe src="brain-ai/index.html" title="Ram's Brain AI" style="width:100%;height:82vh;border:1px solid var(--border);border-radius:var(--radius-lg);background:#0C0E14"></iframe>
       </div>
 
+      <!-- REGULAR NEWS VIEW -->
+      <div class="view" id="v-regularnews">
+        <div class="view-title">📰 Regular News (Top Headlines)</div>
+        <div class="view-sub">General top headlines, unrelated to home care</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:1.25rem">
+          <button onclick="loadRegularNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
+        </div>
+        <div id="rn-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
+        <div id="rn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
+      </div>
+
       <!-- COUNTRY INFO VIEW -->
       <div class="view" id="v-countryinfo">
         <div class="view-title">🌍 Country Info</div>
@@ -970,16 +982,6 @@ textarea.field-input{resize:vertical;min-height:80px}
         </div>
         <div id="ci-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
         <div id="ci-grid" style="display:grid;grid-template-columns:1fr;gap:1rem"></div>
-
-        <div style="margin-top:2.5rem;padding-top:2rem;border-top:1px solid var(--border)">
-          <div class="view-title" style="font-size:18px;margin-bottom:4px">📰 Regular News (Top Headlines)</div>
-          <div class="view-sub">General top headlines, unrelated to home care</div>
-          <div style="display:flex;gap:10px;align-items:center;margin-bottom:1.25rem">
-            <button onclick="loadRegularNews(true)" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">🔄 Refresh</button>
-          </div>
-          <div id="rn-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
-          <div id="rn-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
-        </div>
       </div>
 
       <!-- HOURS ANALYSIS VIEW -->
@@ -1364,7 +1366,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,countryinfo:16};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -1373,7 +1375,8 @@ function showView(id) {
   if (id === 'ratecalc') { setTimeout(rcCalc, 100); }
   if (id === 'letters') { setTimeout(lvInit, 100); }
   if (id === 'news') loadNews();
-  if (id === 'countryinfo') { loadDefaultCountries(); loadRegularNews(); }
+  if (id === 'regularnews') loadRegularNews();
+  if (id === 'countryinfo') loadDefaultCountries();
   if (id === 'timesheets') { setTimeout(function(){ document.getElementById('ts-status').textContent='Upload a Prebilling Review report to begin.'; },100); }
   if (id === 'countryinfo' && !window._countryLoaded) { window._countryLoaded = true; loadDefaultCountries(); }
 }
