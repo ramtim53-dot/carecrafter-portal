@@ -2531,18 +2531,24 @@ var NEWS_FEEDS = [
 ];
 
 function fetchRSS(feedUrl, onSuccess, onFail) {
-  /* Try corsproxy.io first, then allorigins as backup */
-  fetch('https://corsproxy.io/?' + feedUrl)
-    .then(function(r) {
-      if (!r.ok) throw new Error('bad status');
-      return r.text();
-    })
+  /* Primary: our own server-side proxy (/api/rss) — reliable, no third-party
+     rate limits. Falls back to public CORS proxies only if that ever fails. */
+  fetch('/api/rss?url=' + encodeURIComponent(feedUrl))
+    .then(function(r) { if (!r.ok) throw new Error('bad status'); return r.text(); })
     .then(onSuccess)
     .catch(function() {
-      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl))
-        .then(function(r) { return r.text(); })
+      fetch('https://corsproxy.io/?' + feedUrl)
+        .then(function(r) {
+          if (!r.ok) throw new Error('bad status');
+          return r.text();
+        })
         .then(onSuccess)
-        .catch(onFail);
+        .catch(function() {
+          fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl))
+            .then(function(r) { return r.text(); })
+            .then(onSuccess)
+            .catch(onFail);
+        });
     });
 }
 
