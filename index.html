@@ -34,9 +34,52 @@ input,button,select,textarea{font-family:inherit}
 @keyframes ccSpin3D{0%{transform:rotateY(0deg) rotateX(8deg)}100%{transform:rotateY(360deg) rotateX(8deg)}}
 @keyframes ccFlipIn{0%{opacity:0;transform:perspective(1400px) rotateX(-55deg) translateY(40px) scale(0.92)}100%{opacity:1;transform:perspective(1400px) rotateX(0deg) translateY(0) scale(1)}}
 @keyframes ccOrbDepth{0%,100%{transform:translateZ(0) translate(0,0)}50%{transform:translateZ(80px) translate(-24px,26px)}}
+@keyframes ccGlitch{
+  0%,100%{transform:translate(0,0);text-shadow:none}
+  10%{transform:translate(-2px,1px);text-shadow:-2px 0 var(--red),2px 0 var(--blue2)}
+  20%{transform:translate(2px,-1px);text-shadow:2px 0 var(--red),-2px 0 var(--blue2)}
+  30%{transform:translate(-1px,0);text-shadow:-1px 0 var(--red),1px 0 var(--blue2)}
+  40%{transform:translate(1px,1px);text-shadow:1px 0 var(--red),-1px 0 var(--blue2)}
+  50%,90%{transform:translate(0,0);text-shadow:none}
+}
+@keyframes ccElectric{
+  0%{filter:drop-shadow(0 0 3px var(--elec-color,#00ffcc)) drop-shadow(0 0 1px var(--elec-color,#00ffcc))}
+  25%{filter:drop-shadow(0 0 7px var(--elec-color,#00ffcc)) drop-shadow(0 0 2px var(--elec-color,#00ffcc))}
+  50%{filter:drop-shadow(0 0 4px var(--elec-color,#00ffcc)) drop-shadow(0 0 1px var(--elec-color,#00ffcc))}
+  75%{filter:drop-shadow(0 0 8px var(--elec-color,#00ffcc)) drop-shadow(0 0 2px var(--elec-color,#00ffcc))}
+  100%{filter:drop-shadow(0 0 3px var(--elec-color,#00ffcc)) drop-shadow(0 0 1px var(--elec-color,#00ffcc))}
+}
+@keyframes ccElecDash{to{stroke-dashoffset:-200}}
+@keyframes ccBurstFly{
+  0%{transform:translate(-50%,-50%) scale(0.4) rotate(0deg);opacity:1}
+  100%{transform:translate(calc(-50% + var(--bx)),calc(-50% + var(--by))) scale(var(--bs,1)) rotate(var(--br,180deg));opacity:0}
+}
 @media (prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}}
 
 body{perspective:1800px}
+
+/* Text Lift — per-letter 3D hover extrusion */
+.cc-lift{display:inline-block}
+.cc-lift .cc-letter{display:inline-block;transition:transform 0.32s cubic-bezier(0.34,1.56,0.64,1),text-shadow 0.32s;white-space:pre}
+.cc-lift .cc-letter:hover{transform:translateY(-7px) translateZ(14px) scale(1.08);text-shadow:0 4px 0 rgba(30,58,156,0.25),0 8px 14px rgba(30,58,156,0.25)}
+
+/* Random Letter Swap — vertical duplicate-glyph swap on hover */
+.cc-swap{display:inline-block}
+.cc-swap .cc-swap-letter{display:inline-block;position:relative;overflow:hidden;height:1.2em;vertical-align:bottom}
+.cc-swap .cc-swap-letter span{display:block;transition:transform 0.4s cubic-bezier(0.22,1,0.36,1)}
+.cc-swap:hover .cc-swap-letter span{transform:translateY(-1.2em)}
+
+/* Glitch — random periodic trigger on badges */
+.cc-glitch-active{animation:ccGlitch 0.5s linear}
+
+/* Electric Border — crackling glow ring on hover */
+.cc-electric{position:relative}
+.cc-electric::after{content:'';position:absolute;inset:-2px;border-radius:inherit;border:1.5px solid transparent;opacity:0;pointer-events:none;transition:opacity 0.25s}
+.cc-electric:hover::after{opacity:1;border-color:var(--blue2);animation:ccElectric 1.1s ease-in-out infinite;--elec-color:#3652c4}
+
+/* Emoji/logo burst particle */
+.cc-burst-particle{position:fixed;left:0;top:0;width:22px;height:22px;pointer-events:none;z-index:9999;animation:ccBurstFly 0.9s cubic-bezier(0.16,1,0.3,1) forwards}
+.cc-burst-particle img{width:100%;height:100%;object-fit:contain}
 .tool-card,.stat-card{transform-style:preserve-3d;transition:transform 0.12s ease-out,box-shadow 0.25s}
 .tool-card::after,.stat-card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,0.5),transparent 55%);opacity:0;transition:opacity 0.25s;pointer-events:none}
 .tool-card:hover::after,.stat-card:hover::after{opacity:1}
@@ -1494,7 +1537,7 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
   function attach(el) {
     if (el.dataset.ccTilt) return;
     el.dataset.ccTilt = '1';
-    el.classList.add('cc-tilt');
+    el.classList.add('cc-tilt', 'cc-electric');
     const shine = document.createElement('div');
     shine.className = 'cc-tilt-shine';
     el.appendChild(shine);
@@ -1515,6 +1558,101 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll);
   else attachAll();
+})();
+
+// ── Text Lift — split text into per-letter spans for the 3D hover effect ──
+(function initTextLift() {
+  function split(el) {
+    if (el.dataset.ccLift) return;
+    el.dataset.ccLift = '1';
+    const text = el.textContent;
+    el.textContent = '';
+    el.classList.add('cc-lift');
+    [...text].forEach(ch => {
+      const span = document.createElement('span');
+      span.className = 'cc-letter';
+      span.textContent = ch === ' ' ? ' ' : ch;
+      el.appendChild(span);
+    });
+  }
+  function attachAll() { document.querySelectorAll('.login-title, .view-title').forEach(split); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll);
+  else attachAll();
+})();
+
+// ── Random Letter Swap — sidebar brand name swaps letters on hover ──
+(function initLetterSwap() {
+  function build() {
+    const el = document.querySelector('.sidebar-name');
+    if (!el || el.dataset.ccSwap) return;
+    el.dataset.ccSwap = '1';
+    const text = el.textContent;
+    el.textContent = '';
+    el.classList.add('cc-swap');
+    [...text].forEach((ch, i) => {
+      const wrap = document.createElement('span');
+      wrap.className = 'cc-swap-letter';
+      wrap.style.transitionDelay = (Math.random() * 0.18) + 's';
+      const top = document.createElement('span');
+      top.textContent = ch === ' ' ? ' ' : ch;
+      const bottom = document.createElement('span');
+      bottom.textContent = ch === ' ' ? ' ' : ch;
+      wrap.appendChild(top); wrap.appendChild(bottom);
+      el.appendChild(wrap);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
+  else build();
+})();
+
+// ── Glitch — randomly trigger a brief RGB-split glitch on "LIVE" badges ──
+(function initGlitch() {
+  function tick() {
+    const badges = document.querySelectorAll('.badge-live');
+    if (badges.length) {
+      const el = badges[Math.floor(Math.random() * badges.length)];
+      el.classList.remove('cc-glitch-active');
+      void el.offsetWidth; // restart animation
+      el.classList.add('cc-glitch-active');
+    }
+    setTimeout(tick, 2500 + Math.random() * 4000);
+  }
+  setTimeout(tick, 2000);
+})();
+
+// ── Emoji/Logo Burst — click the Sign In button, logos burst outward ──
+(function initEmojiBurst() {
+  function burst(x, y) {
+    const n = 10;
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement('div');
+      p.className = 'cc-burst-particle';
+      const img = document.createElement('img');
+      img.src = 'assets/logo.png';
+      p.appendChild(img);
+      const angle = (Math.PI * 2 * i) / n + (Math.random() * 0.5 - 0.25);
+      const dist = 70 + Math.random() * 90;
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.setProperty('--bx', (Math.cos(angle) * dist) + 'px');
+      p.style.setProperty('--by', (Math.sin(angle) * dist) + 'px');
+      p.style.setProperty('--bs', (0.5 + Math.random() * 0.7).toFixed(2));
+      p.style.setProperty('--br', (Math.random() * 360) + 'deg');
+      document.body.appendChild(p);
+      p.addEventListener('animationend', () => p.remove());
+    }
+  }
+  function attach() {
+    const btn = document.getElementById('loginBtn');
+    if (!btn || btn.dataset.ccBurst) return;
+    btn.dataset.ccBurst = '1';
+    btn.addEventListener('click', () => {
+      const r = btn.getBoundingClientRect();
+      burst(r.left + r.width / 2, r.top + r.height / 2);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+  else attach();
 })();
 
 function showView(id) {
