@@ -42,6 +42,8 @@ input,button,select,textarea{font-family:inherit}
   40%{transform:translate(1px,1px);text-shadow:1px 0 var(--red),-1px 0 var(--blue2)}
   50%,90%{transform:translate(0,0);text-shadow:none}
 }
+@keyframes ccElecSpin{to{--elec-angle:360deg}}
+@keyframes ccElecPulse{0%,100%{opacity:0.7}50%{opacity:1}}
 @keyframes ccElectric{
   0%{filter:drop-shadow(0 0 3px var(--elec-color,#00ffcc)) drop-shadow(0 0 1px var(--elec-color,#00ffcc))}
   25%{filter:drop-shadow(0 0 7px var(--elec-color,#00ffcc)) drop-shadow(0 0 2px var(--elec-color,#00ffcc))}
@@ -73,9 +75,17 @@ body{perspective:1800px}
 .cc-glitch-active{animation:ccGlitch 0.5s linear}
 
 /* Electric Border — crackling glow ring on hover */
+@property --elec-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
 .cc-electric{position:relative}
-.cc-electric::after{content:'';position:absolute;inset:-2px;border-radius:inherit;border:1.5px solid transparent;opacity:0;pointer-events:none;transition:opacity 0.25s}
-.cc-electric:hover::after{opacity:1;border-color:var(--blue2);animation:ccElectric 1.1s ease-in-out infinite;--elec-color:#3652c4}
+.cc-electric::after{
+  content:'';position:absolute;inset:-3px;border-radius:inherit;padding:3px;
+  background:conic-gradient(from var(--elec-angle),transparent 0%,#7ee8ff 8%,var(--blue2) 16%,transparent 28%,transparent 50%,#ff8f8f 58%,var(--red) 66%,transparent 78%,transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:0;pointer-events:none;transition:opacity 0.2s;
+  filter:drop-shadow(0 0 6px rgba(54,82,196,0.55)) drop-shadow(0 0 3px rgba(255,92,92,0.4));
+}
+.cc-electric:hover::after{opacity:1;animation:ccElecSpin 1.6s linear infinite}
 
 /* Emoji/logo burst particle */
 .cc-burst-particle{position:fixed;left:0;top:0;width:22px;height:22px;pointer-events:none;z-index:9999;animation:ccBurstFly 0.9s cubic-bezier(0.16,1,0.3,1) forwards}
@@ -97,8 +107,6 @@ button,.pill{transition:transform 0.16s cubic-bezier(0.34,1.56,0.64,1),box-shado
 .stat-num{transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1)}
 .stat-card:hover .stat-num{transform:scale(1.08);color:var(--blue)}
 .tool-card,.stat-card{transform-style:preserve-3d;transition:transform 0.12s ease-out,box-shadow 0.25s}
-.tool-card::after,.stat-card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,0.5),transparent 55%);opacity:0;transition:opacity 0.25s;pointer-events:none}
-.tool-card:hover::after,.stat-card:hover::after{opacity:1}
 .cc-mono,.sidebar-logo{transform-style:preserve-3d;transition:transform 0.35s cubic-bezier(0.22,1,0.36,1)}
 .cc-mono:hover,.sidebar-logo:hover{transform:perspective(400px) rotateY(18deg) rotateX(6deg) scale(1.06)}
 .cc-orb{transform-style:preserve-3d;animation-name:ccOrbDepth,ccFloat1;animation-duration:6s,12s;animation-iteration-count:infinite,infinite;animation-timing-function:ease-in-out,ease-in-out}
@@ -1576,50 +1584,55 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
   else attachAll();
 })();
 
-// ── Text Lift — split text into per-letter spans for the 3D hover effect ──
-(function initTextLift() {
-  function split(el) {
-    if (el.dataset.ccLift) return;
-    el.dataset.ccLift = '1';
-    const text = el.textContent;
-    el.textContent = '';
-    el.classList.add('cc-lift');
-    [...text].forEach(ch => {
+// ── Shared letter-splitters — text-node-safe, so icon spans inside buttons
+// (like nav-btn's SVG icon) are never touched, only the trailing text. ──
+function ccSplitLift(el) {
+  if (el.dataset.ccLift) return;
+  el.dataset.ccLift = '1';
+  el.classList.add('cc-lift');
+  [...el.childNodes].forEach(node => {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) return;
+    const frag = document.createDocumentFragment();
+    [...node.textContent].forEach(ch => {
       const span = document.createElement('span');
       span.className = 'cc-letter';
-      span.textContent = ch === ' ' ? ' ' : ch;
-      el.appendChild(span);
+      span.textContent = ch === ' ' ? ' ' : ch;
+      frag.appendChild(span);
     });
-  }
-  function attachAll() { document.querySelectorAll('.login-title, .view-title').forEach(split); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll);
-  else attachAll();
-})();
-
-// ── Random Letter Swap — sidebar brand name swaps letters on hover ──
-(function initLetterSwap() {
-  function build() {
-    const el = document.querySelector('.sidebar-name');
-    if (!el || el.dataset.ccSwap) return;
-    el.dataset.ccSwap = '1';
-    const text = el.textContent;
-    el.textContent = '';
-    el.classList.add('cc-swap');
-    [...text].forEach((ch, i) => {
+    node.replaceWith(frag);
+  });
+}
+function ccSplitSwap(el) {
+  if (el.dataset.ccSwap) return;
+  el.dataset.ccSwap = '1';
+  el.classList.add('cc-swap');
+  [...el.childNodes].forEach(node => {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) return;
+    const frag = document.createDocumentFragment();
+    [...node.textContent].forEach(ch => {
       const wrap = document.createElement('span');
       wrap.className = 'cc-swap-letter';
       wrap.style.transitionDelay = (Math.random() * 0.18) + 's';
       const top = document.createElement('span');
-      top.textContent = ch === ' ' ? ' ' : ch;
+      top.textContent = ch === ' ' ? ' ' : ch;
       const bottom = document.createElement('span');
-      bottom.textContent = ch === ' ' ? ' ' : ch;
+      bottom.textContent = ch === ' ' ? ' ' : ch;
       wrap.appendChild(top); wrap.appendChild(bottom);
-      el.appendChild(wrap);
+      frag.appendChild(wrap);
     });
+    node.replaceWith(frag);
+  });
+}
+(function initTextAnimations() {
+  function attachAll() {
+    document.querySelectorAll('.login-title, .view-title, .tool-name, .stat-lbl, .gen-title, .cl-hdr h3, .modal-title, .ext-title, .login-sub').forEach(ccSplitLift);
+    document.querySelectorAll('.nav-btn, .pill, .sidebar-name, .sbadge, .btn-sec, .btn-small, .btn-csv').forEach(ccSplitSwap);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
-  else build();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll);
+  else attachAll();
 })();
+
+
 
 // ── Glitch — randomly trigger a brief RGB-split glitch on "LIVE" badges ──
 (function initGlitch() {
@@ -1658,17 +1671,12 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
       p.addEventListener('animationend', () => p.remove());
     }
   }
-  function attach() {
-    const btn = document.getElementById('loginBtn');
-    if (!btn || btn.dataset.ccBurst) return;
-    btn.dataset.ccBurst = '1';
-    btn.addEventListener('click', () => {
-      const r = btn.getBoundingClientRect();
-      burst(r.left + r.width / 2, r.top + r.height / 2);
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
-  else attach();
+  // Every button click bursts logos from the exact click point.
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('button, .pill, .tool-card');
+    if (!btn) return;
+    burst(e.clientX, e.clientY);
+  });
 })();
 
 // ── Universal click ripple — every button/pill gets a ripple from click point ──
@@ -1686,26 +1694,6 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
     el.appendChild(ripple);
     ripple.addEventListener('animationend', () => ripple.remove());
   });
-})();
-
-// ── Broaden Text Lift to tool card names too ──
-(function initToolNameLift() {
-  function split(el) {
-    if (el.dataset.ccLift) return;
-    el.dataset.ccLift = '1';
-    const text = el.textContent;
-    el.textContent = '';
-    el.classList.add('cc-lift');
-    [...text].forEach(ch => {
-      const span = document.createElement('span');
-      span.className = 'cc-letter';
-      span.textContent = ch === ' ' ? ' ' : ch;
-      el.appendChild(span);
-    });
-  }
-  function attachAll() { document.querySelectorAll('.tool-name').forEach(split); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll);
-  else attachAll();
 })();
 
 function showView(id) {
