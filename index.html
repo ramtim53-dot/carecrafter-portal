@@ -50,8 +50,9 @@ body{perspective:1800px}
 .cc-reveal{opacity:0;transform:translateY(18px);transition:opacity 0.6s cubic-bezier(0.22,1,0.36,1),transform 0.6s cubic-bezier(0.22,1,0.36,1)}
 .cc-reveal.cc-in{opacity:1;transform:translateY(0)}
 
-#s-login{align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden}
-#s-login::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:64px 64px;opacity:0.5;mask-image:radial-gradient(ellipse 80% 60% at 50% 40%,#000 20%,transparent 80%)}
+#cc-kgrid{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
+.screen.active{position:relative;z-index:1}
+#s-login{align-items:center;justify-content:center;position:relative;overflow:hidden}
 .cc-orb{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;z-index:0}
 .cc-orb1{width:420px;height:420px;top:-140px;right:-100px;background:rgba(227,62,62,0.2)}
 .cc-orb2{width:360px;height:360px;bottom:-120px;left:-100px;background:rgba(30,58,156,0.18)}
@@ -267,6 +268,7 @@ textarea.field-input{resize:vertical;min-height:80px}
 </style>
 </head>
 <body>
+<canvas id="cc-kgrid"></canvas>
 <div class="screen active" id="s-login">
   <div class="cc-orb cc-orb1"></div>
   <div class="cc-orb cc-orb2"></div>
@@ -1399,6 +1401,95 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
 })();
 
 // ── 3D tilt-on-hover: cards rotate toward the cursor in real 3D space ──
+// ── Kinetic Grid — cursor-reactive dot mesh, full-page fixed background ──
+// Ported from a React/canvas component (Originkit "Kinetic Grid") to plain
+// JS/Canvas so it can run behind the whole vanilla-JS portal, not just one
+// screen. Same physics: dots spring back to a home grid position and are
+// pulled toward the cursor within a radius; a fading trail line follows it.
+(function initKineticGrid() {
+  const canvas = document.getElementById('cc-kgrid');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const dotColor = '#3652c4';     // brand blue dot
+  const lineColor = '#3652c4';    // brand blue mesh lines
+  const trailColor = '#ff5c5c';   // brand red cursor trail
+  const GAP = 38, R = 280, PULL = (7 / 10) * 4;
+
+  let W = 1, H = 1, cols = [], dots = [];
+  const mouse = { x: -9999, y: -9999, active: false };
+  let trail = [];
+
+  function build() {
+    const dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = []; dots = [];
+    const nCols = Math.floor(W / GAP) + 2, nRows = Math.floor(H / GAP) + 2;
+    for (let c = 0; c < nCols; c++) {
+      const col = [];
+      for (let r = 0; r < nRows; r++) {
+        const hx = c * GAP, hy = r * GAP;
+        const d = { hx, hy, x: hx, y: hy, vx: 0, vy: 0 };
+        col.push(d); dots.push(d);
+      }
+      cols.push(col);
+    }
+  }
+  build();
+  window.addEventListener('resize', build);
+
+  window.addEventListener('mousemove', e => {
+    mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
+    const now = performance.now();
+    trail.push({ x: e.clientX, y: e.clientY, t: now });
+    if (trail.length > 80) trail.shift();
+  });
+  window.addEventListener('mouseleave', () => { mouse.active = false; mouse.x = mouse.y = -9999; });
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    for (const d of dots) {
+      let ax = (d.hx - d.x) * 0.08, ay = (d.hy - d.y) * 0.08;
+      if (mouse.active) {
+        const dx = mouse.x - d.x, dy = mouse.y - d.y, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < R && dist > 0.001) { const f = (1 - dist / R) * PULL; ax += (dx / dist) * f; ay += (dy / dist) * f; }
+      }
+      d.vx = (d.vx + ax) * 0.82; d.vy = (d.vy + ay) * 0.82;
+      d.x += d.vx; d.y += d.vy;
+    }
+    for (let c = 0; c < cols.length; c++) {
+      for (let r = 0; r < cols[c].length; r++) {
+        const d = cols[c][r], right = cols[c + 1]?.[r], down = cols[c]?.[r + 1];
+        const prox = mouse.active ? Math.max(0, 1 - Math.sqrt((mouse.x - d.x) ** 2 + (mouse.y - d.y) ** 2) / R) : 0;
+        ctx.strokeStyle = lineColor; ctx.lineWidth = 0.5 + prox * 1.5;
+        if (right) { ctx.globalAlpha = 0.14 + prox * 0.7; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(right.x, right.y); ctx.stroke(); }
+        if (down) { ctx.globalAlpha = 0.14 + prox * 0.7; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(down.x, down.y); ctx.stroke(); }
+      }
+    }
+    for (const d of dots) {
+      const prox = mouse.active ? Math.max(0, 1 - Math.sqrt((mouse.x - d.x) ** 2 + (mouse.y - d.y) ** 2) / R) : 0;
+      ctx.globalAlpha = 0.32 + prox * 0.68; ctx.fillStyle = dotColor;
+      ctx.beginPath(); ctx.arc(d.x, d.y, 1.3 + prox * 2.8, 0, 2 * Math.PI); ctx.fill();
+    }
+    const now = performance.now();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 1; i < trail.length; i++) {
+      const a = trail[i - 1], b = trail[i], age = now - b.t;
+      if (age > 260) continue;
+      ctx.globalAlpha = Math.max(0, 1 - age / 260) * 0.8; ctx.strokeStyle = trailColor; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+
 (function initTilt3D() {
   function attach(el) {
     if (el.dataset.ccTilt) return;
