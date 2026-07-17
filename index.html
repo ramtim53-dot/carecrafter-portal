@@ -18,6 +18,33 @@
   --radius:10px;--radius-lg:16px;--mono:'SF Mono',ui-monospace,'Courier New',monospace;
   --font-head:'Fraunces',serif;
 }
+html[data-theme="dark"]{
+  --bg:#11131c;--bg2:#181b27;--bg3:#20242f;--bg4:#2b2f3d;
+  --border:#2a2e3d;--border2:#383d52;
+  --blue:#6684e0;--blue2:#7f9af0;--blue-dim:rgba(102,132,224,0.14);
+  --green:#4cb579;--green-dim:rgba(76,181,121,0.14);
+  --red:#e8685c;--red-dim:rgba(232,104,92,0.13);
+  --amber:#ff7a7a;--amber-dim:rgba(255,122,122,0.16);
+  --teal:#6684e0;--teal-dim:rgba(102,132,224,0.14);
+  --text:#e9ebf3;--text2:#a3a8c0;--text3:#6d7290;
+}
+html[data-theme="dark"] body{background:var(--bg)}
+
+/* Light/dark theme toggle switch — from Uiverse.io by andrew-demchenk0, MIT License */
+.cc-theme-switch{font-size:15px;position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0}
+.cc-theme-switch .cc-theme-input{opacity:0;width:0;height:0}
+.cc-theme-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#73C0FC;transition:.4s;border-radius:30px}
+.cc-theme-slider:before{position:absolute;content:"";height:24px;width:24px;border-radius:20px;left:2px;bottom:2px;z-index:2;background-color:#e8e8e8;transition:.4s}
+.cc-theme-sun svg{position:absolute;top:5px;left:29px;z-index:1;width:19px;height:19px}
+.cc-theme-moon svg{fill:#73C0FC;position:absolute;top:4px;left:4px;z-index:1;width:19px;height:19px}
+.cc-theme-switch:hover .cc-theme-sun svg{animation:ccThemeRotate 15s linear infinite}
+@keyframes ccThemeRotate{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+.cc-theme-switch:hover .cc-theme-moon svg{animation:ccThemeTilt 5s linear infinite}
+@keyframes ccThemeTilt{0%{transform:rotate(0deg)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}100%{transform:rotate(0deg)}}
+.cc-theme-input:checked+.cc-theme-slider{background-color:#183153}
+.cc-theme-input:focus+.cc-theme-slider{box-shadow:0 0 1px #183153}
+.cc-theme-input:checked+.cc-theme-slider:before{transform:translateX(24px)}
+
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,'Segoe UI',sans-serif;min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-0.006em}
 input,button,select,textarea{font-family:inherit}
@@ -108,6 +135,7 @@ body{perspective:1800px}
 
 /* Universal button animation — every clickable button in the app gets a
    consistent hover lift + glow, and a press-down on click, plus a ripple. */
+button{color:inherit}
 button,.pill,.nav-btn{position:relative;overflow:hidden}
 button:not(.tool-card):not(.nav-btn):hover,.pill:hover{transform:translateY(-2px) scale(1.025);filter:brightness(1.07);box-shadow:0 8px 20px rgba(30,58,156,0.16)}
 button:not(.tool-card):not(.nav-btn):active,.pill:active{transform:translateY(0) scale(0.96);filter:brightness(0.96)}
@@ -183,7 +211,7 @@ button,.pill{transition:transform 0.16s cubic-bezier(0.34,1.56,0.64,1),box-shado
 .stat-num{font-family:var(--font-head);font-size:29px;font-weight:600;line-height:1;margin-bottom:6px;letter-spacing:-0.01em}
 .stat-lbl{font-size:12px;color:var(--text2);font-weight:450}
 .tool-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;cursor:pointer;transition:transform 0.12s ease-out,border-color 0.25s,box-shadow 0.25s;text-align:left;width:100%;position:relative;overflow:hidden;animation:ccFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both}
+.tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;cursor:pointer;transition:transform 0.12s ease-out,border-color 0.25s,box-shadow 0.25s;text-align:left;width:100%;position:relative;overflow:hidden;animation:ccFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both;color:inherit}
 .tool-card:nth-child(1){animation-delay:0.04s}.tool-card:nth-child(2){animation-delay:0.09s}.tool-card:nth-child(3){animation-delay:0.14s}.tool-card:nth-child(4){animation-delay:0.19s}.tool-card:nth-child(5){animation-delay:0.24s}.tool-card:nth-child(6){animation-delay:0.29s}.tool-card:nth-child(7){animation-delay:0.34s}.tool-card:nth-child(8){animation-delay:0.39s}
 .tool-card:hover{border-color:var(--blue);box-shadow:0 12px 30px rgba(30,58,156,0.1);transform:translateY(-4px)}
 .tool-card.disabled{opacity:0.5;cursor:default;pointer-events:none}
@@ -348,6 +376,10 @@ textarea.field-input{resize:vertical;min-height:80px}
 @media(max-width:520px){#v-pdftool .file-info .fname{max-width:160px}}
 #v-pdftool.view { padding: 2rem; }
 </style>
+<script>
+// Apply saved theme before first paint, to avoid a flash of the wrong theme.
+try { if (localStorage.getItem('cc_theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch(e) {}
+</script>
 </head>
 <body>
 <canvas id="cc-kgrid"></canvas>
@@ -397,8 +429,15 @@ textarea.field-input{resize:vertical;min-height:80px}
         <button class="nav-btn" onclick="showView('countryinfo')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>Country Info</button>
       </div>
       <div class="sidebar-footer">
-        <div class="user-name" id="sidebarName">Ram</div>
-        <div class="user-role" id="sidebarRole">Owner · Administrator</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div><div class="user-name" id="sidebarName">Ram</div><div class="user-role" id="sidebarRole">Owner · Administrator</div></div>
+          <label class="cc-theme-switch" title="Toggle light/dark mode">
+            <span class="cc-theme-sun"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="#ffd43b"><circle r="5" cy="12" cx="12"></circle><path d="m21 13h-1a1 1 0 0 1 0-2h1a1 1 0 0 1 0 2zm-17 0h-1a1 1 0 0 1 0-2h1a1 1 0 0 1 0 2zm13.66-5.66a1 1 0 0 1 -.66-.29 1 1 0 0 1 0-1.41l.71-.71a1 1 0 1 1 1.41 1.41l-.71.71a1 1 0 0 1 -.75.29zm-12.02 12.02a1 1 0 0 1 -.71-.29 1 1 0 0 1 0-1.41l.71-.66a1 1 0 0 1 1.41 1.41l-.71.71a1 1 0 0 1 -.7.24zm6.36-14.36a1 1 0 0 1 -1-1v-1a1 1 0 0 1 2 0v1a1 1 0 0 1 -1 1zm0 17a1 1 0 0 1 -1-1v-1a1 1 0 0 1 2 0v1a1 1 0 0 1 -1 1zm-5.66-14.66a1 1 0 0 1 -.7-.29l-.71-.71a1 1 0 0 1 1.41-1.41l.71.71a1 1 0 0 1 0 1.41 1 1 0 0 1 -.71.29zm12.02 12.02a1 1 0 0 1 -.7-.29l-.66-.71a1 1 0 0 1 1.36-1.36l.71.71a1 1 0 0 1 0 1.41 1 1 0 0 1 -.71.24z"></path></g></svg></span>
+            <span class="cc-theme-moon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="m223.5 32c-123.5 0-223.5 100.3-223.5 224s100 224 223.5 224c60.6 0 115.5-24.2 155.8-63.4 5-4.9 6.3-12.5 3.1-18.7s-10.1-9.7-17-8.5c-9.8 1.7-19.8 2.6-30.1 2.6-96.9 0-175.5-78.8-175.5-176 0-65.8 36-123.1 89.3-153.3 6.1-3.5 9.2-10.5 7.7-17.3s-7.3-11.9-14.3-12.5c-6.3-.5-12.6-.8-19-.8z"></path></svg></span>
+            <input type="checkbox" class="cc-theme-input" id="ccThemeToggle" onchange="ccSetTheme(this.checked)">
+            <span class="cc-theme-slider"></span>
+          </label>
+        </div>
         <button class="btn-logout" onclick="doLogout()">Sign Out</button>
       </div>
     </div>
@@ -1488,6 +1527,21 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
 // JS/Canvas so it can run behind the whole vanilla-JS portal, not just one
 // screen. Same physics: dots spring back to a home grid position and are
 // pulled toward the cursor within a radius; a fading trail line follows it.
+// ── Light/dark theme toggle ──
+function ccSetTheme(isDark) {
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  try { localStorage.setItem('cc_theme', isDark ? 'dark' : 'light'); } catch(e) {}
+}
+(function initThemeToggle() {
+  function sync() {
+    const cb = document.getElementById('ccThemeToggle');
+    if (!cb) return;
+    cb.checked = document.documentElement.dataset.theme === 'dark';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
+  else sync();
+})();
+
 (function initKineticGrid() {
   const canvas = document.getElementById('cc-kgrid');
   if (!canvas) return;
