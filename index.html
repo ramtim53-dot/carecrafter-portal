@@ -119,14 +119,10 @@ body{perspective:1800px}
 
 /* Electric Border — crackling glow ring on hover */
 @property --elec-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
-/* Electric border — animated multi-color box-shadow. Not a pseudo-element,
-   so it's never clipped by overflow:hidden on tables/panels (unlike the
-   earlier mask-composite / behind-element approaches, which silently failed
-   on .tbl-box and .codes-wrap). Works in every browser, no fallback needed. */
-.cc-electric,.tbl-box,.gen-box,.ext-header,.codes-wrap,.card,#ci-grid>div,.tool-card,.stat-card{transition:box-shadow 0.25s}
-.cc-electric:hover,.tbl-box:hover,.gen-box:hover,.ext-header:hover,.codes-wrap:hover,.card:hover,#ci-grid>div:hover,.tool-card:hover,.stat-card:hover{
-  animation:ccElecGlow 1.4s linear infinite;
-}
+/* Electric border — the crackling canvas overlay is drawn in JS (initElectricBorder).
+   Canvases are appended to <body> and positioned over each element on hover, so
+   overflow:hidden on tables/panels never clips them. */
+.cc-elec-canvas{position:fixed;pointer-events:none;z-index:9998;display:block}
 
 /* Emoji/logo burst particle */
 .cc-burst-particle{position:fixed;left:0;top:0;width:50px;height:50px;pointer-events:none;z-index:9999}
@@ -1528,6 +1524,107 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
 // screen. Same physics: dots spring back to a home grid position and are
 // pulled toward the cursor within a radius; a fading trail line follows it.
 // ── Light/dark theme toggle ──
+// ── Electric Border — vanilla port of the Originkit canvas component ──
+// Draws a crackling, noise-displaced outline around a box. Each hovered
+// element gets a temporary canvas on <body> (so overflow:hidden never clips
+// it); the rAF loop stops and the canvas is removed on mouseleave.
+(function initElectricBorder() {
+  function rand(x){ return (Math.sin(x*12.9898)*43758.5453)%1; }
+  function noise2D(x,y){
+    const i=Math.floor(x),j=Math.floor(y),fx=x-i,fy=y-j;
+    const a=rand(i+j*57),b=rand(i+1+j*57),c=rand(i+(j+1)*57),d=rand(i+1+(j+1)*57);
+    const ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);
+    return a*(1-ux)*(1-uy)+b*ux*(1-uy)+c*(1-ux)*uy+d*ux*uy;
+  }
+  function octNoise(x,oct,lac,gain,amp,freq,time,seed,flat){
+    let y=0,amplitude=amp,frequency=freq;
+    for(let i=0;i<oct;i++){
+      let oa=amplitude; if(i===0)oa*=flat;
+      y+=oa*noise2D(frequency*x+seed*100,time*frequency*0.3);
+      frequency*=lac; amplitude*=gain;
+    }
+    return y;
+  }
+  function corner(cx,cy,r,start,arc,p){ const a=start+p*arc; return {x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}; }
+  function rrPoint(t,left,top,w,h,radius){
+    const sw=w-2*radius,sh=h-2*radius,arc=(Math.PI*radius)/2,total=2*sw+2*sh+4*arc,dist=t*total;
+    let acc=0;
+    if(dist<=acc+sw){const p=(dist-acc)/sw;return {x:left+radius+p*sw,y:top};} acc+=sw;
+    if(dist<=acc+arc){const p=(dist-acc)/arc;return corner(left+w-radius,top+radius,radius,-Math.PI/2,Math.PI/2,p);} acc+=arc;
+    if(dist<=acc+sh){const p=(dist-acc)/sh;return {x:left+w,y:top+radius+p*sh};} acc+=sh;
+    if(dist<=acc+arc){const p=(dist-acc)/arc;return corner(left+w-radius,top+h-radius,radius,0,Math.PI/2,p);} acc+=arc;
+    if(dist<=acc+sw){const p=(dist-acc)/sw;return {x:left+w-radius-p*sw,y:top+h};} acc+=sw;
+    if(dist<=acc+arc){const p=(dist-acc)/arc;return corner(left+radius,top+h-radius,radius,Math.PI/2,Math.PI/2,p);} acc+=arc;
+    if(dist<=acc+sh){const p=(dist-acc)/sh;return {x:left,y:top+h-radius-p*sh};} acc+=sh;
+    const p=(dist-acc)/arc;return corner(left+radius,top+radius,radius,Math.PI,Math.PI/2,p);
+  }
+
+  const OCT=10,LAC=1.6,GAIN=0.7,FREQ=10,FLAT=0,CHAOS=4,SPEED=1;
+  const AMP=CHAOS/20, DISP=14, PAD=26, THICK=2, RADIUS=16;
+  function themed(){ // brand colors, adapt to dark mode
+    const dark=document.documentElement.dataset.theme==='dark';
+    return { core: dark?'#9db4ff':'#3652c4', glow:'#5b7cff' };
+  }
+
+  function attach(el){
+    if(el.dataset.ccElec) return;
+    el.dataset.ccElec='1';
+    let canvas=null, ctx=null, raf=0, time=0, last=0;
+
+    function start(){
+      if(canvas) return;
+      canvas=document.createElement('canvas');
+      canvas.className='cc-elec-canvas';
+      document.body.appendChild(canvas);
+      ctx=canvas.getContext('2d');
+      last=0; time=0;
+      raf=requestAnimationFrame(draw);
+    }
+    function stop(){
+      if(raf) cancelAnimationFrame(raf); raf=0;
+      if(canvas){ canvas.remove(); canvas=null; ctx=null; }
+    }
+    function draw(now){
+      const r=el.getBoundingClientRect();
+      const dpr=Math.min(window.devicePixelRatio||1,2);
+      const cw=r.width+PAD*2, ch=r.height+PAD*2;
+      canvas.style.left=(r.left-PAD)+'px'; canvas.style.top=(r.top-PAD)+'px';
+      canvas.style.width=cw+'px'; canvas.style.height=ch+'px';
+      canvas.width=Math.floor(cw*dpr); canvas.height=Math.floor(ch*dpr);
+      if(!last) last=now; const dt=(now-last)/1000; time+=dt*SPEED; last=now;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.clearRect(0,0,cw,ch);
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      const bw=r.width, bh=r.height, maxR=Math.min(bw,bh)/2, radius=Math.min(RADIUS,Math.max(0,maxR));
+      const perim=2*(bw+bh)+2*Math.PI*radius, samples=Math.max(16,Math.floor(perim/2));
+      ctx.beginPath();
+      for(let i=0;i<=samples;i++){
+        const t=i/samples, pt=rrPoint(t,PAD,PAD,bw,bh,radius);
+        const xn=octNoise(t*8,OCT,LAC,GAIN,AMP,FREQ,time,0,FLAT);
+        const yn=octNoise(t*8,OCT,LAC,GAIN,AMP,FREQ,time,1,FLAT);
+        const dx=pt.x+xn*DISP, dy=pt.y+yn*DISP;
+        if(i===0) ctx.moveTo(dx,dy); else ctx.lineTo(dx,dy);
+      }
+      ctx.closePath();
+      const c=themed();
+      ctx.lineWidth=1; ctx.strokeStyle=c.glow; ctx.shadowColor=c.glow; ctx.shadowBlur=14;
+      for(let p=0;p<6;p++) ctx.stroke();
+      ctx.shadowBlur=0;
+      ctx.lineWidth=THICK; ctx.strokeStyle=c.core; ctx.stroke();
+      raf=requestAnimationFrame(draw);
+    }
+    el.addEventListener('mouseenter', start);
+    el.addEventListener('mouseleave', stop);
+  }
+  function attachAll(){
+    document.querySelectorAll('.cc-electric,.tbl-box,.gen-box,.ext-header,.codes-wrap,.card,#ci-grid>div,.tool-card,.stat-card').forEach(attach);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',attachAll);
+  else attachAll();
+  // Country Info cards render dynamically — re-attach after searches
+  window.ccElecReattach = attachAll;
+})();
+
 function ccSetTheme(isDark) {
   document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
   try { localStorage.setItem('cc_theme', isDark ? 'dark' : 'light'); } catch(e) {}
@@ -3146,6 +3243,7 @@ function renderCountryInfoGrid(countries) {
       + ciRow('Translations', translations)
       + '</div></div>';
   }).join('');
+  if (window.ccElecReattach) window.ccElecReattach();
 }
 
 function parseAndRender(xmlStr, label, grid, status) {
