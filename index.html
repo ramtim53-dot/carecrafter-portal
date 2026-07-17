@@ -56,6 +56,15 @@ input,button,select,textarea{font-family:inherit}
   0%{transform:translate(-50%,-50%) scale(0.4) rotate(0deg);opacity:1}
   100%{transform:translate(calc(-50% + var(--bx)),calc(-50% + var(--by))) scale(var(--bs,1)) rotate(var(--br,180deg));opacity:0}
 }
+@keyframes ccBurstFall{
+  0%{transform:translate(-50%,-50%) scale(0.3) rotate(0deg);opacity:1}
+  15%{transform:translate(calc(-50% + var(--bx) * 0.3),calc(-50% - 30px)) scale(var(--bs,1)) rotate(calc(var(--br,180deg) * 0.2));opacity:1}
+  100%{transform:translate(calc(-50% + var(--bx)),calc(-50% + var(--by))) scale(var(--bs,1)) rotate(var(--br,180deg));opacity:0}
+}
+@keyframes ccBurstSpiral{
+  0%{transform:translate(-50%,-50%) rotate(0deg) translateX(0) scale(0.3);opacity:1}
+  100%{transform:translate(-50%,-50%) rotate(var(--br,720deg)) translateX(var(--bx)) scale(var(--bs,1));opacity:0}
+}
 @media (prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}}
 
 body{perspective:1800px}
@@ -76,8 +85,8 @@ body{perspective:1800px}
 
 /* Electric Border — crackling glow ring on hover */
 @property --elec-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
-.cc-electric{position:relative}
-.cc-electric::after{
+.cc-electric,.tbl-box,.gen-box,.ext-header,.codes-wrap,.card,#ci-grid>div{position:relative}
+.cc-electric::after,.tbl-box::after,.gen-box::after,.ext-header::after,.codes-wrap::after,.card::after,#ci-grid>div::after{
   content:'';position:absolute;inset:-3px;border-radius:inherit;padding:3px;
   background:conic-gradient(from var(--elec-angle),transparent 0%,#7ee8ff 8%,var(--blue2) 16%,transparent 28%,transparent 50%,#ff8f8f 58%,var(--red) 66%,transparent 78%,transparent 100%);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
@@ -85,10 +94,10 @@ body{perspective:1800px}
   opacity:0;pointer-events:none;transition:opacity 0.2s;
   filter:drop-shadow(0 0 6px rgba(54,82,196,0.55)) drop-shadow(0 0 3px rgba(255,92,92,0.4));
 }
-.cc-electric:hover::after{opacity:1;animation:ccElecSpin 1.6s linear infinite}
+.cc-electric:hover::after,.tbl-box:hover::after,.gen-box:hover::after,.ext-header:hover::after,.codes-wrap:hover::after,.card:hover::after,#ci-grid>div:hover::after{opacity:1;animation:ccElecSpin 1.6s linear infinite}
 
 /* Emoji/logo burst particle */
-.cc-burst-particle{position:fixed;left:0;top:0;width:56px;height:56px;pointer-events:none;z-index:9999;animation:ccBurstFly 0.9s cubic-bezier(0.16,1,0.3,1) forwards}
+.cc-burst-particle{position:fixed;left:0;top:0;width:56px;height:56px;pointer-events:none;z-index:9999}
 .cc-burst-particle::before{content:'';position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.9),rgba(54,82,196,0.5) 45%,transparent 72%);z-index:-1}
 .cc-burst-particle img{width:100%;height:100%;object-fit:contain;filter:brightness(1.6) saturate(1.8) contrast(1.15) drop-shadow(0 0 10px rgba(54,82,196,0.9)) drop-shadow(0 0 20px rgba(255,92,92,0.6)) drop-shadow(0 0 4px rgba(255,255,255,0.8))}
 
@@ -1654,27 +1663,49 @@ function ccSplitSwap(el) {
 
 // ── Emoji/Logo Burst — click the Sign In button, logos burst outward ──
 (function initEmojiBurst() {
+  const MODES = ['radial', 'fall', 'spiral'];
   function burst(x, y) {
-    const n = 10;
+    const mode = MODES[Math.floor(Math.random() * MODES.length)];
+    const n = 8 + Math.floor(Math.random() * 6); // 8-13 particles, varies each time
     for (let i = 0; i < n; i++) {
       const p = document.createElement('div');
       p.className = 'cc-burst-particle';
       const img = document.createElement('img');
       img.src = 'assets/logo.png';
       p.appendChild(img);
-      const angle = (Math.PI * 2 * i) / n + (Math.random() * 0.5 - 0.25);
-      const dist = 90 + Math.random() * 110;
       p.style.left = x + 'px';
       p.style.top = y + 'px';
-      p.style.setProperty('--bx', (Math.cos(angle) * dist) + 'px');
-      p.style.setProperty('--by', (Math.sin(angle) * dist) + 'px');
-      p.style.setProperty('--bs', (0.5 + Math.random() * 0.7).toFixed(2));
-      p.style.setProperty('--br', (Math.random() * 360) + 'deg');
+      p.style.setProperty('--bs', (0.45 + Math.random() * 0.85).toFixed(2));
+
+      if (mode === 'radial') {
+        const angle = (Math.PI * 2 * i) / n + (Math.random() * 0.5 - 0.25);
+        const dist = 90 + Math.random() * 110;
+        p.style.setProperty('--bx', (Math.cos(angle) * dist) + 'px');
+        p.style.setProperty('--by', (Math.sin(angle) * dist) + 'px');
+        p.style.setProperty('--br', (Math.random() * 360) + 'deg');
+        p.style.animation = 'ccBurstFly ' + (0.75 + Math.random() * 0.4).toFixed(2) + 's cubic-bezier(0.16,1,0.3,1) forwards';
+      } else if (mode === 'fall') {
+        // Slow gravity fall — logos drift out sideways then drop down like confetti.
+        const spread = (Math.random() * 2 - 1) * 140;
+        p.style.setProperty('--bx', spread + 'px');
+        p.style.setProperty('--by', (220 + Math.random() * 180) + 'px');
+        p.style.setProperty('--br', (Math.random() * 540 - 270) + 'deg');
+        p.style.animation = 'ccBurstFall ' + (1.8 + Math.random() * 1.2).toFixed(2) + 's cubic-bezier(0.4,0.1,0.6,1) forwards';
+        p.style.animationDelay = (Math.random() * 0.15) + 's';
+      } else {
+        // Spiral — rotates while flying outward.
+        const dist = 80 + Math.random() * 100;
+        p.style.setProperty('--bx', dist + 'px');
+        p.style.setProperty('--br', (540 + Math.random() * 360) * (i % 2 === 0 ? 1 : -1) + 'deg');
+        p.style.animation = 'ccBurstSpiral ' + (1.1 + Math.random() * 0.5).toFixed(2) + 's cubic-bezier(0.22,1,0.36,1) forwards';
+      }
+
       document.body.appendChild(p);
       p.addEventListener('animationend', () => p.remove());
     }
   }
-  // Every button click bursts logos from the exact click point.
+  // Every button click bursts logos from the exact click point, with a
+  // randomly chosen animation style (radial burst, slow fall, or spiral).
   document.addEventListener('click', e => {
     const btn = e.target.closest('button, .pill, .tool-card');
     if (!btn) return;
@@ -3032,7 +3063,7 @@ function renderCountryInfoGrid(countries) {
       ? Object.values(c.translations).map(function(t) { return t.common; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).slice(0, 15).join(', ')
       : '';
 
-    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">'
+    return '<div class="cc-electric" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">'
       + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">'
       + '<div style="font-size:44px;line-height:1">' + flag + '</div>'
       + '<div><div style="font-size:17px;font-weight:700">' + name + '</div><div style="font-size:12px;color:var(--text3)">' + official + '</div></div>'
