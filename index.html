@@ -88,8 +88,8 @@ body{perspective:1800px}
 .cc-electric:hover::after{opacity:1;animation:ccElecSpin 1.6s linear infinite}
 
 /* Emoji/logo burst particle */
-.cc-burst-particle{position:fixed;left:0;top:0;width:22px;height:22px;pointer-events:none;z-index:9999;animation:ccBurstFly 0.9s cubic-bezier(0.16,1,0.3,1) forwards}
-.cc-burst-particle img{width:100%;height:100%;object-fit:contain}
+.cc-burst-particle{position:fixed;left:0;top:0;width:42px;height:42px;pointer-events:none;z-index:9999;animation:ccBurstFly 0.9s cubic-bezier(0.16,1,0.3,1) forwards}
+.cc-burst-particle img{width:100%;height:100%;object-fit:contain;filter:brightness(1.35) saturate(1.5) drop-shadow(0 0 8px rgba(54,82,196,0.7)) drop-shadow(0 0 14px rgba(255,92,92,0.4))}
 
 /* Universal button animation — every clickable button in the app gets a
    consistent hover lift + glow, and a press-down on click, plus a ripple. */
@@ -1626,7 +1626,9 @@ function ccSplitSwap(el) {
 (function initTextAnimations() {
   function attachAll() {
     document.querySelectorAll('.login-title, .view-title, .tool-name, .stat-lbl, .gen-title, .cl-hdr h3, .modal-title, .ext-title, .login-sub').forEach(ccSplitLift);
-    document.querySelectorAll('.nav-btn, .pill, .sidebar-name, .sbadge, .btn-sec, .btn-small, .btn-csv').forEach(ccSplitSwap);
+    // Swap effect only goes on the standalone sidebar brand name — applying it
+    // to nav/pill/badge text (flex layouts mixing icon + text) broke legibility.
+    document.querySelectorAll('.sidebar-name').forEach(ccSplitSwap);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll);
   else attachAll();
@@ -1660,7 +1662,7 @@ function ccSplitSwap(el) {
       img.src = 'assets/logo.png';
       p.appendChild(img);
       const angle = (Math.PI * 2 * i) / n + (Math.random() * 0.5 - 0.25);
-      const dist = 70 + Math.random() * 90;
+      const dist = 90 + Math.random() * 110;
       p.style.left = x + 'px';
       p.style.top = y + 'px';
       p.style.setProperty('--bx', (Math.cos(angle) * dist) + 'px');
