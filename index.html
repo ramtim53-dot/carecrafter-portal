@@ -425,6 +425,7 @@ try { if (localStorage.getItem('cc_theme') === 'dark') document.documentElement.
         <button class="nav-btn" onclick="showView('countryinfo')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>Country Info</button>
         <button class="nav-btn" onclick="showView('osint')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.5-4.5"/></svg></span>People &amp; Phone Lookup</button>
         <button class="nav-btn" onclick="showView('paystub')"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>Paystub Cap Check</button>
+        <button class="nav-btn" onclick="showView('publicapis')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg></span>Public APIs</button>
       </div>
       <div class="sidebar-footer">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1200,6 +1201,21 @@ try { if (localStorage.getItem('cc_theme') === 'dark') document.documentElement.
         </div>
       </div>
 
+      <!-- PUBLIC APIs VIEW -->
+      <div class="view" id="v-publicapis">
+        <div class="view-title">🔌 Public APIs</div>
+        <div class="view-sub"><strong id="pa-total">1,586</strong> free public APIs across 51 categories. Data from <a href="https://github.com/public-apis/public-apis" target="_blank" rel="noopener" style="color:var(--blue)">public-apis</a> (MIT). <strong>Auth</strong> = key needed · <strong>CORS: yes</strong> = callable directly from the browser; <strong>no</strong> = needs a server proxy.</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+          <input type="text" id="pa-search" class="srch" placeholder="🔍 Search APIs by name or description..." style="width:320px" oninput="renderPublicApis()">
+          <select id="pa-cat" class="select-field" style="width:220px" onchange="renderPublicApis()"><option value="">All categories</option></select>
+          <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pa-nokey" onchange="renderPublicApis()"> No key needed</label>
+          <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pa-cors" onchange="renderPublicApis()"> CORS-ready</label>
+          <span class="ml" style="font-size:11px;color:var(--text3)" id="pa-count"></span>
+        </div>
+        <div id="pa-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem">Loading API directory…</div>
+        <div id="pa-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.75rem"></div>
+      </div>
+
       <!-- HOURS ANALYSIS VIEW -->
       <div class="view" id="v-hours">
         <div class="view-title">💰 Hours & Billing Analysis</div>
@@ -1951,7 +1967,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,paystub:19};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,paystub:19,publicapis:20};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
@@ -1964,6 +1980,7 @@ function showView(id) {
   if (id === 'countryinfo') loadDefaultCountries();
   if (id === 'osint') loadOsint();
   if (id === 'paystub') psInit();
+  if (id === 'publicapis') loadPublicApis();
   if (id === 'timesheets') { setTimeout(function(){ document.getElementById('ts-status').textContent='Upload a Prebilling Review report to begin.'; },100); }
   if (id === 'countryinfo' && !window._countryLoaded) { window._countryLoaded = true; loadDefaultCountries(); }
 }
@@ -3314,6 +3331,64 @@ function renderCountryInfoGrid(countries) {
 // and Telephone Numbers categories. Lazy-loaded on first view open.
 var OS_ALL = null, OS_LOADING = false;
 function osEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── PUBLIC APIs DIRECTORY ────────────────────────────────────────────────
+// Bundled from public-apis (MIT). Lazy-loaded on first view open.
+var PA_ALL = null, PA_LOADING = false;
+
+function loadPublicApis() {
+  if (PA_ALL || PA_LOADING) { if (PA_ALL) renderPublicApis(); return; }
+  PA_LOADING = true;
+  fetch('public-apis.json')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      PA_ALL = data;
+      var total = data.reduce(function(s,c){ return s + c.apis.length; }, 0);
+      document.getElementById('pa-total').textContent = total.toLocaleString();
+      var sel = document.getElementById('pa-cat');
+      data.slice().sort(function(a,b){ return a.cat.localeCompare(b.cat); }).forEach(function(c){
+        var o = document.createElement('option');
+        o.value = c.cat; o.textContent = c.cat + ' (' + c.apis.length + ')';
+        sel.appendChild(o);
+      });
+      renderPublicApis();
+    })
+    .catch(function(){ document.getElementById('pa-status').textContent = '❌ Could not load the API directory.'; });
+}
+
+function paEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderPublicApis() {
+  if (!PA_ALL) return;
+  var q = (document.getElementById('pa-search').value || '').toLowerCase();
+  var cat = document.getElementById('pa-cat').value;
+  var noKey = document.getElementById('pa-nokey').checked;
+  var corsOnly = document.getElementById('pa-cors').checked;
+  var out = [], shown = 0;
+  PA_ALL.forEach(function(c){
+    if (cat && c.cat !== cat) return;
+    c.apis.forEach(function(a){
+      if (noKey && a.a && a.a.toLowerCase() !== 'no') return;
+      if (corsOnly && (a.c || '').toLowerCase() !== 'yes') return;
+      if (q && a.n.toLowerCase().indexOf(q) === -1 && (a.d||'').toLowerCase().indexOf(q) === -1) return;
+      shown++;
+      var authBadge = (a.a && a.a.toLowerCase() !== 'no')
+        ? '<span style="background:var(--amber-dim);color:var(--amber);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">🔑 ' + paEsc(a.a) + '</span>'
+        : '<span style="background:var(--green-dim);color:var(--green);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">No key</span>';
+      var corsBadge = (a.c||'').toLowerCase()==='yes'
+        ? '<span style="background:var(--blue-dim);color:var(--blue);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">CORS ✓</span>'
+        : ((a.c||'').toLowerCase()==='no' ? '<span style="background:var(--red-dim);color:var(--red);border-radius:4px;padding:1px 6px;font-size:10px">needs proxy</span>' : '');
+      out.push('<a href="' + paEsc(a.u) + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:block;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0.9rem 1rem">'
+        + '<div style="font-weight:700;font-size:13px;margin-bottom:3px">' + paEsc(a.n) + '</div>'
+        + '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">' + paEsc(c.cat) + '</div>'
+        + '<div style="font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:8px">' + paEsc(a.d) + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + authBadge + corsBadge + '</div></a>');
+    });
+  });
+  document.getElementById('pa-count').textContent = shown.toLocaleString() + ' APIs';
+  document.getElementById('pa-status').textContent = shown ? '' : 'No APIs match your filters.';
+  document.getElementById('pa-grid').innerHTML = out.join('');
+}
 
 // ─── PAYSTUB CAP CHECK ────────────────────────────────────────────────────
 // Parses ADP earnings statements (one paystub per PDF page). ADP prints decimals
