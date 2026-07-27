@@ -3358,6 +3358,62 @@ function loadPublicApis() {
 
 function paEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// On-demand "how to use" — generated live via the portal's AI proxy so we never
+// fabricate or store descriptions for 1,586 APIs. Cached per API for the session.
+var PA_EXPLAIN_CACHE = {};
+async function paExplain(btn, api) {
+  var box = btn.closest('div').parentElement.querySelector('.pa-explain');
+  // Toggle closed if already open
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  if (PA_EXPLAIN_CACHE[api.u]) { box.textContent = PA_EXPLAIN_CACHE[api.u]; return; }
+  box.textContent = '💭 Generating…';
+  btn.disabled = true;
+
+  var prompt = 'You are helping the admin of a home-care agency (Care Crafter) understand a public API. '
+    + 'API name: "' + api.n + '". Category: ' + api.cat + '. Official docs: ' + api.u + '. '
+    + 'One-line description: "' + api.d + '". Auth: ' + (api.a || 'none') + '. CORS: ' + (api.c || 'unknown') + '.\n\n'
+    + 'In 3-4 short sentences, plainly explain: (1) what this API actually does, '
+    + '(2) whether it needs an API key and any cost, and '
+    + '(3) one concrete way a home-care agency’s internal tools could realistically use it '
+    + '(or say plainly if it has no real business use for a home-care agency). '
+    + 'Be concrete and brief. No markdown, no headings.';
+
+  try {
+    var reply = await paAskAI(prompt);
+    PA_EXPLAIN_CACHE[api.u] = reply;
+    box.textContent = reply;
+  } catch (e) {
+    box.textContent = '⚠ Could not generate right now (' + (e.message || 'AI error') + '). Try again in a moment.';
+  }
+  btn.disabled = false;
+}
+
+// Try Gemini first, fall back to Groq — same proxies Brain AI uses.
+async function paAskAI(prompt) {
+  try {
+    var r = await fetch('/api/gemini', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gemini-2.5-flash', payload: { contents: [{ role: 'user', parts: [{ text: prompt }] }] } })
+    });
+    var d = await r.json();
+    if (d.error) throw new Error(d.error.message || 'gemini');
+    var parts = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts;
+    var text = parts ? parts.map(function(p){ return p.text || ''; }).join('').trim() : '';
+    if (text) return text;
+    throw new Error('empty');
+  } catch (e1) {
+    var r2 = await fetch('/api/groq-chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+    });
+    var d2 = await r2.json();
+    if (d2.error) throw new Error(d2.error.message || 'groq');
+    if (d2.text && d2.text.trim()) return d2.text.trim();
+    throw new Error('both engines failed');
+  }
+}
+
 function renderPublicApis() {
   if (!PA_ALL) return;
   var q = (document.getElementById('pa-search').value || '').toLowerCase();
@@ -3378,11 +3434,18 @@ function renderPublicApis() {
       var corsBadge = (a.c||'').toLowerCase()==='yes'
         ? '<span style="background:var(--blue-dim);color:var(--blue);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">CORS ✓</span>'
         : ((a.c||'').toLowerCase()==='no' ? '<span style="background:var(--red-dim);color:var(--red);border-radius:4px;padding:1px 6px;font-size:10px">needs proxy</span>' : '');
-      out.push('<a href="' + paEsc(a.u) + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:block;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0.9rem 1rem">'
+      var payload = paEsc(JSON.stringify({ n: a.n, u: a.u, d: a.d, cat: c.cat, a: a.a, c: a.c }));
+      out.push('<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0.9rem 1rem">'
         + '<div style="font-weight:700;font-size:13px;margin-bottom:3px">' + paEsc(a.n) + '</div>'
         + '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">' + paEsc(c.cat) + '</div>'
         + '<div style="font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:8px">' + paEsc(a.d) + '</div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + authBadge + corsBadge + '</div></a>');
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px">' + authBadge + corsBadge + '</div>'
+        + '<div style="display:flex;gap:8px;align-items:center">'
+        + '<a href="' + paEsc(a.u) + '" target="_blank" rel="noopener" style="font-size:11px;font-weight:600;color:var(--blue);text-decoration:none">📄 Docs ↗</a>'
+        + '<button onclick=\'paExplain(this, ' + payload + ')\' style="font-size:11px;font-weight:600;background:var(--blue-dim);color:var(--blue);border:1px solid var(--border2);border-radius:6px;padding:3px 10px;cursor:pointer">💡 How to use</button>'
+        + '</div>'
+        + '<div class="pa-explain" style="display:none;margin-top:9px;padding:9px 11px;background:var(--bg3);border-radius:8px;font-size:12px;line-height:1.55;color:var(--text2);white-space:pre-wrap"></div>'
+        + '</div>');
     });
   });
   document.getElementById('pa-count').textContent = shown.toLocaleString() + ' APIs';
