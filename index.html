@@ -398,8 +398,9 @@ textarea.field-input{resize:vertical;min-height:80px}
 </style>
 <script>
 // Apply saved theme before first paint, to avoid a flash of the wrong theme.
-/* Dark neon-glass is the default; only switch to light if the user chose it. */
-try { if (localStorage.getItem('cc_theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch(e) {}
+/* Dark neon-glass is the default. Use a v2 key so pre-redesign 'light'
+   preferences don't pin returning users to the old look. */
+try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElement.dataset.theme = 'light'; } catch(e) {}
 </script>
 </head>
 <body>
@@ -1731,18 +1732,12 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
 function ccSetTheme(isLight) {
   if (isLight) document.documentElement.dataset.theme = 'light';
   else document.documentElement.removeAttribute('data-theme');
-  try { localStorage.setItem('cc_theme', isLight ? 'light' : 'dark'); } catch(e) {}
+  try { localStorage.setItem('cc_theme2', isLight ? 'light' : 'dark'); } catch(e) {}
 }
-// Sync the toggle's checked state to the active theme on load
-try {
-  var _t = document.getElementById('ccThemeToggle');
-  if (_t) _t.checked = (document.documentElement.dataset.theme === 'light');
-} catch(e) {}
 (function initThemeToggle() {
   function sync() {
     const cb = document.getElementById('ccThemeToggle');
-    if (!cb) return;
-    cb.checked = document.documentElement.dataset.theme === 'dark';
+    if (cb) cb.checked = (document.documentElement.dataset.theme === 'light');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
   else sync();
