@@ -6,7 +6,21 @@
 <title>Care Crafter Portal</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;450;500;600;700;800&display=swap');
+/* ── Dark neon-glass theme (default). Toggle switches to light. ── */
 :root{
+  --bg:#060912;--bg2:rgba(20,26,44,0.72);--bg3:rgba(32,40,66,0.72);--bg4:rgba(48,58,92,0.7);
+  --border:rgba(120,145,230,0.18);--border2:rgba(150,175,255,0.32);
+  --blue:#4d8cff;--blue2:#6ea6ff;--blue-dim:rgba(77,140,255,0.16);
+  --green:#22e39a;--green-dim:rgba(34,227,154,0.15);
+  --red:#ff5c7c;--red-dim:rgba(255,92,124,0.15);
+  --amber:#ffab5c;--amber-dim:rgba(255,171,92,0.16);
+  --teal:#22d3ee;--teal-dim:rgba(34,211,238,0.15);
+  --text:#eaf0ff;--text2:#a6b2dc;--text3:#6b7399;
+  --radius:12px;--radius-lg:18px;--mono:'SF Mono',ui-monospace,'Courier New',monospace;
+  --font-head:'Fraunces',serif;
+  --glow:0 0 18px;
+}
+html[data-theme="light"]{
   --bg:#f7f8fc;--bg2:#ffffff;--bg3:#eef0f9;--bg4:#dfe3f3;
   --border:#e4e7f3;--border2:#ccd2e8;
   --blue:#1e3a9c;--blue2:#3652c4;--blue-dim:rgba(30,58,156,0.08);
@@ -15,20 +29,30 @@
   --amber:#ff5c5c;--amber-dim:rgba(255,92,92,0.12);
   --teal:#1e3a9c;--teal-dim:rgba(30,58,156,0.09);
   --text:#171a2e;--text2:#5c6180;--text3:#9297b3;
-  --radius:10px;--radius-lg:16px;--mono:'SF Mono',ui-monospace,'Courier New',monospace;
-  --font-head:'Fraunces',serif;
 }
-html[data-theme="dark"]{
-  --bg:#11131c;--bg2:#181b27;--bg3:#20242f;--bg4:#2b2f3d;
-  --border:#2a2e3d;--border2:#383d52;
-  --blue:#6684e0;--blue2:#7f9af0;--blue-dim:rgba(102,132,224,0.14);
-  --green:#4cb579;--green-dim:rgba(76,181,121,0.14);
-  --red:#e8685c;--red-dim:rgba(232,104,92,0.13);
-  --amber:#ff7a7a;--amber-dim:rgba(255,122,122,0.16);
-  --teal:#6684e0;--teal-dim:rgba(102,132,224,0.14);
-  --text:#e9ebf3;--text2:#a3a8c0;--text3:#6d7290;
+body{background:var(--bg)}
+
+/* Frosted-glass surfaces — blur only on the major containers (keeps the
+   1,586-card API grid, which uses inline var(--bg2), fast: translucent, no blur). */
+.sidebar,.login-card,.stat-card,.tool-card,.modal,.codes-wrap,.tbl-box,.gen-box,.ext-header,.cl-item,.upload-zone,.admin-wrap{
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
 }
-html[data-theme="dark"] body{background:var(--bg)}
+html:not([data-theme="light"]) .stat-card,html:not([data-theme="light"]) .tool-card{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 8px 30px rgba(0,0,0,0.35);
+}
+/* Neon accents (dark theme only) */
+html:not([data-theme="light"]) .view-title,html:not([data-theme="light"]) .login-title{
+  text-shadow:0 0 22px rgba(34,211,238,0.35);
+}
+html:not([data-theme="light"]) .nav-btn.active{
+  box-shadow:inset 0 0 0 1px var(--border2),0 0 16px rgba(77,140,255,0.25);
+}
+html:not([data-theme="light"]) .btn-primary,html:not([data-theme="light"]) .btn-dl,html:not([data-theme="light"]) .btn-gen{
+  box-shadow:0 0 18px rgba(77,140,255,0.4);
+}
+html:not([data-theme="light"]) .stat-num{ text-shadow:0 0 20px currentColor; }
+html:not([data-theme="light"]) .sidebar-logo,html:not([data-theme="light"]) .cc-mono{ filter:drop-shadow(0 0 10px rgba(34,211,238,0.5)); }
+html:not([data-theme="light"]) .badge-live{ box-shadow:0 0 12px rgba(34,227,154,0.4); }
 
 /* Light/dark theme toggle switch — from Uiverse.io by andrew-demchenk0, MIT License */
 .cc-theme-switch{font-size:15px;position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0}
@@ -374,7 +398,8 @@ textarea.field-input{resize:vertical;min-height:80px}
 </style>
 <script>
 // Apply saved theme before first paint, to avoid a flash of the wrong theme.
-try { if (localStorage.getItem('cc_theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch(e) {}
+/* Dark neon-glass is the default; only switch to light if the user chose it. */
+try { if (localStorage.getItem('cc_theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch(e) {}
 </script>
 </head>
 <body>
@@ -1702,10 +1727,17 @@ function saveChangelog() { localStorage.setItem('cc_cl',   JSON.stringify(change
   window.ccElecReattach = attachAll;
 })();
 
-function ccSetTheme(isDark) {
-  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-  try { localStorage.setItem('cc_theme', isDark ? 'dark' : 'light'); } catch(e) {}
+// Dark neon-glass is the default (no data-theme). Checked toggle = light mode.
+function ccSetTheme(isLight) {
+  if (isLight) document.documentElement.dataset.theme = 'light';
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('cc_theme', isLight ? 'light' : 'dark'); } catch(e) {}
 }
+// Sync the toggle's checked state to the active theme on load
+try {
+  var _t = document.getElementById('ccThemeToggle');
+  if (_t) _t.checked = (document.documentElement.dataset.theme === 'light');
+} catch(e) {}
 (function initThemeToggle() {
   function sync() {
     const cb = document.getElementById('ccThemeToggle');
