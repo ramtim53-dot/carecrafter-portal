@@ -222,6 +222,7 @@ button,.pill{transition:transform 0.16s cubic-bezier(0.34,1.56,0.64,1),box-shado
 .btn-logout:hover{color:var(--red);border-color:rgba(220,80,80,0.35);background:var(--red-dim)}
 .main{flex:1;overflow-y:auto;min-height:100vh;padding-left:1.75rem}
 .view{display:none;padding:2rem 2rem 2rem 0;max-width:1180px}.view.active{display:block}
+#v-osintfull.active{display:flex !important}
 .view-title{font-family:var(--font-head);font-size:23px;font-weight:600;margin-bottom:5px;letter-spacing:-0.01em}
 .view-sub{font-size:13.5px;color:var(--text2);margin-bottom:1.75rem}
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.75rem}
@@ -1186,14 +1187,16 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
       </div>
 
       <!-- OSINT FRAMEWORK — FULL SITE (live embed, exact original) -->
-      <div class="view" id="v-osintfull" style="display:flex;flex-direction:column;height:calc(100vh - 2rem)">
-        <div class="view-title" style="flex-shrink:0">🕸️ OSINT Framework — Full Site</div>
-        <div class="view-sub" style="flex-shrink:0">The complete, original tool tree — every category, live from <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--blue)">osintframework.com</a> (MIT license). Click a node to expand it, click a leaf to open that tool in a new tab.</div>
-        <div style="flex-shrink:0;margin-bottom:0.75rem">
-          <a href="https://osintframework.com/" target="_blank" rel="noopener" style="font-size:12px;color:var(--text3)">↗ Open in a new tab instead</a>
+      <div class="view" id="v-osintfull" style="position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;max-width:none;padding:0;background:#0b0f1a">
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border)">
+          <button onclick="showView('osint')" style="background:var(--bg3,#1a2030);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;flex-shrink:0">← Back to CareCrafter</button>
+          <div style="min-width:0">
+            <div style="font-weight:600;font-size:14px;white-space:nowrap">🕸️ OSINT Framework — Full Site</div>
+            <div style="font-size:11px;color:var(--text3)">Live from <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--blue)">osintframework.com</a> (MIT) · <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--text3)">open in a new tab instead</a></div>
+          </div>
         </div>
         <iframe src="https://osintframework.com/" title="OSINT Framework" loading="lazy"
-          style="flex:1;width:100%;border:1px solid var(--border);border-radius:var(--radius);background:#fff"></iframe>
+          style="flex:1;width:100%;border:0;background:#fff"></iframe>
       </div>
 
       <!-- PAYSTUB CAP CHECK VIEW -->
