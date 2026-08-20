@@ -2080,29 +2080,74 @@ function osintAIScore(tool, qTokens) {
   qTokens.forEach(t => { if (t.length > 2 && hay.includes(t)) score += (hay.includes(' ' + t) || hay.startsWith(t)) ? 2 : 1; });
   return score;
 }
-let osintAITimer = null;
+let osintAITimer = null, osintAIReqId = 0;
 function osintAISearch(q) {
   clearTimeout(osintAITimer);
   const box = document.getElementById('osint-ai-results');
-  if (!q || q.trim().length < 3) { box.style.display = 'none'; return; }
-  osintAITimer = setTimeout(() => {
-    const qTokens = q.toLowerCase().split(/\s+/).filter(Boolean);
-    const scored = OSINT_TOOLS.map(t => ({ t, s: osintAIScore(t, qTokens) })).filter(x => x.s > 0)
-      .sort((a, b) => b.s - a.s).slice(0, 6);
-    if (!scored.length) {
-      box.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text3)">No close match in the curated index — try the tree on the left, or search directly on <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--blue)">osintframework.com</a>.</div>';
-      box.style.display = 'block';
-      return;
-    }
-    box.innerHTML = scored.map(({t}) => `
-      <a href="${t.url}" target="_blank" rel="noopener" style="display:block;padding:10px 14px;text-decoration:none;border-bottom:1px solid #1c2338;transition:background .1s"
-        onmouseover="this.style.background='#1a2035'" onmouseout="this.style.background='transparent'">
-        <div style="font-size:12.5px;font-weight:600;color:#e8ecf5">${t.name}</div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${t.cat} · ${t.url.replace(/^https?:\/\//,'').replace(/\/$/,'')}</div>
-      </a>`).join('') +
-      '<div style="padding:8px 14px;font-size:10px;color:var(--text3);background:#0d1120">Curated shortlist — not exhaustive. Full tree is in the framework below.</div>';
+  if (!q || q.trim().length < 4) { box.style.display = 'none'; return; }
+  osintAITimer = setTimeout(() => osintAIRun(q), 550);
+}
+
+function osintRenderMatches(box, matches, note) {
+  if (!matches.length) {
+    box.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text3)">No close match — try the tree on the left, or search directly on <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--blue)">osintframework.com</a>.</div>';
     box.style.display = 'block';
-  }, 150);
+    return;
+  }
+  box.innerHTML = matches.map(t => `
+    <a href="${t.url}" target="_blank" rel="noopener" style="display:block;padding:10px 14px;text-decoration:none;border-bottom:1px solid #1c2338;transition:background .1s"
+      onmouseover="this.style.background='#1a2035'" onmouseout="this.style.background='transparent'">
+      <div style="font-size:12.5px;font-weight:600;color:#e8ecf5">${t.name}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${t.cat} · ${t.url.replace(/^https?:\/\//,'').replace(/\/$/,'')}</div>
+    </a>`).join('') +
+    `<div style="padding:8px 14px;font-size:10px;color:var(--text3);background:#0d1120">${note}</div>`;
+  box.style.display = 'block';
+}
+
+function osintKeywordMatches(q) {
+  const qTokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return OSINT_TOOLS.map(t => ({ t, s: osintAIScore(t, qTokens) })).filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s).slice(0, 6).map(x => x.t);
+}
+
+async function osintAIRun(q) {
+  const myId = ++osintAIReqId;
+  const box = document.getElementById('osint-ai-results');
+  box.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text3)">🤖 thinking...</div>';
+  box.style.display = 'block';
+
+  const catalog = OSINT_TOOLS.map(t => t.name + ' | ' + t.cat).join('\n');
+  const prompt = 'You are matching a user\'s plain-English OSINT (open-source intelligence) research need to the ' +
+    'best tools from this fixed catalog (format "Tool Name | Category"):\n\n' + catalog +
+    '\n\nUser need: "' + q + '"\n\n' +
+    'Reply with ONLY a JSON array of up to 6 exact tool names from the catalog above, best match first. ' +
+    'No explanation, no markdown, just the JSON array. Example: ["TinEye","Yandex"]. ' +
+    'If nothing in the catalog is genuinely relevant, reply with [].';
+
+  let names = null;
+  try {
+    const r = await fetch('/api/groq-chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message || 'groq error');
+    const raw = (d.text || '').trim();
+    const m = raw.match(/\[[\s\S]*\]/);
+    names = JSON.parse(m ? m[0] : raw);
+  } catch (e) {
+    names = null; // fall through to keyword search below
+  }
+
+  if (myId !== osintAIReqId) return; // a newer search superseded this one
+
+  if (Array.isArray(names)) {
+    const matches = names.map(n => OSINT_TOOLS.find(t => t.name.toLowerCase() === String(n).toLowerCase())).filter(Boolean);
+    osintRenderMatches(box, matches, '🤖 AI-matched from the curated catalog below — not exhaustive.');
+  } else {
+    // AI engine unavailable — fall back to local keyword matching so search still works
+    osintRenderMatches(box, osintKeywordMatches(q), '⚠ AI engine unavailable, showed keyword matches instead.');
+  }
 }
 document.addEventListener('click', e => {
   const box = document.getElementById('osint-ai-results');
