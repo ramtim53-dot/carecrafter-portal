@@ -1188,11 +1188,17 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
 
       <!-- OSINT FRAMEWORK — FULL SITE (live embed, exact original) -->
       <div class="view" id="v-osintfull" style="position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;max-width:none;padding:0;background:#0b0f1a">
-        <div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border)">
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap">
           <button onclick="showView('osint')" style="background:var(--bg3,#1a2030);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;flex-shrink:0">← Back to CareCrafter</button>
           <div style="min-width:0">
             <div style="font-weight:600;font-size:14px;white-space:nowrap">🕸️ OSINT Framework — Full Site</div>
             <div style="font-size:11px;color:var(--text3)">Live from <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--blue)">osintframework.com</a> (MIT) · <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--text3)">open in a new tab instead</a></div>
+          </div>
+          <div style="flex:1;min-width:220px;position:relative;max-width:480px">
+            <input id="osint-ai-q" type="text" placeholder="🤖 Describe what you need (e.g. 'find who owns this phone number')..."
+              style="width:100%;background:var(--bg3,#1a2030);border:1px solid var(--border2,#2a3348);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--text);outline:none"
+              oninput="osintAISearch(this.value)" onfocus="if(this.value)osintAISearch(this.value)">
+            <div id="osint-ai-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#12172a;border:1px solid var(--border2,#2a3348);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);max-height:360px;overflow-y:auto;z-index:10"></div>
           </div>
         </div>
         <iframe src="https://osintframework.com/" title="OSINT Framework" loading="lazy"
@@ -2004,6 +2010,104 @@ function ccSplitSwap(el) {
     ripple.addEventListener('animationend', () => ripple.remove());
   });
 })();
+
+// ── OSINT Framework AI-ish search — curated index of well-known OSINT tools
+// so a plain-English description finds the right category/tool without
+// needing to know OSINT Framework's tree by heart. Client-side only, no
+// external API — keyword/phrase overlap scoring against name+category+tags.
+const OSINT_TOOLS = [
+  {name:'WhatsMyName', cat:'Username', url:'https://whatsmyname.app/', tags:'find username across sites social handle check availability'},
+  {name:'Namechk', cat:'Username', url:'https://namechk.com/', tags:'username availability check social media handle'},
+  {name:'Sherlock', cat:'Username', url:'https://github.com/sherlock-project/sherlock', tags:'find username accounts across social networks'},
+  {name:'Hunter.io', cat:'Email Address', url:'https://hunter.io/', tags:'find email address company domain verify'},
+  {name:'EmailRep', cat:'Email Address', url:'https://emailrep.io/', tags:'email reputation risk check spam fraud'},
+  {name:'Have I Been Pwned', cat:'Email Address', url:'https://haveibeenpwned.com/', tags:'email breach leak password compromised check'},
+  {name:'Hunter How', cat:'Email Address', url:'https://hunter.how/', tags:'email search internet exposed assets'},
+  {name:'WHOIS Lookup', cat:'Domain Name', url:'https://who.is/', tags:'domain owner registration who owns website'},
+  {name:'DNSDumpster', cat:'Domain Name', url:'https://dnsdumpster.com/', tags:'dns records subdomain domain recon'},
+  {name:'crt.sh', cat:'Domain Name', url:'https://crt.sh/', tags:'ssl certificate subdomain domain search'},
+  {name:'Shodan', cat:'Cloud Infrastructure', url:'https://www.shodan.io/', tags:'devices servers exposed internet cloud infrastructure iot scan'},
+  {name:'Censys', cat:'Cloud Infrastructure', url:'https://search.censys.io/', tags:'internet devices servers scan exposed assets'},
+  {name:'IPinfo', cat:'IP & MAC Address', url:'https://ipinfo.io/', tags:'ip address location owner geolocation lookup'},
+  {name:'IP2Location', cat:'IP & MAC Address', url:'https://www.ip2location.com/', tags:'ip address location geolocation lookup'},
+  {name:'MAC Address Lookup', cat:'IP & MAC Address', url:'https://maclookup.app/', tags:'mac address vendor manufacturer lookup'},
+  {name:'TinEye', cat:'Images / Videos / Docs', url:'https://tineye.com/', tags:'reverse image search find where photo posted'},
+  {name:'Google Reverse Image Search', cat:'Images / Videos / Docs', url:'https://images.google.com/', tags:'reverse image search find photo source'},
+  {name:'FotoForensics', cat:'Images / Videos / Docs', url:'https://fotoforensics.com/', tags:'image forensics edited photo manipulation detect'},
+  {name:'ExifTool / Metadata2Go', cat:'Images / Videos / Docs', url:'https://www.metadata2go.com/', tags:'photo exif metadata location camera info'},
+  {name:'Facebook Search', cat:'Social Networks', url:'https://www.facebook.com/', tags:'find person facebook profile social media'},
+  {name:'LinkedIn', cat:'Social Networks', url:'https://www.linkedin.com/', tags:'find person job employer professional profile'},
+  {name:'Instagram', cat:'Social Networks', url:'https://www.instagram.com/', tags:'find person instagram profile photos social media'},
+  {name:'Social Searcher', cat:'Social Networks', url:'https://www.social-searcher.com/', tags:'search mentions across social media platforms'},
+  {name:'TrueCaller', cat:'Telephone Numbers', url:'https://www.truecaller.com/', tags:'phone number owner name caller id lookup'},
+  {name:'NumLookup', cat:'Telephone Numbers', url:'https://www.numlookup.com/', tags:'phone number owner lookup reverse search'},
+  {name:'That\'sThem', cat:'People Search Engines', url:'https://thatsthem.com/', tags:'find person address phone email background'},
+  {name:'FastPeopleSearch', cat:'People Search Engines', url:'https://www.fastpeoplesearch.com/', tags:'find person address relatives phone free'},
+  {name:'TruePeopleSearch', cat:'People Search Engines', url:'https://www.truepeoplesearch.com/', tags:'find person address relatives phone free'},
+  {name:'Spokeo', cat:'People Search Engines', url:'https://www.spokeo.com/', tags:'find person background check address relatives'},
+  {name:'Pipl', cat:'People Search Engines', url:'https://pipl.com/', tags:'find person deep search identity background'},
+  {name:'BeenVerified', cat:'Public Records', url:'https://www.beenverified.com/', tags:'background check criminal record public records person'},
+  {name:'PACER', cat:'Public Records', url:'https://pacer.uscourts.gov/', tags:'federal court records lawsuit case lookup'},
+  {name:'OpenCorporates', cat:'Business Records', url:'https://opencorporates.com/', tags:'company business registration ownership lookup'},
+  {name:'SEC EDGAR', cat:'Business Records', url:'https://www.sec.gov/edgar/search/', tags:'public company filings financial business records'},
+  {name:'FlightAware', cat:'Transportation', url:'https://flightaware.com/', tags:'flight tracker plane aircraft tracking'},
+  {name:'MarineTraffic', cat:'Transportation', url:'https://www.marinetraffic.com/', tags:'ship boat tracking vessel location'},
+  {name:'VIN Decoder / NICB', cat:'Transportation', url:'https://www.nicb.org/vincheck', tags:'vehicle vin number owner history lookup'},
+  {name:'Google Maps', cat:'Geolocation Tools / Maps', url:'https://maps.google.com/', tags:'location address map satellite street view'},
+  {name:'Wikimapia', cat:'Geolocation Tools / Maps', url:'https://wikimapia.org/', tags:'location map satellite building identification'},
+  {name:'SunCalc', cat:'Geolocation Tools / Maps', url:'https://www.suncalc.org/', tags:'sun shadow position time geolocation photo analysis'},
+  {name:'Google Dorking Guide', cat:'Search Engines', url:'https://en.wikipedia.org/wiki/Google_hacking', tags:'advanced search google search operators dork'},
+  {name:'Yandex', cat:'Search Engines', url:'https://yandex.com/', tags:'russian search engine reverse image alternative'},
+  {name:'Reddit Search', cat:'Online Communities', url:'https://www.reddit.com/search/', tags:'find forum post reddit community discussion'},
+  {name:'Wayback Machine', cat:'Archives', url:'https://web.archive.org/', tags:'old website history deleted page archive cached'},
+  {name:'Archive.today', cat:'Archives', url:'https://archive.ph/', tags:'saved webpage snapshot archive deleted content'},
+  {name:'Google Translate', cat:'Language Translation', url:'https://translate.google.com/', tags:'translate foreign language text document'},
+  {name:'DeepL', cat:'Language Translation', url:'https://www.deepl.com/', tags:'translate foreign language text accurate'},
+  {name:'IntelTechniques Tools', cat:'Tools', url:'https://inteltechniques.com/tools/', tags:'osint toolkit search aggregator michael bazzell'},
+  {name:'Maltego', cat:'Tools', url:'https://www.maltego.com/', tags:'link analysis visualize connections investigation graph'},
+  {name:'Etherscan', cat:'Blockchain & Cryptocurrency', url:'https://etherscan.io/', tags:'ethereum wallet crypto transaction lookup blockchain'},
+  {name:'Blockchain.com Explorer', cat:'Blockchain & Cryptocurrency', url:'https://www.blockchain.com/explorer', tags:'bitcoin wallet crypto transaction lookup blockchain'},
+  {name:'Craigslist', cat:'Classifieds', url:'https://www.craigslist.org/', tags:'classified ads search local listings'},
+  {name:'CyberChef', cat:'Encoding / Decoding', url:'https://gchq.github.io/CyberChef/', tags:'decode encode hash base64 convert data'},
+  {name:'VirusTotal', cat:'Malicious File Analysis', url:'https://www.virustotal.com/', tags:'scan file virus malware suspicious link check'},
+  {name:'AlienVault OTX', cat:'Cyber Threat Intelligence', url:'https://otx.alienvault.com/', tags:'threat intelligence ioc malware indicators'},
+  {name:'Google AI / Gemini', cat:'AI Tools', url:'https://gemini.google.com/', tags:'ai assistant research summarize chatbot'},
+];
+function osintAIScore(tool, qTokens) {
+  const hay = (tool.name + ' ' + tool.cat + ' ' + tool.tags).toLowerCase();
+  let score = 0;
+  qTokens.forEach(t => { if (t.length > 2 && hay.includes(t)) score += (hay.includes(' ' + t) || hay.startsWith(t)) ? 2 : 1; });
+  return score;
+}
+let osintAITimer = null;
+function osintAISearch(q) {
+  clearTimeout(osintAITimer);
+  const box = document.getElementById('osint-ai-results');
+  if (!q || q.trim().length < 3) { box.style.display = 'none'; return; }
+  osintAITimer = setTimeout(() => {
+    const qTokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const scored = OSINT_TOOLS.map(t => ({ t, s: osintAIScore(t, qTokens) })).filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s).slice(0, 6);
+    if (!scored.length) {
+      box.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text3)">No close match in the curated index — try the tree on the left, or search directly on <a href="https://osintframework.com/" target="_blank" rel="noopener" style="color:var(--blue)">osintframework.com</a>.</div>';
+      box.style.display = 'block';
+      return;
+    }
+    box.innerHTML = scored.map(({t}) => `
+      <a href="${t.url}" target="_blank" rel="noopener" style="display:block;padding:10px 14px;text-decoration:none;border-bottom:1px solid #1c2338;transition:background .1s"
+        onmouseover="this.style.background='#1a2035'" onmouseout="this.style.background='transparent'">
+        <div style="font-size:12.5px;font-weight:600;color:#e8ecf5">${t.name}</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${t.cat} · ${t.url.replace(/^https?:\/\//,'').replace(/\/$/,'')}</div>
+      </a>`).join('') +
+      '<div style="padding:8px 14px;font-size:10px;color:var(--text3);background:#0d1120">Curated shortlist — not exhaustive. Full tree is in the framework below.</div>';
+    box.style.display = 'block';
+  }, 150);
+}
+document.addEventListener('click', e => {
+  const box = document.getElementById('osint-ai-results');
+  const input = document.getElementById('osint-ai-q');
+  if (box && input && !input.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
+});
 
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
