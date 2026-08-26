@@ -1454,6 +1454,10 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
               <div style="font-size:28px;font-weight:900;color:var(--amber)" id="aa-totalOver">0:00</div>
               <div style="font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px">Total Over-Auth Hrs</div>
             </div>
+            <div style="background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.3);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer" onclick="document.getElementById('aa-filter').value='zero';aaFilter()" title="Click to filter to just these">
+              <div style="font-size:28px;font-weight:900;color:#94a3b8" id="aa-zeroCount">0</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px">⚪ Zero Activity</div>
+            </div>
           </div>
 
           <!-- Filter Bar -->
@@ -1463,6 +1467,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
               <option value="all">All Members</option>
               <option value="over">Over-Scheduled Only</option>
               <option value="within">Within Auth Only</option>
+              <option value="zero">⚠ Zero Activity (0:00 auth/sched)</option>
             </select>
           </div>
 
@@ -5274,6 +5279,7 @@ function haPrint() {
 
 // ─── AUTH ANALYSIS ───────────────────────────────────────────────────────────
 var aaRows = [];
+var aaLastFiltered = [];
 
 function aaLoadXLSX(cb){if(window.XLSX){cb();return;}var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=cb;document.head.appendChild(s);}
 
@@ -5353,15 +5359,20 @@ function aaAnalyze() {
 function aaFilter() {
   var search = (document.getElementById('aa-search').value || '').toLowerCase();
   var filter = document.getElementById('aa-filter').value;
-  var overCount = 0, withinCount = 0, totalOverMins = 0;
+  var overCount = 0, withinCount = 0, totalOverMins = 0, zeroCount = 0;
   var filtered = aaRows.filter(function(r) {
+    var authMins = aaHrsToMins(r.authHrs), schedMins = aaHrsToMins(r.schedHrs);
     var authSchedMins = aaHrsToMins(r.authSched);
     // negative authSched = over-scheduled (scheduled > auth)
     var isOver = authSchedMins < 0;
-    if (isOver) { overCount++; totalOverMins += Math.abs(authSchedMins); }
+    // Both auth and scheduled at 0:00 — likely discharged, out of country, or no longer with the agency
+    var isZero = authMins === 0 && schedMins === 0;
+    if (isZero) zeroCount++;
+    else if (isOver) { overCount++; totalOverMins += Math.abs(authSchedMins); }
     else withinCount++;
-    if (filter === 'over' && !isOver) return false;
-    if (filter === 'within' && isOver) return false;
+    if (filter === 'over' && !(isOver && !isZero)) return false;
+    if (filter === 'within' && (isOver || isZero)) return false;
+    if (filter === 'zero' && !isZero) return false;
     if (search && !r.member.toLowerCase().includes(search)) return false;
     return true;
   });
@@ -5370,7 +5381,10 @@ function aaFilter() {
   document.getElementById('aa-overCount').textContent = overCount;
   document.getElementById('aa-withinCount').textContent = withinCount;
   document.getElementById('aa-totalOver').textContent = aaMinsToHrs(totalOverMins);
+  var zeroCard = document.getElementById('aa-zeroCount');
+  if (zeroCard) zeroCard.textContent = zeroCount;
 
+  aaLastFiltered = filtered;
   var tbody = document.getElementById('aa-tbody');
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">No records match filter</td></tr>';
@@ -5380,13 +5394,15 @@ function aaFilter() {
   filtered.sort(function(a, b) { return aaHrsToMins(a.authSched) - aaHrsToMins(b.authSched); });
 
   tbody.innerHTML = filtered.map(function(r) {
+    var authMins = aaHrsToMins(r.authHrs), schedMins = aaHrsToMins(r.schedHrs);
     var authSchedMins = aaHrsToMins(r.authSched);
     var isOver = authSchedMins < 0;
-    var statusBg = isOver ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
-    var statusColor = isOver ? '#ef4444' : '#22c55e';
-    var statusLabel = isOver ? '⚠ OVER-SCHEDULED' : '✅ Within Auth';
-    var gapStyle = isOver ? 'color:#ef4444;font-weight:700' : 'color:#22c55e';
-    var rowBg = isOver ? 'rgba(239,68,68,0.04)' : '';
+    var isZero = authMins === 0 && schedMins === 0;
+    var statusBg = isZero ? 'rgba(148,163,184,0.14)' : (isOver ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)');
+    var statusColor = isZero ? '#94a3b8' : (isOver ? '#ef4444' : '#22c55e');
+    var statusLabel = isZero ? '⚪ Zero Activity — check status' : (isOver ? '⚠ OVER-SCHEDULED' : '✅ Within Auth');
+    var gapStyle = isZero ? 'color:#94a3b8' : (isOver ? 'color:#ef4444;font-weight:700' : 'color:#22c55e');
+    var rowBg = isZero ? 'rgba(148,163,184,0.05)' : (isOver ? 'rgba(239,68,68,0.04)' : '');
     return '<tr style="border-bottom:1px solid var(--border2);background:' + rowBg + '">' +
       '<td style="padding:9px 12px;color:var(--text);font-weight:600;font-size:12px">' + r.member + '</td>' +
       '<td style="padding:9px 12px;color:var(--text3);font-size:11px">' + r.period + '</td>' +
@@ -5400,11 +5416,15 @@ function aaFilter() {
 }
 
 function aaExport() {
-  if (!aaRows.length) return;
+  var rows = aaLastFiltered.length ? aaLastFiltered : aaRows;
+  if (!rows.length) return;
   var ws_data = [['Member','Period','Auth Hours','Scheduled Hours','Confirmed Hours','Auth/Sched Gap','Status']];
-  aaRows.forEach(function(r) {
+  rows.forEach(function(r) {
+    var authMins = aaHrsToMins(r.authHrs), schedMins = aaHrsToMins(r.schedHrs);
     var isOver = aaHrsToMins(r.authSched) < 0;
-    ws_data.push([r.member, r.period, r.authHrs, r.schedHrs, r.confHrs, r.authSched, isOver ? 'OVER-SCHEDULED' : 'Within Auth']);
+    var isZero = authMins === 0 && schedMins === 0;
+    var status = isZero ? 'ZERO ACTIVITY - CHECK STATUS' : (isOver ? 'OVER-SCHEDULED' : 'Within Auth');
+    ws_data.push([r.member, r.period, r.authHrs, r.schedHrs, r.confHrs, r.authSched, status]);
   });
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws_data), 'Auth Analysis');
