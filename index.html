@@ -3691,20 +3691,70 @@ function psSpaced(raw, dec) {
   return parseInt(d.slice(0, d.length - dec), 10) + parseInt(d.slice(d.length - dec), 10) / Math.pow(10, dec);
 }
 
-function psParsePage(text) {
+// Finds the label's token(s) on a row, then collects only the numeric tokens
+// immediately following it AS LONG AS each is tightly spaced (small x-gap) —
+// stops the instant it hits a bigger gap, which marks the start of the NEXT
+// column ("this period" vs "year to date" vs an unrelated Totl Hrs value
+// that visually lands on the same row). This is what actually fixes the
+// runaway-concatenation bug: the old version joined the whole row into one
+// string and let its regex eat every digit group through to the far column.
+function psValueAfterLabel(rowTokens, label) {
+  // pdf.js sometimes emits a whole label ("Gross Pay") as one token and
+  // sometimes splits it — build up consecutive non-empty tokens until they
+  // match the label text exactly, from every possible starting point.
+  for (var i = 0; i < rowTokens.length; i++) {
+    if (!rowTokens[i].str.trim()) continue;
+    var acc = '', j = i;
+    while (j < rowTokens.length && acc.length <= label.length) {
+      var s = rowTokens[j].str.trim();
+      if (s) acc += (acc ? ' ' : '') + s;
+      j++;
+      if (acc === label) break;
+    }
+    if (acc !== label) continue;
+
+    var lastEndX = rowTokens[j - 1].endX;
+    var collected = [];
+    var idx = j;
+    while (idx < rowTokens.length) {
+      var tok = rowTokens[idx];
+      var s2 = tok.str.trim();
+      if (!s2) { idx++; continue; }           // skip blank spacing-only tokens
+      if (s2 === '$' && collected.length === 0) { lastEndX = tok.endX; idx++; continue; }
+      if (!/^\$?\d+$/.test(s2)) break;
+      var gap = tok.x - lastEndX;
+      if (collected.length > 0 && gap > 8) break; // big jump => next column, stop here
+      collected.push(s2.replace('$', ''));
+      lastEndX = tok.endX;
+      idx++;
+    }
+    if (collected.length) return collected.join(' ');
+  }
+  return null;
+}
+
+function psParsePage(text, rows) {
   if (!/Gross Pay/.test(text)) return null;
-  // ADP numbers are space-separated digit groups ("748   50" = 748.50). Capture a
-  // run of digits-and-spaces after each label, stopping at the first letter. The
-  // employee name is the all-caps line immediately preceding "Filing Status".
-  var hoursM = text.match(/Totl Hrs Worked\s+(\d+(?:\s+\d+)+)/);
-  var grossM = text.match(/Gross Pay\s+\$?\s*(\d+(?:\s+\d+)+)/);
+  // ADP numbers are space-separated digit groups ("748   50" = 748.50) with
+  // no decimal point printed. The employee name is the all-caps line
+  // immediately preceding "Filing Status" — that part is unambiguous text,
+  // so it's still fine to read off the flattened string.
+  var hoursStr = null, grossStr = null;
+  for (var y = 0; y < rows.length && (hoursStr === null || grossStr === null); y++) {
+    if (hoursStr === null) hoursStr = psValueAfterLabel(rows[y], 'Totl Hrs Worked');
+    if (grossStr === null) grossStr = psValueAfterLabel(rows[y], 'Gross Pay');
+  }
   var nameM  = text.match(/\n[ \t]*([A-Z][A-Z]+(?:[ \t]+[A-Z]+)+)[ \t]*\n[ \t]*Filing Status/);
   var payM   = text.match(/Pay Date:\s+(\d+\s+\d+\s+\d+)/);
   var begM   = text.match(/Period Beginning:\s+(\d+\s+\d+\s+\d+)/);
   var endM   = text.match(/Period Ending:\s+(\d+\s+\d+\s+\d+)/);
-  var hours = hoursM ? psSpaced(hoursM[1], 2) : null;
-  var gross = grossM ? psSpaced(grossM[1], 2) : null;
+  var hours = hoursStr ? psSpaced(hoursStr, 2) : null;
+  var gross = grossStr ? psSpaced(grossStr, 2) : null;
   if (hours == null || gross == null || hours === 0) return null;
+  // Sanity guard — a real per-period hours/gross value never legitimately
+  // reaches these sizes; if the column-scan still went wrong somehow, reject
+  // the page instead of polluting totals with a garbage number.
+  if (hours > 400 || gross > 100000) return null;
   function dt(m){ return m ? m[1].trim().replace(/\s+/g, '/') : ''; }
   return {
     name: nameM ? nameM[1].replace(/\s+/g, ' ').trim() : 'Unknown',
@@ -3732,15 +3782,19 @@ async function psProcess(files) {
       for (var p = 1; p <= pdf.numPages; p++) {
         var page = await pdf.getPage(p);
         var content = await page.getTextContent();
-        // Rebuild lines from positioned text items (y-coordinate groups a row)
+        // Group positioned text items by row (y-coordinate). Each row keeps
+        // its tokens' x-positions too, sorted left-to-right, so numeric
+        // values in different columns that happen to land on the same
+        // printed row can still be told apart by their spacing.
         var byY = {};
         content.items.forEach(function(it){
           var y = Math.round(it.transform[5]);
-          (byY[y] = byY[y] || []).push(it.str);
+          (byY[y] = byY[y] || []).push({ str: it.str, x: it.transform[4], endX: it.transform[4] + (it.width || 0) });
         });
-        var text = Object.keys(byY).map(Number).sort(function(a,b){return b-a;})
-          .map(function(y){ return byY[y].join(' '); }).join('\n');
-        var stub = psParsePage(text);
+        var yKeys = Object.keys(byY).map(Number).sort(function(a,b){return b-a;});
+        var rows = yKeys.map(function(y){ return byY[y].slice().sort(function(a,b){return a.x-b.x;}); });
+        var text = rows.map(function(r){ return r.map(function(t){ return t.str; }).join(' '); }).join('\n');
+        var stub = psParsePage(text, rows);
         if (stub) { PS_STUBS.push(stub); added++; }
         else if (/Gross Pay|Earnings/.test(text)) failedPages++;
       }
