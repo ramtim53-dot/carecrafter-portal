@@ -1220,14 +1220,29 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <input type="number" id="ps-defRate" class="field-input" value="17" step="0.01" min="0" style="width:150px" oninput="psApplyDefaultRate()">
             <div style="font-size:10px;color:var(--text3);margin-top:3px">Applied to all — override per caregiver below</div>
           </div>
+          <div>
+            <label class="field-label">Default MCO Bill Rate ($/hr)</label>
+            <input type="number" id="ps-defBillRate" class="field-input" value="21.56" step="0.01" min="0" style="width:150px" oninput="psApplyDefaultRate()">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">What the MCO pays your agency per hour — override per caregiver below</div>
+          </div>
           <button onclick="psReset()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 18px;font-size:13px;color:var(--text2);cursor:pointer">↺ Reset</button>
         </div>
+        <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:12.5px;font-weight:600;margin-bottom:4px">💰 Optional: upload the Billing export for real per-visit rates</div>
+          <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Bill rate varies by client/MCO, so one flat number is only a rough guess. Upload the Billable Visits export (.xlsx) and each caregiver's rate becomes their real <strong>blended rate</strong> (total Amount ÷ total Visit Hrs from their actual visits) instead of the default.</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <label for="ps-billFile" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12.5px;cursor:pointer">📥 Choose Billing Export</label>
+            <input type="file" id="ps-billFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="psHandleBillingFile(this.files[0])">
+            <span id="ps-billStatus" style="font-size:12px;color:var(--text3)"></span>
+          </div>
+        </div>
         <div id="ps-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
-        <div id="ps-cards" style="display:none;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem">
+        <div id="ps-cards" style="display:none;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:1.5rem">
           <div class="stat-card"><div id="ps-cCaregivers" class="stat-num" style="color:var(--blue2)">—</div><div class="stat-lbl">Caregivers</div></div>
           <div class="stat-card"><div id="ps-cStubs" class="stat-num" style="color:var(--teal)">—</div><div class="stat-lbl">Paystubs</div></div>
           <div class="stat-card"><div id="ps-cDiff" class="stat-num" style="color:var(--green)">—</div><div class="stat-lbl">Total Difference</div></div>
           <div class="stat-card"><div id="ps-cNeg" class="stat-num" style="color:var(--red)">—</div><div class="stat-lbl">Over Cap (negative)</div></div>
+          <div class="stat-card"><div id="ps-cProfit" class="stat-num" style="color:var(--green)">—</div><div class="stat-lbl">Company Profit</div></div>
         </div>
         <div id="ps-exportWrap" style="display:none;margin-bottom:1rem">
           <button onclick="psExport()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">⬇ Export CSV</button>
@@ -1242,6 +1257,11 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
               <th style="text-align:right;color:var(--blue2)">Cap Rate</th>
               <th style="text-align:right;color:var(--teal)">Cap × Hrs</th>
               <th style="text-align:right;color:var(--green)">Difference</th>
+              <th style="color:var(--blue2)">City</th>
+              <th style="color:var(--blue2)">MCO</th>
+              <th style="text-align:right;color:var(--blue2)">Bill Rate</th>
+              <th style="text-align:right;color:var(--teal)">Revenue</th>
+              <th style="text-align:right;color:var(--green)">Profit</th>
             </tr></thead>
             <tbody id="ps-tbody"></tbody><tfoot id="ps-tfoot"></tfoot>
           </table>
@@ -3660,6 +3680,34 @@ function renderPublicApis() {
 // digit-strings with a fixed 2-decimal split.
 var PS_STUBS = [];        // [{name, payDate, period, hours, gross, capRate}]
 var PS_RATES = {};        // per-caregiver cap rate override, keyed by name
+var PS_BILL_RATES = {};   // per-caregiver MCO bill rate MANUAL override, keyed by name
+var PS_BILLING_RATES = {}; // per-caregiver blended rate computed from an uploaded Billing export
+
+// Order-independent name key — paystubs print "BISHNU GURUNG" (first last),
+// the Billing export prints "Gurung Jeena" (last first) with inconsistent
+// casing — sorting the tokens makes both sides match regardless of order.
+function psNameKey(name) {
+  return String(name || '').toUpperCase().replace(/[^A-Z ]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+}
+
+// MCO bill rates per office/city — a caregiver's own rate depends on which
+// client(s)/MCO they actually serve, which a paystub never shows. Using the
+// average of an office's known MCO rates as that office's default is a much
+// closer guess than one flat number for the whole agency, but it's still an
+// approximation — the per-row Bill Rate stays editable for known exceptions,
+// and an uploaded Billing export (real per-visit Amount) always overrides it.
+var PS_OFFICE_RATES = {
+  ERIE:       { 'UPMC LTSS (FNE)': 21.48, 'AmeriHealth Caritas of PA (FNE)': 21.48, 'Centene PA Health Wellness (FNE)': 22.02 },
+  HARRISBURG: { 'UPMC LTSS (FNE)': 20.20, 'AmeriHealth Caritas of PA (FNE)': 20.20, 'Centene PA Health Wellness (FNE)': 20.71 },
+  PITTSBURGH: { 'UPMC LTSS (FNE)': 19.32, 'AmeriHealth Caritas of PA (FNE)': 19.32, 'Centene PA Health Wellness (FNE)': 19.80 },
+  SCRANTON:   { 'UPMC LTSS (FNE)': 21.48, 'AmeriHealth Caritas of PA (FNE)': 21.48 } // no Centene clients here
+};
+function psOfficeAvgRate(office) {
+  var t = PS_OFFICE_RATES[office];
+  if (!t) return null;
+  var vals = Object.keys(t).map(function(k){ return t[k]; });
+  return vals.reduce(function(a,b){ return a+b; }, 0) / vals.length;
+}
 var PS_PDFJS_LOADING = null;
 
 function psInit() {
@@ -3756,11 +3804,22 @@ function psParsePage(text, rows) {
   // the page instead of polluting totals with a garbage number.
   if (hours > 400 || gross > 100000) return null;
   function dt(m){ return m ? m[1].trim().replace(/\s+/g, '/') : ''; }
+  // Caregiver's own mailing address, printed a couple lines after their
+  // name (no comma before the state) — used as a starting-point guess for
+  // which office they belong to. The company's own letterhead address
+  // prints "CITY, PA zip" WITH a comma, which this pattern won't match.
+  var detectedCity = '';
+  if (nameM) {
+    var addrWindow = text.slice(nameM.index, nameM.index + 220);
+    var addrM = addrWindow.match(/\n[ \t]*([A-Z][A-Z ]+?)[ \t]+PA[ \t]+\d{5}/);
+    if (addrM) detectedCity = addrM[1].trim();
+  }
   return {
     name: nameM ? nameM[1].replace(/\s+/g, ' ').trim() : 'Unknown',
     payDate: dt(payM),
     period: (begM && endM) ? (dt(begM) + ' – ' + dt(endM)) : '',
-    hours: hours, gross: gross
+    hours: hours, gross: gross,
+    detectedCity: detectedCity
   };
 }
 
@@ -3795,7 +3854,16 @@ async function psProcess(files) {
         var rows = yKeys.map(function(y){ return byY[y].slice().sort(function(a,b){return a.x-b.x;}); });
         var text = rows.map(function(r){ return r.map(function(t){ return t.str; }).join(' '); }).join('\n');
         var stub = psParsePage(text, rows);
-        if (stub) { PS_STUBS.push(stub); added++; }
+        if (stub) {
+          var cityKey = stub.detectedCity.toUpperCase();
+          // Exact match first, then a lenient prefix match — ADP's own data
+          // has real typos ("HARRISBURGH" with an extra H was seen in
+          // testing), and this catches those without over-matching.
+          stub.office = PS_OFFICE_RATES[cityKey] ? cityKey :
+            (Object.keys(PS_OFFICE_RATES).find(function(o){ return cityKey.indexOf(o) === 0 || o.indexOf(cityKey) === 0; }) || '');
+          stub.mco = '';
+          PS_STUBS.push(stub); added++;
+        }
         else if (/Gross Pay|Earnings/.test(text)) failedPages++;
       }
     } catch (e) {
@@ -3809,9 +3877,17 @@ async function psProcess(files) {
 
 function psApplyDefaultRate() {
   var def = parseFloat(document.getElementById('ps-defRate').value) || 0;
+  var defBill = parseFloat(document.getElementById('ps-defBillRate').value) || 0;
   PS_STUBS.forEach(function(s){
     if (PS_RATES[s.name] === undefined) s.capRate = def;
     else s.capRate = PS_RATES[s.name];
+    // Precedence: a manual per-row edit always wins; otherwise use the real
+    // blended rate from an uploaded Billing export if one matched this
+    // caregiver; otherwise fall back to the flat default guess.
+    var key = psNameKey(s.name);
+    if (PS_BILL_RATES[s.name] !== undefined) { s.billRate = PS_BILL_RATES[s.name]; s.billRateSource = 'manual'; }
+    else if (PS_BILLING_RATES[key] !== undefined) { s.billRate = PS_BILLING_RATES[key].rate; s.billRateSource = 'billing'; }
+    else { s.billRate = defBill; s.billRateSource = 'default'; }
   });
   psRender();
 }
@@ -3823,8 +3899,114 @@ function psSetRate(name, val) {
   psRender();
 }
 
+function psSetBillRate(name, val) {
+  var r = parseFloat(val);
+  PS_BILL_RATES[name] = isNaN(r) ? 0 : r;
+  PS_STUBS.forEach(function(s){ if (s.name === name) { s.billRate = PS_BILL_RATES[name]; s.billRateSource = 'manual'; } });
+  psRender();
+}
+
+// Picking City + MCO looks up the exact rate from your table and fills the
+// Bill Rate box with it — typing a different number afterward still wins
+// (that box is never locked, it's just pre-filled from the lookup).
+function psSetOfficeMco(name, office, mco) {
+  PS_STUBS.forEach(function(s){ if (s.name === name) { s.office = office; s.mco = mco; } });
+  var rate = (office && mco && PS_OFFICE_RATES[office] && PS_OFFICE_RATES[office][mco] != null) ? PS_OFFICE_RATES[office][mco] : null;
+  if (rate != null) { PS_BILL_RATES[name] = rate; }
+  psApplyDefaultRate();
+}
+
+function psLoadXLSXForBilling(cb) {
+  if (window.XLSX) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = cb;
+  s.onerror = function(){ document.getElementById('ps-billStatus').textContent = '❌ Could not load the spreadsheet engine.'; };
+  document.head.appendChild(s);
+}
+
+// Find the first header key on a row that loosely matches one of the given
+// candidate labels — handles the export's exact column names shifting
+// slightly ("Visit Rate" vs "Rate", "Amount" vs "Billing Amount", etc).
+function psFindCol(row, candidates) {
+  var keys = Object.keys(row);
+  for (var c = 0; c < candidates.length; c++) {
+    var k = keys.find(function(k2){ return k2.trim().toLowerCase() === candidates[c].toLowerCase(); });
+    if (k) return k;
+  }
+  for (var c2 = 0; c2 < candidates.length; c2++) {
+    var k2b = keys.find(function(k3){ return k3.trim().toLowerCase().indexOf(candidates[c2].toLowerCase()) !== -1; });
+    if (k2b) return k2b;
+  }
+  return null;
+}
+
+function psHandleBillingFile(file) {
+  if (!file) return;
+  var status = document.getElementById('ps-billStatus');
+  status.textContent = '⏳ Reading ' + file.name + '…';
+  psLoadXLSXForBilling(function(){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var sheetName = wb.SheetNames.find(function(n){ return /billable|detail/i.test(n); }) || wb.SheetNames[0];
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {defval:''});
+        if (!rows.length) { status.textContent = '⚠ No rows found in that file.'; return; }
+
+        var caregiverCol = psFindCol(rows[0], ['Caregiver']);
+        var hrsCol       = psFindCol(rows[0], ['Visit Hrs','Hours']);
+        var amountCol    = psFindCol(rows[0], ['Amount']);
+        var rateCol      = psFindCol(rows[0], ['Visit Rate','Rate']);
+        if (!caregiverCol || !hrsCol) { status.textContent = '❌ Could not find Caregiver / Visit Hrs columns in this file.'; return; }
+
+        var agg = {}; // key -> {hrs, amount, name}
+        rows.forEach(function(r){
+          var name = String(r[caregiverCol] || '').trim();
+          if (!name) return;
+          var hrs = parseFloat(r[hrsCol]) || 0;
+          var amount = amountCol ? (parseFloat(String(r[amountCol]).replace(/[^0-9.\-]/g,'')) || 0)
+                     : rateCol ? hrs * (parseFloat(r[rateCol]) || 0) : 0;
+          if (!hrs) return;
+          var key = psNameKey(name);
+          if (!agg[key]) agg[key] = { hrs: 0, amount: 0, name: name };
+          agg[key].hrs += hrs; agg[key].amount += amount;
+        });
+
+        PS_BILLING_RATES = {};
+        var matched = 0;
+        Object.keys(agg).forEach(function(key){
+          if (agg[key].hrs > 0) { PS_BILLING_RATES[key] = { rate: agg[key].amount / agg[key].hrs, name: agg[key].name }; matched++; }
+        });
+        status.textContent = '✅ ' + matched + ' caregiver(s) — real blended rates applied below (manual edits still take priority).';
+        psApplyDefaultRate();
+      } catch (err) {
+        status.textContent = '❌ ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function psMoney(n){ return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function psDiffCell(n){ var c = n < -0.005 ? 'var(--red)' : 'var(--green)'; return '<span style="color:'+c+';font-weight:600">'+psMoney(n)+'</span>'; }
+
+function psOfficeSelectHtml(s) {
+  var nameEsc = s.name.replace(/'/g, "\\'");
+  var cities = Object.keys(PS_OFFICE_RATES);
+  var citySel = '<select onchange="psSetOfficeMco(\'' + nameEsc + '\',this.value,this.parentNode.parentNode.querySelector(\'.ps-mco-sel\').value)" ' +
+    'style="font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 4px;color:var(--text)">' +
+    '<option value="">—</option>' +
+    cities.map(function(c){ return '<option value="' + c + '"' + (s.office===c?' selected':'') + '>' + c.charAt(0) + c.slice(1).toLowerCase() + '</option>'; }).join('') +
+    '</select>';
+  var mcos = ['UPMC LTSS (FNE)', 'AmeriHealth Caritas of PA (FNE)', 'Centene PA Health Wellness (FNE)'];
+  var mcoSel = '<select class="ps-mco-sel" onchange="psSetOfficeMco(\'' + nameEsc + '\',this.parentNode.parentNode.querySelector(\'select\').value,this.value)" ' +
+    'style="font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 4px;color:var(--text);max-width:150px">' +
+    '<option value="">—</option>' +
+    mcos.map(function(m){ return '<option value="' + m + '"' + (s.mco===m?' selected':'') + '>' + m.replace(' (FNE)','') + '</option>'; }).join('') +
+    '</select>';
+  return '<td>' + citySel + '</td><td>' + mcoSel + '</td>';
+}
 
 function psRender() {
   if (!PS_STUBS.length) { psReset(); return; }
@@ -3832,14 +4014,15 @@ function psRender() {
   var groups = {}, order = [];
   PS_STUBS.forEach(function(s){ if (!groups[s.name]) { groups[s.name] = []; order.push(s.name); } groups[s.name].push(s); });
 
-  var rowsHtml = '', gHours=0, gGross=0, gCap=0, gDiff=0, negCount=0;
+  var rowsHtml = '', gHours=0, gGross=0, gCap=0, gDiff=0, negCount=0, gRevenue=0, gProfit=0;
   order.forEach(function(name){
-    var list = groups[name], sHours=0, sGross=0, sCap=0, sDiff=0;
+    var list = groups[name], sHours=0, sGross=0, sCap=0, sDiff=0, sRevenue=0, sProfit=0;
     var rate = list[0].capRate;
     list.forEach(function(s){
       var eff = s.gross / s.hours, capped = s.capRate * s.hours, diff = capped - s.gross;
+      var revenue = (s.billRate||0) * s.hours, profit = revenue - s.gross;
       if (diff < -0.005) negCount++;
-      sHours+=s.hours; sGross+=s.gross; sCap+=capped; sDiff+=diff;
+      sHours+=s.hours; sGross+=s.gross; sCap+=capped; sDiff+=diff; sRevenue+=revenue; sProfit+=profit;
       rowsHtml += '<tr>'
         + '<td style="font-weight:600">' + s.name + '</td>'
         + '<td style="font-size:11px;color:var(--text2)">' + (s.payDate||'—') + '</td>'
@@ -3850,9 +4033,13 @@ function psRender() {
         + '<td style="text-align:right"><input type="number" step="0.01" value="' + s.capRate + '" onchange="psSetRate(\'' + s.name.replace(/'/g,"\\'") + '\',this.value)" style="width:70px;text-align:right;font-family:var(--mono);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 6px;color:var(--text)"></td>'
         + '<td style="text-align:right;font-family:var(--mono);color:var(--teal)">' + psMoney(capped) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono)">' + psDiffCell(diff) + '</td>'
+        + psOfficeSelectHtml(s)
+        + '<td style="text-align:right"><input type="number" step="0.01" value="' + (s.billRate||0) + '" onchange="psSetBillRate(\'' + s.name.replace(/'/g,"\\'") + '\',this.value)" style="width:70px;text-align:right;font-family:var(--mono);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 6px;color:var(--text)"></td>'
+        + '<td style="text-align:right;font-family:var(--mono);color:var(--teal)">' + psMoney(revenue) + '</td>'
+        + '<td style="text-align:right;font-family:var(--mono)">' + psDiffCell(profit) + '</td>'
         + '</tr>';
     });
-    gHours+=sHours; gGross+=sGross; gCap+=sCap; gDiff+=sDiff;
+    gHours+=sHours; gGross+=sGross; gCap+=sCap; gDiff+=sDiff; gRevenue+=sRevenue; gProfit+=sProfit;
     if (list.length > 1) {
       rowsHtml += '<tr style="background:var(--bg3)">'
         + '<td colspan="3" style="font-weight:700;font-size:11px;color:var(--text2)">Subtotal — ' + name + ' (' + list.length + ' stubs)</td>'
@@ -3862,6 +4049,9 @@ function psRender() {
         + '<td></td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sCap) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sDiff) + '</td>'
+        + '<td></td><td></td>'
+        + '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sRevenue) + '</td>'
+        + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sProfit) + '</td>'
         + '</tr>';
     }
   });
@@ -3875,7 +4065,11 @@ function psRender() {
     + '<td></td>'
     + '<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gCap) + '</td>'
     + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gDiff) + '</td>'
+    + '<td></td><td></td>'
+    + '<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gRevenue) + '</td>'
+    + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gProfit) + '</td>'
     + '</tr>';
+  document.getElementById('ps-cProfit').textContent = psMoney(gProfit);
 
   document.getElementById('ps-cCaregivers').textContent = order.length;
   document.getElementById('ps-cStubs').textContent = PS_STUBS.length;
@@ -3887,10 +4081,11 @@ function psRender() {
 }
 
 function psExport() {
-  var hdr = ['DCW Name','Pay Date','Period','Hours','Gross','Eff Rate','Cap Rate','Cap x Hrs','Difference'];
+  var hdr = ['DCW Name','Pay Date','Period','Hours','Gross','Eff Rate','Cap Rate','Cap x Hrs','Difference','City','MCO','Bill Rate','Revenue','Profit'];
   var rows = PS_STUBS.map(function(s){
     var eff = s.gross/s.hours, capped = s.capRate*s.hours;
-    return [s.name, s.payDate, s.period, s.hours.toFixed(2), s.gross.toFixed(2), eff.toFixed(2), s.capRate.toFixed(2), capped.toFixed(2), (capped-s.gross).toFixed(2)];
+    var revenue = (s.billRate||0)*s.hours, profit = revenue - s.gross;
+    return [s.name, s.payDate, s.period, s.hours.toFixed(2), s.gross.toFixed(2), eff.toFixed(2), s.capRate.toFixed(2), capped.toFixed(2), (capped-s.gross).toFixed(2), s.office||'', s.mco||'', (s.billRate||0).toFixed(2), revenue.toFixed(2), profit.toFixed(2)];
   });
   var csv = [hdr].concat(rows).map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
   var a = document.createElement('a');
@@ -3900,10 +4095,12 @@ function psExport() {
 }
 
 function psReset() {
-  PS_STUBS = []; PS_RATES = {};
+  PS_STUBS = []; PS_RATES = {}; PS_BILL_RATES = {}; PS_BILLING_RATES = {};
   document.getElementById('ps-fileLbl').textContent = 'Drop paystub PDF(s) here or click — one or many';
   document.getElementById('ps-file').value = '';
   document.getElementById('ps-status').textContent = '';
+  document.getElementById('ps-billFile').value = '';
+  document.getElementById('ps-billStatus').textContent = '';
   ['ps-cards','ps-tableWrap','ps-exportWrap'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
 }
 
