@@ -3906,12 +3906,20 @@ function psSetBillRate(name, val) {
   psRender();
 }
 
-// Picking City + MCO looks up the exact rate from your table and fills the
-// Bill Rate box with it — typing a different number afterward still wins
-// (that box is never locked, it's just pre-filled from the lookup).
+// Picking just City fills the Bill Rate box with that office's average rate
+// (MCO isn't printed anywhere on a payroll stub, so it can never be known
+// automatically — most caregivers work under UPMC/AmeriHealth anyway, which
+// charge the same rate in every office, so the average is usually exact).
+// Picking MCO too refines it to the precise per-MCO rate from your table.
+// Typing a different number afterward still wins either way.
 function psSetOfficeMco(name, office, mco) {
   PS_STUBS.forEach(function(s){ if (s.name === name) { s.office = office; s.mco = mco; } });
-  var rate = (office && mco && PS_OFFICE_RATES[office] && PS_OFFICE_RATES[office][mco] != null) ? PS_OFFICE_RATES[office][mco] : null;
+  var rate = null;
+  if (office && mco && PS_OFFICE_RATES[office] && PS_OFFICE_RATES[office][mco] != null) {
+    rate = PS_OFFICE_RATES[office][mco];
+  } else if (office) {
+    rate = psOfficeAvgRate(office);
+  }
   if (rate != null) { PS_BILL_RATES[name] = rate; }
   psApplyDefaultRate();
 }
