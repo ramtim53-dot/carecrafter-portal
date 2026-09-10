@@ -4020,7 +4020,10 @@ function psRender() {
     var rate = list[0].capRate;
     list.forEach(function(s){
       var eff = s.gross / s.hours, capped = s.capRate * s.hours, diff = capped - s.gross;
-      var revenue = (s.billRate||0) * s.hours, profit = revenue - s.gross;
+      // Profit is based on the capped/intended pay (Gross + Difference =
+      // Cap Rate x Hours), not raw Gross, so a one-off overtime spike or
+      // underpayment doesn't distort the company's real margin.
+      var revenue = (s.billRate||0) * s.hours, profit = revenue - capped;
       if (diff < -0.005) negCount++;
       sHours+=s.hours; sGross+=s.gross; sCap+=capped; sDiff+=diff; sRevenue+=revenue; sProfit+=profit;
       rowsHtml += '<tr>'
@@ -4084,7 +4087,7 @@ function psExport() {
   var hdr = ['DCW Name','Pay Date','Period','Hours','Gross','Eff Rate','Cap Rate','Cap x Hrs','Difference','City','MCO','Bill Rate','Revenue','Profit'];
   var rows = PS_STUBS.map(function(s){
     var eff = s.gross/s.hours, capped = s.capRate*s.hours;
-    var revenue = (s.billRate||0)*s.hours, profit = revenue - s.gross;
+    var revenue = (s.billRate||0)*s.hours, profit = revenue - capped;
     return [s.name, s.payDate, s.period, s.hours.toFixed(2), s.gross.toFixed(2), eff.toFixed(2), s.capRate.toFixed(2), capped.toFixed(2), (capped-s.gross).toFixed(2), s.office||'', s.mco||'', (s.billRate||0).toFixed(2), revenue.toFixed(2), profit.toFixed(2)];
   });
   var csv = [hdr].concat(rows).map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
