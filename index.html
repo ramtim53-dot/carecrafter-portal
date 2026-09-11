@@ -222,6 +222,11 @@ button,.pill{transition:transform 0.16s cubic-bezier(0.34,1.56,0.64,1),box-shado
 .btn-logout:hover{color:var(--red);border-color:rgba(220,80,80,0.35);background:var(--red-dim)}
 .main{flex:1;overflow-y:auto;min-height:100vh;padding-left:1.75rem}
 .view{display:none;padding:2rem 2rem 2rem 0;max-width:1180px}.view.active{display:block}
+#v-paystub.view{max-width:none}
+#v-paystub .codes-tbl{font-size:11px}
+#v-paystub .codes-tbl th,#v-paystub .codes-tbl td{padding:6px 5px}
+#v-paystub .codes-tbl input[type=number]{width:52px!important;padding:2px 3px!important;font-size:11px!important}
+#v-paystub .codes-tbl select{font-size:10px!important;padding:2px 2px!important;max-width:100px!important}
 #v-osintfull.active{display:flex !important}
 .view-title{font-family:var(--font-head);font-size:23px;font-weight:600;margin-bottom:5px;letter-spacing:-0.01em}
 .view-sub{font-size:13.5px;color:var(--text2);margin-bottom:1.75rem}
@@ -1237,6 +1242,18 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
           </div>
         </div>
         <div id="ps-status" style="font-size:13px;color:var(--text2);margin-bottom:1rem"></div>
+        <div id="ps-bulkWrap" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:1rem;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="field-label" style="font-size:10px">Set everyone's City</label>
+            <select id="ps-bulkCity" class="select-field" style="width:130px;font-size:12px"><option value="">— pick —</option></select>
+          </div>
+          <div>
+            <label class="field-label" style="font-size:10px">Set everyone's MCO</label>
+            <select id="ps-bulkMco" class="select-field" style="width:170px;font-size:12px"><option value="">— pick —</option></select>
+          </div>
+          <button onclick="psBulkApply()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer">Apply to all rows</button>
+          <span style="font-size:10.5px;color:var(--text3)">Only use this if every caregiver here really is the same city/MCO — City already auto-fills Bill Rate on its own per row.</span>
+        </div>
         <div id="ps-cards" style="display:none;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:1.5rem">
           <div class="stat-card"><div id="ps-cCaregivers" class="stat-num" style="color:var(--blue2)">—</div><div class="stat-lbl">Caregivers</div></div>
           <div class="stat-card"><div id="ps-cStubs" class="stat-num" style="color:var(--teal)">—</div><div class="stat-lbl">Paystubs</div></div>
@@ -4089,6 +4106,38 @@ function psRender() {
   document.getElementById('ps-cards').style.display = 'grid';
   document.getElementById('ps-tableWrap').style.display = 'block';
   document.getElementById('ps-exportWrap').style.display = 'block';
+  psInitBulkBar();
+}
+
+function psInitBulkBar() {
+  var wrap = document.getElementById('ps-bulkWrap');
+  wrap.style.display = 'flex';
+  var citySel = document.getElementById('ps-bulkCity');
+  if (citySel.options.length <= 1) {
+    Object.keys(PS_OFFICE_RATES).forEach(function(c){
+      var o = document.createElement('option'); o.value = c; o.textContent = c.charAt(0) + c.slice(1).toLowerCase();
+      citySel.appendChild(o);
+    });
+  }
+  var mcoSel = document.getElementById('ps-bulkMco');
+  if (mcoSel.options.length <= 1) {
+    ['UPMC LTSS (FNE)','AmeriHealth Caritas of PA (FNE)','Centene PA Health Wellness (FNE)'].forEach(function(m){
+      var o = document.createElement('option'); o.value = m; o.textContent = m.replace(' (FNE)','');
+      mcoSel.appendChild(o);
+    });
+  }
+}
+
+// Applies one City/MCO choice to every caregiver at once — for the common
+// case where an entire uploaded batch is all the same office, so you don't
+// have to pick it row by row.
+function psBulkApply() {
+  var city = document.getElementById('ps-bulkCity').value;
+  var mco = document.getElementById('ps-bulkMco').value;
+  if (!city) { alert('Pick a City first.'); return; }
+  var names = {};
+  PS_STUBS.forEach(function(s){ names[s.name] = true; });
+  Object.keys(names).forEach(function(n){ psSetOfficeMco(n, city, mco); });
 }
 
 function psExport() {
@@ -4112,7 +4161,7 @@ function psReset() {
   document.getElementById('ps-status').textContent = '';
   document.getElementById('ps-billFile').value = '';
   document.getElementById('ps-billStatus').textContent = '';
-  ['ps-cards','ps-tableWrap','ps-exportWrap'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+  ['ps-cards','ps-tableWrap','ps-exportWrap','ps-bulkWrap'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
 }
 
 function loadOsint() {
