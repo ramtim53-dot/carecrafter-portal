@@ -1230,6 +1230,16 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <input type="number" id="ps-defBillRate" class="field-input" value="21.56" step="0.01" min="0" style="width:150px" oninput="psApplyDefaultRate()">
             <div style="font-size:10px;color:var(--text3);margin-top:3px">What the MCO pays your agency per hour — override per caregiver below</div>
           </div>
+          <div>
+            <label class="field-label">Payroll Tax Burden (%)</label>
+            <input type="number" id="ps-taxBurden" class="field-input" value="9" step="0.1" min="0" style="width:120px" oninput="psRender()">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Employer FICA/FUTA/SUTA on top of wages — applied to Cap × Hrs</div>
+          </div>
+          <div>
+            <label class="field-label">Overhead ($/hr)</label>
+            <input type="number" id="ps-overheadHr" class="field-input" value="0" step="0.01" min="0" style="width:120px" oninput="psRender()">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Rent + liability + general insurance ÷ total monthly billable hours</div>
+          </div>
           <button onclick="psReset()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 18px;font-size:13px;color:var(--text2);cursor:pointer">↺ Reset</button>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.25rem">
@@ -1277,6 +1287,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
               <th style="color:var(--blue2)">City</th>
               <th style="color:var(--blue2)">MCO</th>
               <th style="text-align:right;color:var(--blue2)">Bill Rate</th>
+              <th style="text-align:right">401K</th>
               <th style="text-align:right;color:var(--teal)">Revenue</th>
               <th style="text-align:right;color:var(--green)">Profit</th>
             </tr></thead>
@@ -3804,10 +3815,11 @@ function psParsePage(text, rows) {
   // no decimal point printed. The employee name is the all-caps line
   // immediately preceding "Filing Status" — that part is unambiguous text,
   // so it's still fine to read off the flattened string.
-  var hoursStr = null, grossStr = null;
-  for (var y = 0; y < rows.length && (hoursStr === null || grossStr === null); y++) {
+  var hoursStr = null, grossStr = null, matchStr = null;
+  for (var y = 0; y < rows.length && (hoursStr === null || grossStr === null || matchStr === null); y++) {
     if (hoursStr === null) hoursStr = psValueAfterLabel(rows[y], 'Totl Hrs Worked');
     if (grossStr === null) grossStr = psValueAfterLabel(rows[y], 'Gross Pay');
+    if (matchStr === null) matchStr = psValueAfterLabel(rows[y], '401K Match');
   }
   var nameM  = text.match(/\n[ \t]*([A-Z][A-Z]+(?:[ \t]+[A-Z]+)+)[ \t]*\n[ \t]*Filing Status/);
   var payM   = text.match(/Pay Date:\s+(\d+\s+\d+\s+\d+)/);
@@ -3820,6 +3832,12 @@ function psParsePage(text, rows) {
   // reaches these sizes; if the column-scan still went wrong somehow, reject
   // the page instead of polluting totals with a garbage number.
   if (hours > 400 || gross > 100000) return null;
+  // 401K Match is ADP's own computed employer cost (your plan: match 50% of
+  // employee contribution, capped at 3% of gross when they put in 6%+) — so
+  // trust the printed number as-is rather than recompute it from a %.
+  // Not every stub shows this line (e.g. not enrolled that period) -> $0.
+  var match401k = matchStr ? psSpaced(matchStr, 2) : 0;
+  if (match401k > gross * 0.10) match401k = 0; // sanity guard, same idea as hours/gross above
   function dt(m){ return m ? m[1].trim().replace(/\s+/g, '/') : ''; }
   // Caregiver's own mailing address, printed a couple lines after their
   // name (no comma before the state) — used as a starting-point guess for
@@ -3835,7 +3853,7 @@ function psParsePage(text, rows) {
     name: nameM ? nameM[1].replace(/\s+/g, ' ').trim() : 'Unknown',
     payDate: dt(payM),
     period: (begM && endM) ? (dt(begM) + ' – ' + dt(endM)) : '',
-    hours: hours, gross: gross,
+    hours: hours, gross: gross, match401k: match401k,
     detectedCity: detectedCity
   };
 }
@@ -4039,18 +4057,23 @@ function psRender() {
   var groups = {}, order = [];
   PS_STUBS.forEach(function(s){ if (!groups[s.name]) { groups[s.name] = []; order.push(s.name); } groups[s.name].push(s); });
 
-  var rowsHtml = '', gHours=0, gGross=0, gCap=0, gDiff=0, negCount=0, gRevenue=0, gProfit=0;
+  var rowsHtml = '', gHours=0, gGross=0, gCap=0, gDiff=0, negCount=0, gRevenue=0, gProfit=0, gMatch=0, gLoaded=0;
+  var taxBurdenPct = parseFloat(document.getElementById('ps-taxBurden').value) || 0;
+  var overheadHr = parseFloat(document.getElementById('ps-overheadHr').value) || 0;
   order.forEach(function(name){
-    var list = groups[name], sHours=0, sGross=0, sCap=0, sDiff=0, sRevenue=0, sProfit=0;
+    var list = groups[name], sHours=0, sGross=0, sCap=0, sDiff=0, sRevenue=0, sProfit=0, sMatch=0, sLoaded=0;
     var rate = list[0].capRate;
     list.forEach(function(s){
       var eff = s.gross / s.hours, capped = s.capRate * s.hours, diff = capped - s.gross;
-      // Profit is based on the capped/intended pay (Gross + Difference =
-      // Cap Rate x Hours), not raw Gross, so a one-off overtime spike or
-      // underpayment doesn't distort the company's real margin.
-      var revenue = (s.billRate||0) * s.hours, profit = revenue - capped;
+      var match = s.match401k || 0;
+      // True loaded cost: capped wages + employer payroll tax burden on
+      // those wages + the real 401K match (read off the paystub) + a flat
+      // overhead allocation (rent/insurance/liability spread per hour).
+      var payrollTax = capped * (taxBurdenPct / 100);
+      var loaded = capped + payrollTax + match + (overheadHr * s.hours);
+      var revenue = (s.billRate||0) * s.hours, profit = revenue - loaded;
       if (diff < -0.005) negCount++;
-      sHours+=s.hours; sGross+=s.gross; sCap+=capped; sDiff+=diff; sRevenue+=revenue; sProfit+=profit;
+      sHours+=s.hours; sGross+=s.gross; sCap+=capped; sDiff+=diff; sRevenue+=revenue; sProfit+=profit; sMatch+=match; sLoaded+=loaded;
       rowsHtml += '<tr>'
         + '<td style="font-weight:600">' + s.name + '</td>'
         + '<td style="font-size:11px;color:var(--text2)">' + (s.payDate||'—') + '</td>'
@@ -4063,11 +4086,12 @@ function psRender() {
         + '<td style="text-align:right;font-family:var(--mono)">' + psDiffCell(diff) + '</td>'
         + psOfficeSelectHtml(s)
         + '<td style="text-align:right"><input type="number" step="0.01" value="' + (s.billRate||0) + '" onchange="psSetBillRate(\'' + s.name.replace(/'/g,"\\'") + '\',this.value)" style="width:70px;text-align:right;font-family:var(--mono);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 6px;color:var(--text)"></td>'
+        + '<td style="text-align:right;font-family:var(--mono)">' + psMoney(match) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono);color:var(--teal)">' + psMoney(revenue) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono)">' + psDiffCell(profit) + '</td>'
         + '</tr>';
     });
-    gHours+=sHours; gGross+=sGross; gCap+=sCap; gDiff+=sDiff; gRevenue+=sRevenue; gProfit+=sProfit;
+    gHours+=sHours; gGross+=sGross; gCap+=sCap; gDiff+=sDiff; gRevenue+=sRevenue; gProfit+=sProfit; gMatch+=sMatch; gLoaded+=sLoaded;
     if (list.length > 1) {
       rowsHtml += '<tr style="background:var(--bg3)">'
         + '<td colspan="3" style="font-weight:700;font-size:11px;color:var(--text2)">Subtotal — ' + name + ' (' + list.length + ' stubs)</td>'
@@ -4078,6 +4102,7 @@ function psRender() {
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sCap) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sDiff) + '</td>'
         + '<td></td><td></td>'
+        + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psMoney(sMatch) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sRevenue) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sProfit) + '</td>'
         + '</tr>';
@@ -4094,6 +4119,7 @@ function psRender() {
     + '<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gCap) + '</td>'
     + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gDiff) + '</td>'
     + '<td></td><td></td>'
+    + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psMoney(gMatch) + '</td>'
     + '<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gRevenue) + '</td>'
     + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gProfit) + '</td>'
     + '</tr>';
@@ -4141,11 +4167,17 @@ function psBulkApply() {
 }
 
 function psExport() {
-  var hdr = ['DCW Name','Pay Date','Period','Hours','Gross','Eff Rate','Cap Rate','Cap x Hrs','Difference','City','MCO','Bill Rate','Revenue','Profit'];
+  var taxBurdenPct = parseFloat(document.getElementById('ps-taxBurden').value) || 0;
+  var overheadHr = parseFloat(document.getElementById('ps-overheadHr').value) || 0;
+  var hdr = ['DCW Name','Pay Date','Period','Hours','Gross','Eff Rate','Cap Rate','Cap x Hrs','Difference','City','MCO','Bill Rate','401K Match','Payroll Tax','Overhead','Loaded Cost','Revenue','Profit'];
   var rows = PS_STUBS.map(function(s){
     var eff = s.gross/s.hours, capped = s.capRate*s.hours;
-    var revenue = (s.billRate||0)*s.hours, profit = revenue - capped;
-    return [s.name, s.payDate, s.period, s.hours.toFixed(2), s.gross.toFixed(2), eff.toFixed(2), s.capRate.toFixed(2), capped.toFixed(2), (capped-s.gross).toFixed(2), s.office||'', s.mco||'', (s.billRate||0).toFixed(2), revenue.toFixed(2), profit.toFixed(2)];
+    var match = s.match401k || 0;
+    var payrollTax = capped * (taxBurdenPct / 100);
+    var overhead = overheadHr * s.hours;
+    var loaded = capped + payrollTax + match + overhead;
+    var revenue = (s.billRate||0)*s.hours, profit = revenue - loaded;
+    return [s.name, s.payDate, s.period, s.hours.toFixed(2), s.gross.toFixed(2), eff.toFixed(2), s.capRate.toFixed(2), capped.toFixed(2), (capped-s.gross).toFixed(2), s.office||'', s.mco||'', (s.billRate||0).toFixed(2), match.toFixed(2), payrollTax.toFixed(2), overhead.toFixed(2), loaded.toFixed(2), revenue.toFixed(2), profit.toFixed(2)];
   });
   var csv = [hdr].concat(rows).map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
   var a = document.createElement('a');
