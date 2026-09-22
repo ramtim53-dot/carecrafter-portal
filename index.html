@@ -1240,6 +1240,10 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <input type="number" id="ps-overheadHr" class="field-input" value="0" step="0.01" min="0" style="width:120px" oninput="psRender()">
             <div style="font-size:10px;color:var(--text3);margin-top:3px">Rent + liability + general insurance ÷ total monthly billable hours</div>
           </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);cursor:pointer;user-select:none">
+            <input type="checkbox" id="ps-showProfit" onchange="psToggleProfitCols()">
+            Show Company Profit &amp; Revenue
+          </label>
           <button onclick="psReset()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 18px;font-size:13px;color:var(--text2);cursor:pointer">↺ Reset</button>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.25rem">
@@ -1284,12 +1288,12 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
               <th style="text-align:right;color:var(--blue2)">Cap Rate</th>
               <th style="text-align:right;color:var(--teal)">Cap × Hrs</th>
               <th style="text-align:right;color:var(--green)">Difference</th>
-              <th style="color:var(--blue2)">City</th>
-              <th style="color:var(--blue2)">MCO</th>
-              <th style="text-align:right;color:var(--blue2)">Bill Rate</th>
-              <th style="text-align:right">401K</th>
-              <th style="text-align:right;color:var(--teal)">Revenue</th>
-              <th style="text-align:right;color:var(--green)">Profit</th>
+              <th class="ps-profit-col" style="color:var(--blue2)">City</th>
+              <th class="ps-profit-col" style="color:var(--blue2)">MCO</th>
+              <th class="ps-profit-col" style="text-align:right;color:var(--blue2)">Bill Rate</th>
+              <th class="ps-profit-col" style="text-align:right">401K</th>
+              <th class="ps-profit-col" style="text-align:right;color:var(--teal)">Revenue</th>
+              <th class="ps-profit-col" style="text-align:right;color:var(--green)">Profit</th>
             </tr></thead>
             <tbody id="ps-tbody"></tbody><tfoot id="ps-tfoot"></tfoot>
           </table>
@@ -4048,7 +4052,7 @@ function psOfficeSelectHtml(s) {
     '<option value="">—</option>' +
     mcos.map(function(m){ return '<option value="' + m + '"' + (s.mco===m?' selected':'') + '>' + m.replace(' (FNE)','') + '</option>'; }).join('') +
     '</select>';
-  return '<td>' + citySel + '</td><td>' + mcoSel + '</td>';
+  return '<td class="ps-profit-col">' + citySel + '</td><td class="ps-profit-col">' + mcoSel + '</td>';
 }
 
 function psRender() {
@@ -4085,10 +4089,10 @@ function psRender() {
         + '<td style="text-align:right;font-family:var(--mono);color:var(--teal)">' + psMoney(capped) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono)">' + psDiffCell(diff) + '</td>'
         + psOfficeSelectHtml(s)
-        + '<td style="text-align:right"><input type="number" step="0.01" value="' + (s.billRate||0) + '" onchange="psSetBillRate(\'' + s.name.replace(/'/g,"\\'") + '\',this.value)" style="width:70px;text-align:right;font-family:var(--mono);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 6px;color:var(--text)"></td>'
-        + '<td style="text-align:right;font-family:var(--mono)">' + psMoney(match) + '</td>'
-        + '<td style="text-align:right;font-family:var(--mono);color:var(--teal)">' + psMoney(revenue) + '</td>'
-        + '<td style="text-align:right;font-family:var(--mono)">' + psDiffCell(profit) + '</td>'
+        + '<td class="ps-profit-col" style="text-align:right"><input type="number" step="0.01" value="' + (s.billRate||0) + '" onchange="psSetBillRate(\'' + s.name.replace(/'/g,"\\'") + '\',this.value)" style="width:70px;text-align:right;font-family:var(--mono);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:3px 6px;color:var(--text)"></td>'
+        + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono)">' + psMoney(match) + '</td>'
+        + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);color:var(--teal)">' + psMoney(revenue) + '</td>'
+        + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono)">' + psDiffCell(profit) + '</td>'
         + '</tr>';
     });
     gHours+=sHours; gGross+=sGross; gCap+=sCap; gDiff+=sDiff; gRevenue+=sRevenue; gProfit+=sProfit; gMatch+=sMatch; gLoaded+=sLoaded;
@@ -4101,10 +4105,10 @@ function psRender() {
         + '<td></td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sCap) + '</td>'
         + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sDiff) + '</td>'
-        + '<td></td><td></td>'
-        + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psMoney(sMatch) + '</td>'
-        + '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sRevenue) + '</td>'
-        + '<td style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sProfit) + '</td>'
+        + '<td class="ps-profit-col"></td><td class="ps-profit-col"></td>'
+        + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);font-weight:700">' + psMoney(sMatch) + '</td>'
+        + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal)">' + psMoney(sRevenue) + '</td>'
+        + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);font-weight:700">' + psDiffCell(sProfit) + '</td>'
         + '</tr>';
     }
   });
@@ -4118,10 +4122,10 @@ function psRender() {
     + '<td></td>'
     + '<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gCap) + '</td>'
     + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gDiff) + '</td>'
-    + '<td></td><td></td>'
-    + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psMoney(gMatch) + '</td>'
-    + '<td style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gRevenue) + '</td>'
-    + '<td style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gProfit) + '</td>'
+    + '<td class="ps-profit-col"></td><td class="ps-profit-col"></td>'
+    + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psMoney(gMatch) + '</td>'
+    + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);color:var(--teal);padding:10px 14px">' + psMoney(gRevenue) + '</td>'
+    + '<td class="ps-profit-col" style="text-align:right;font-family:var(--mono);padding:10px 14px">' + psDiffCell(gProfit) + '</td>'
     + '</tr>';
   document.getElementById('ps-cProfit').textContent = psMoney(gProfit);
 
@@ -4133,6 +4137,16 @@ function psRender() {
   document.getElementById('ps-tableWrap').style.display = 'block';
   document.getElementById('ps-exportWrap').style.display = 'block';
   psInitBulkBar();
+  psToggleProfitCols(); // re-apply hide/show state — tbody/tfoot were just rebuilt from scratch
+}
+
+// Hides City/MCO/Bill Rate/401K/Revenue/Profit (columns + the Company Profit
+// stat card) so the table shows just Hours/Gross/Cap Rate/Cap x Hrs/Difference.
+function psToggleProfitCols() {
+  var show = document.getElementById('ps-showProfit').checked;
+  document.querySelectorAll('.ps-profit-col').forEach(function(el){ el.style.display = show ? '' : 'none'; });
+  var card = document.getElementById('ps-cProfit');
+  if (card) { var statCard = card.closest('.stat-card'); if (statCard) statCard.style.display = show ? '' : 'none'; }
 }
 
 function psInitBulkBar() {
