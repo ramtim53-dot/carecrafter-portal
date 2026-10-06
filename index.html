@@ -1477,6 +1477,17 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <div id="th-duties" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 12px;font-size:12px;color:var(--text2)"></div>
             <div class="pe-note2">Pre-ticked to match your sample timesheet — review before printing. In a Duties column, list codes like <code>115 116 132</code>.</div>
           </div>
+          <div class="pe-box">
+            <div style="font-weight:600;margin-bottom:4px;font-size:13px">Saved clients &amp; caregivers <span id="th-saved-ct" style="font-weight:400;color:var(--text3);font-size:12px"></span></div>
+            <div class="pe-note2" style="margin:0 0 8px">Paste once and it is remembered on this computer/browser (never uploaded or put on the website). Names are matched automatically, in any order, when your file has no address / Medicaid ID / SSN.</div>
+            <div class="pe-row" style="align-items:flex-start">
+              <label style="font-size:12px;color:var(--text2);flex:1;min-width:280px">Clients — one per line: <b>Name ⇥ Address ⇥ Medicaid ID</b> (paste straight from Excel)
+                <textarea id="th-cl-list" rows="5" style="width:100%;font-size:12px" placeholder="Durga Adhikari&#9;473 Nantucket Dr, Pittsburgh PA 15236&#9;123456789"></textarea></label>
+              <label style="font-size:12px;color:var(--text2);flex:1;min-width:240px">Caregivers — one per line: <b>Name ⇥ SSN last 4</b>
+                <textarea id="th-dcw-list" rows="5" style="width:100%;font-size:12px" placeholder="Sarsawati Adhikari&#9;3767"></textarea></label>
+            </div>
+            <div class="pe-row" style="margin-bottom:0"><label class="pe-btn" for="th-dcw-file" style="cursor:pointer">📥 Import caregivers from Excel</label><input type="file" id="th-dcw-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="tshImportDcw(this.files[0]); this.value=''"><button class="pe-btn pri" onclick="tshSaveLists()">💾 Save</button><button class="pe-btn" onclick="tshClearLists()">Clear saved</button><span id="th-saved-msg" style="font-size:12px;color:var(--text3)"></span></div>
+          </div>
           <div id="th-prev"></div>
         </div>
       </div>
@@ -2043,8 +2054,50 @@ var TSH={rows:[],inited:false,
  L:[[115,'Meal Preparation'],[116,'Housework/Chore'],[117,'Managing Finances'],[118,'Managing Medications'],[119,'Shopping'],[120,'Transportation'],[122,'Personal Hygiene'],[123,'Dressing Upper'],[124,'Dressing Lower'],[125,'Locomotion'],[126,'Transfer'],[127,'Toilet Use'],[128,'Bed Mobility'],[129,'Eating']],
  R:[[130,'Bladder Incontinence'],[131,'Bowel Incontinence'],[132,'Personal Care'],[134,'Bathing'],[137,'Lotion'],[138,'Laundry'],[139,'Reading Writing'],[140,'Supervision'],[141,'Incontinence Care'],[142,'Catheter Care'],[143,'Wound Care'],[144,'G Tube Feeding'],[145,'Stairs'],[203,'Other']],
  DEF:[115,116,118,119,120,122,123,124,125,126,128,132,134,137,138,140,145,203]};
+/* saved clients / caregivers (browser localStorage only) */
+function tshKey(n){return String(n||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>1;}).sort();}
+function tshLsGet(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(e){return [];}}
+function tshLsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function tshParseList(txt,max){var out=[];String(txt||'').split('\n').forEach(function(l){l=l.replace(/\r/g,'').trim();if(!l)return;
+  var p=l.indexOf('\t')>-1?l.split('\t'):l.indexOf('|')>-1?l.split('|'):l.indexOf(';')>-1?l.split(';'):null;
+  if(!p){var i=l.indexOf(',');p=i>-1?[l.slice(0,i),l.slice(i+1)]:[l];}
+  p=p.map(function(x){return x.trim();});if(p[0])out.push(p.slice(0,max));});return out;}
+function tshSaveLists(){
+  var cl=tshParseList(document.getElementById('th-cl-list').value,3),dw=tshParseList(document.getElementById('th-dcw-list').value,2);
+  var ok=tshLsSet('cc_th_clients',cl)&&tshLsSet('cc_th_dcws',dw);
+  document.getElementById('th-saved-msg').textContent=ok?'Saved '+cl.length+' client(s) and '+dw.length+' caregiver(s).':'Could not save (browser storage blocked).';
+  tshSavedCount();if(TSH.lastFile)tshLoad(TSH.lastFile);}
+async function tshImportDcw(f){
+  if(!f)return;var msg=document.getElementById('th-saved-msg');
+  try{
+    var grid;
+    if(/\.csv$/i.test(f.name))grid=tshCsv(new TextDecoder().decode(await peRead(f)).replace(/^﻿/,''));
+    else{await tshLoadXlsx();var wb=XLSX.read(await peRead(f),{type:'array'});var sn=wb.SheetNames.filter(function(n){return /detail/i.test(n);})[0]||wb.SheetNames[0];grid=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''});}
+    var hi=-1,i;for(i=0;i<Math.min(grid.length,15);i++){var hn=grid[i].map(tshNorm);if(hn.indexOf('ssn')>-1&&(hn.indexOf('lastname')>-1||hn.indexOf('name')>-1)){hi=i;break;}}
+    if(hi<0){msg.textContent='Could not find Last Name / First Name / SSN columns in that file.';return;}
+    var hn=grid[hi].map(tshNorm),li=hn.indexOf('lastname'),fi=hn.indexOf('firstname'),ni=hn.indexOf('name'),si=hn.indexOf('ssn');
+    var cur=tshLsGet('cc_th_dcws'),byKey={};cur.forEach(function(r){byKey[tshKey(r[0]).join(' ')]=r;});var added=0,skipped=0;
+    grid.slice(hi+1).forEach(function(r){
+      var name=li>-1?(String(r[fi]||'').trim()+' '+String(r[li]||'').trim()).trim():String(r[ni]||'').trim();
+      var d=String(r[si]||'').replace(/\D/g,'');if(!name||d.length<4){skipped++;return;}
+      name=name.replace(/\s+/g,' ').replace(/\w\S*/g,function(w){return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();});
+      var k=tshKey(name).join(' ');if(!byKey[k])added++;byKey[k]=[name,d.slice(-4)];});
+    var out=Object.keys(byKey).map(function(k){return byKey[k];});
+    tshLsSet('cc_th_dcws',out);document.getElementById('th-dcw-list').value=out.map(function(r){return r.join('\t');}).join('\n');
+    tshSavedCount();msg.textContent='Imported '+added+' new caregiver(s) ('+out.length+' saved; only the last 4 digits of each SSN are kept)'+(skipped?', '+skipped+' row(s) skipped (no name or SSN)':'')+'.';
+    if(TSH.lastFile)tshLoad(TSH.lastFile);
+  }catch(e){msg.textContent='Could not import: '+(e.message||e);}
+}
+function tshClearLists(){if(!confirm('Delete all saved clients and caregivers from this browser?'))return;tshLsSet('cc_th_clients',[]);tshLsSet('cc_th_dcws',[]);document.getElementById('th-cl-list').value='';document.getElementById('th-dcw-list').value='';document.getElementById('th-saved-msg').textContent='Cleared.';tshSavedCount();}
+function tshSavedCount(){var c=tshLsGet('cc_th_clients').length,d=tshLsGet('cc_th_dcws').length;var e=document.getElementById('th-saved-ct');if(e)e.textContent='— '+c+' client(s), '+d+' caregiver(s) saved';}
+function tshFind(list,name){var k=tshKey(name);if(!k.length)return null;var best=null;
+  for(var i=0;i<list.length;i++){var lk=tshKey(list[i][0]);if(lk.join(' ')===k.join(' '))return list[i];
+    var a=k.length<=lk.length?k:lk,b=k.length<=lk.length?lk:k;if(a.length>=2&&a.every(function(w){return b.indexOf(w)>-1;}))best=best||list[i];}
+  return best;}
 function tshInit(){
   if(TSH.inited)return;TSH.inited=true;var h='';
+  try{document.getElementById('th-cl-list').value=tshLsGet('cc_th_clients').map(function(r){return r.join('\t');}).join('\n');document.getElementById('th-dcw-list').value=tshLsGet('cc_th_dcws').map(function(r){return r.join('\t');}).join('\n');}catch(e){}
+  tshSavedCount();
   TSH.L.concat(TSH.R).forEach(function(d){h+='<label><input type="checkbox" class="ts-duty" value="'+d[0]+'"'+(TSH.DEF.indexOf(d[0])>-1?' checked':'')+'> '+d[0]+' '+d[1]+'</label>';});
   document.getElementById('th-duties').innerHTML=h;
 }
@@ -2078,8 +2131,13 @@ async function tshLoad(f){
     var tc=function(s){s=String(s||'').replace(/\s+/g,' ').trim();return s&&s===s.toUpperCase()?s.toLowerCase().replace(/(^|[ \-'])([a-z])/g,function(m,a,b){return a+b.toUpperCase();}):s;};
     var g=function(r,k){return idx[k]>-1?String(r[idx[k]]==null?'':r[idx[k]]).trim():'';};
     var D=function(id){return document.getElementById(id).value.trim();};
+    TSH.lastFile=f;var SV={cl:tshLsGet('cc_th_clients'),dw:tshLsGet('cc_th_dcws')},miss=0;
     TSH.rows=grid.slice(1).map(function(r,n){
       var o={n:n+2,err:[],coord:tc(g(r,'coord')),dcw:tc(g(r,'dcw'))||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:tc(g(r,'client'))||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
+      var cf=(!o.addr||!o.mid)?tshFind(SV.cl,o.client):null,df=!o.ssn?tshFind(SV.dw,o.dcw):null;
+      if(cf){if(!o.addr&&cf[1])o.addr=cf[1];if(!o.mid&&cf[2])o.mid=cf[2];}
+      if(df&&df[1])o.ssn=String(df[1]).replace(/\D/g,'').slice(-4);
+      if(!o.addr||!o.ssn)miss++;
       o.date=tshDate(g(r,'date'));if(!o.date)o.err.push('date');
       var sv=g(r,'start'),ev=g(r,'end');if((!sv||!ev)&&g(r,'sched')){var sp=g(r,'sched').split('-');sv=sp[0];ev=sp[1]||'';}
       var s=tshTime(sv),e=tshTime(ev);if(s==null)o.err.push('start');if(e==null)o.err.push('end');
@@ -2088,6 +2146,7 @@ async function tshLoad(f){
       if(o.hours==null||isNaN(o.hours))o.hours='';
       return o;});
     TSH.off={};tshPreview();
+    if(miss){var ms=document.getElementById('th-count');ms.textContent+=' — '+miss+' visit(s) still missing an address or SSN (add them under Saved clients & caregivers)';}
   }catch(e){thSt('Could not read that file: '+(e.message||e),1);}
 }
 TSH.off={};
