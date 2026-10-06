@@ -1986,7 +1986,7 @@ function tshCsv(t){var rows=[],r=[],c='',q=false;for(var i=0;i<t.length;i++){var
   if(c!==''||r.length){r.push(c);rows.push(r);}return rows;}
 function tshLoadXlsx(){return new Promise(function(res,rej){if(window.XLSX)return res();var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('Excel reader could not load — save the sheet as CSV and upload that'));};document.head.appendChild(s);});}
 function tshNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
-var TSH_COLS={dcw:['dcw','dcwname','caregiver','caregivername','worker','employee','aide'],ssn:['ssn','ssnlast4','last4','dcwlast4','dcwlast4digitsofssn'],client:['client','clientname','participant','participantname','consumer','patient'],mid:['medicaid','medicaidid','participantsmedicaidid','maid','recipientid'],date:['date','servicedate','visitdate','day'],start:['start','starttime','workstarttime','timein','in','clockin'],end:['end','endtime','workendtime','timeout','out','clockout'],hours:['hours','totalhours','hrs','totalhoursworked'],addr:['address','location','locationofservice','serviceaddress'],duties:['duties','dutycodes','codes','activities'],notes:['notes','note','comments']};
+var TSH_COLS={dcw:['dcw','dcwname','caregiver','caregivername','worker','employee','aide'],ssn:['ssn','ssnlast4','last4','dcwlast4','dcwlast4digitsofssn'],client:['client','clientname','participant','participantname','consumer','patient','membername'],coord:['coordinators','coordinator','coordinatorname'],sched:['scheduledtime','schedule'],mid:['medicaid','medicaidid','participantsmedicaidid','maid','recipientid'],date:['date','servicedate','visitdate','day'],start:['start','starttime','workstarttime','timein','in','clockin'],end:['end','endtime','workendtime','timeout','out','clockout'],hours:['hours','totalhours','hrs','totalhoursworked','totalscheduledhours'],addr:['address','location','locationofservice','serviceaddress'],duties:['duties','dutycodes','codes','activities'],notes:['notes','note','comments']};
 function tshDate(v){v=String(v||'').trim();if(!v)return null;var m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);var y,mo,d;
   if(m){mo=+m[1];d=+m[2];y=+m[3];if(y<100)y+=2000;}
   else if((m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))){y=+m[1];mo=+m[2];d=+m[3];}
@@ -2001,31 +2001,40 @@ async function tshLoad(f){
   try{
     var grid;
     if(/\.csv$/i.test(f.name)){grid=tshCsv(new TextDecoder().decode(await peRead(f)).replace(/^﻿/,''));}
-    else{await tshLoadXlsx();var wb=XLSX.read(await peRead(f),{type:'array'});grid=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});}
+    else{await tshLoadXlsx();var wb=XLSX.read(await peRead(f),{type:'array'});var sn=wb.SheetNames.filter(function(n){return /detail/i.test(n);})[0]||wb.SheetNames[0];grid=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''});}
     grid=grid.filter(function(r){return r.some(function(c){return String(c).trim();});});
     if(grid.length<2){thSt('That file has no data rows.',1);return;}
     var hd=grid[0].map(tshNorm),idx={};
     Object.keys(TSH_COLS).forEach(function(k){var i=-1;TSH_COLS[k].some(function(n){i=hd.indexOf(n);return i>-1;});idx[k]=i;});
-    if(idx.date<0||idx.start<0||idx.end<0){thSt('Could not find Date, Start and End columns. Found: '+grid[0].join(', '),1);return;}
+    if(idx.date<0||((idx.start<0||idx.end<0)&&idx.sched<0)){thSt('Could not find Date, Start and End columns. Found: '+grid[0].join(', '),1);return;}
+    var tc=function(s){s=String(s||'').replace(/\s+/g,' ').trim();return s&&s===s.toUpperCase()?s.toLowerCase().replace(/(^|[ \-'])([a-z])/g,function(m,a,b){return a+b.toUpperCase();}):s;};
     var g=function(r,k){return idx[k]>-1?String(r[idx[k]]==null?'':r[idx[k]]).trim():'';};
     var D=function(id){return document.getElementById(id).value.trim();};
     TSH.rows=grid.slice(1).map(function(r,n){
-      var o={n:n+2,err:[],dcw:g(r,'dcw')||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:g(r,'client')||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
+      var o={n:n+2,err:[],coord:tc(g(r,'coord')),dcw:tc(g(r,'dcw'))||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:tc(g(r,'client'))||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
       o.date=tshDate(g(r,'date'));if(!o.date)o.err.push('date');
-      var s=tshTime(g(r,'start')),e=tshTime(g(r,'end'));if(s==null)o.err.push('start');if(e==null)o.err.push('end');
+      var sv=g(r,'start'),ev=g(r,'end');if((!sv||!ev)&&g(r,'sched')){var sp=g(r,'sched').split('-');sv=sp[0];ev=sp[1]||'';}
+      var s=tshTime(sv),e=tshTime(ev);if(s==null)o.err.push('start');if(e==null)o.err.push('end');
       if(s!=null&&e!=null){o.start=tshFmtTime(s);o.end=tshFmtTime(e);var mins=e-s;if(mins<=0)mins+=1440;o.hours=Math.round(mins/60*100)/100;}
       else if(g(r,'hours')){o.hours=parseFloat(g(r,'hours'));}
       if(o.hours==null||isNaN(o.hours))o.hours='';
       return o;});
-    tshPreview();
+    TSH.off={};tshPreview();
   }catch(e){thSt('Could not read that file: '+(e.message||e),1);}
 }
+TSH.off={};
+function tshVis(){return TSH.rows.filter(function(r){return !TSH.off[r.coord||'(none)'];});}
+function tshCoordToggle(name,on){if(on)delete TSH.off[name];else TSH.off[name]=1;tshPreview();}
+function tshCoordAll(on){TSH.rows.forEach(function(r){var k=r.coord||'(none)';if(on)delete TSH.off[k];else TSH.off[k]=1;});tshPreview();}
 function tshPreview(){
-  var bad=TSH.rows.filter(function(r){return r.err.length;}).length,h='<div class="pe-box"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="text-align:left;color:var(--text3)"><th>Row</th><th>DCW</th><th>Client</th><th>Date</th><th>Start</th><th>End</th><th>Hours</th><th></th></tr>';
-  TSH.rows.slice(0,200).forEach(function(r){var e=function(s){return String(s).replace(/</g,'&lt;');};
+  var cs={};TSH.rows.forEach(function(r){var k=r.coord||'(none)';cs[k]=(cs[k]||0)+1;});var ck=Object.keys(cs).sort();
+  var ch='';if(ck.length>1||(ck.length===1&&ck[0]!=='(none)')){ch='<div class="pe-box"><div style="font-weight:600;font-size:13px;margin-bottom:6px">Filter by Coordinator <button class="pe-btn" style="padding:3px 9px" onclick="tshCoordAll(true)">All</button> <button class="pe-btn" style="padding:3px 9px" onclick="tshCoordAll(false)">None</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 12px;font-size:12px;color:var(--text2)">';
+    ck.forEach(function(k){ch+='<label><input type="checkbox"'+(TSH.off[k]?'':' checked')+' onchange="tshCoordToggle(decodeURIComponent(\''+encodeURIComponent(k).replace(/'/g,'%27')+'\'),this.checked)"> '+k.replace(/</g,'&lt;')+' ('+cs[k]+')</label>';});ch+='</div></div>';}
+  var vis=tshVis(),bad=vis.filter(function(r){return r.err.length;}).length,h='<div class="pe-box"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="text-align:left;color:var(--text3)"><th>Row</th><th>DCW</th><th>Client</th><th>Date</th><th>Start</th><th>End</th><th>Hours</th><th></th></tr>';
+  vis.slice(0,300).forEach(function(r){var e=function(s){return String(s).replace(/</g,'&lt;');};
     h+='<tr style="border-top:1px solid var(--border)"><td>'+r.n+'</td><td>'+e(r.dcw||'—')+'</td><td>'+e(r.client||'—')+'</td><td>'+(r.date||'—')+'</td><td>'+(r.start||'—')+'</td><td>'+(r.end||'—')+'</td><td>'+r.hours+'</td><td style="color:#e57373">'+(r.err.length?'bad '+r.err.join(', '):'')+'</td></tr>';});
-  document.getElementById('th-prev').innerHTML=h+'</table></div>';
-  document.getElementById('th-count').textContent=TSH.rows.length+' visit(s)'+(bad?' — '+bad+' with problems (they will be skipped)':'');
+  document.getElementById('th-prev').innerHTML=ch+h+'</table></div>';
+  document.getElementById('th-count').textContent=vis.length+' of '+TSH.rows.length+' visit(s) selected'+(bad?' — '+bad+' with problems (they will be skipped)':'');
   thSt(bad?'Fix the red rows in your file or they will be skipped.':'Ready. Click “Make timesheets PDF”.',!!bad);
 }
 function tshSample(){peDl('DCW,SSN last 4,Client,Medicaid ID,Date,Start,End,Address,Duties,Notes\nJane Doe,1234,John Smith,123456789,09/24/2026,9:00 am,1:00 pm,"123 Main St Pittsburgh PA 15201","115 116 132",\n','timesheet-sample.csv','text/csv');}
@@ -2036,7 +2045,7 @@ function tshPrint(bytes){
   document.body.appendChild(f);setTimeout(function(){f.remove();URL.revokeObjectURL(url);},120000);
 }
 async function tshMake(mode){
-  var rows=TSH.rows.filter(function(r){return !r.err.length;});
+  var rows=tshVis().filter(function(r){return !r.err.length;});
   if(!rows.length){thSt('Upload a file with valid rows first.',1);return;}
   try{
     thSt('Making '+rows.length+' timesheet(s)…');
