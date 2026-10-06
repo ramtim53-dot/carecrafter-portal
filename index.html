@@ -1345,6 +1345,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
           <button class="pe-tab" id="pe-tab-wm" onclick="peTab('wm')">💧 Watermark</button>
           <button class="pe-tab" id="pe-tab-img" onclick="peTab('img')">📷 Photos → PDF</button>
           <button class="pe-tab" id="pe-tab-del" onclick="peTab('del')">🗑 Delete Pages</button>
+          <button class="pe-tab" id="pe-tab-ts" onclick="peTab('ts')">🕒 Timesheets</button>
         </div>
         <div id="pe-status" style="font-size:13px;color:var(--text2);margin-bottom:.75rem;min-height:18px"></div>
 
@@ -1419,6 +1420,33 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <div class="pe-note2">Click a page to mark it for deletion (red ✕), click again to keep it.</div>
             <div id="pd-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:10px"></div>
           </div>
+        </div>
+
+        <div id="pe-p-ts" style="display:none">
+          <div class="pe-box">
+            <div class="pe-row">
+              <label class="pe-btn pri" for="th-file" style="cursor:pointer">📂 Upload CSV / Excel</label>
+              <input type="file" id="th-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="tshLoad(this.files[0]); this.value=''">
+              <button class="pe-btn" onclick="tshSample()">Download sample CSV</button>
+              <button class="pe-btn pri" onclick="tshMake()">⬇ Make timesheets PDF</button>
+              <span id="th-count" style="font-size:12px;color:var(--text3)"></span>
+            </div>
+            <div class="pe-note2">One page per row (one visit). Columns it understands (any order, any capitalization): <b>DCW, SSN last 4, Client, Medicaid ID, Date, Start, End, Hours, Address, Duties, Notes</b>. Only Date, Start and End are required per row; DCW / Client / Address can come from the boxes below when a column is missing. Signature and date areas are printed blank for pen signing.</div>
+          </div>
+          <div class="pe-box">
+            <div style="font-weight:600;margin-bottom:8px;font-size:13px">Defaults (used when the file has no value)</div>
+            <div class="pe-row">
+              <label style="font-size:12px;color:var(--text2)">DCW name <input type="text" id="th-d-dcw" style="width:170px"></label>
+              <label style="font-size:12px;color:var(--text2)">SSN last 4 <input type="text" id="th-d-ssn" maxlength="4" style="width:60px"></label>
+              <label style="font-size:12px;color:var(--text2)">Client <input type="text" id="th-d-cl" style="width:170px"></label>
+              <label style="font-size:12px;color:var(--text2)">Medicaid ID <input type="text" id="th-d-mid" style="width:120px"></label>
+            </div>
+            <div class="pe-row"><label style="font-size:12px;color:var(--text2);flex:1">Location of service <input type="text" id="th-d-addr" style="width:100%;max-width:480px"></label></div>
+            <div style="font-weight:600;margin:6px 0;font-size:13px">Duties performed (ticked on every page unless the file has a Duties column)</div>
+            <div id="th-duties" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 12px;font-size:12px;color:var(--text2)"></div>
+            <div class="pe-note2">Pre-ticked to match your sample timesheet — review before printing. In a Duties column, list codes like <code>115 116 132</code>.</div>
+          </div>
+          <div id="th-prev"></div>
         </div>
 
         <div id="pe-sigmodal">
@@ -1710,7 +1738,7 @@ function pePdfjs(){return new Promise(function(res,rej){try{psLoadPdfjs(function
 function peDl(bytes,name,type){var b=new Blob([bytes],{type:type||'application/pdf'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
 function peRead(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(new Uint8Array(r.result));};r.onerror=function(){rej(r.error);};r.readAsArrayBuffer(f);});}
 function peBase(f){return (f&&f.name||'document').replace(/\.[^.]+$/,'');}
-function peTab(t){['edit','wm','img','del'].forEach(function(k){document.getElementById('pe-p-'+k).style.display=k===t?'':'none';document.getElementById('pe-tab-'+k).classList.toggle('pe-on',k===t);});peSt('');}
+function peTab(t){if(t==='ts')tshInit();['edit','wm','img','del','ts'].forEach(function(k){document.getElementById('pe-p-'+k).style.display=k===t?'':'none';document.getElementById('pe-tab-'+k).classList.toggle('pe-on',k===t);});peSt('');}
 function peTool(t){PE.tool=t;document.querySelectorAll('#v-pdfeditor .pe-tl').forEach(function(b){b.classList.toggle('pe-on',b.getAttribute('data-t')===t);});document.getElementById('pe-pages').setAttribute('data-tool',t);if(t==='sign'&&!PE.sig)sigOpen();}
 async function peOpen(f){
   if(!f)return;
@@ -1801,7 +1829,7 @@ function peDraw(P){
   });
 }
 function peUndo(){var o=PE.ops.pop();if(o)peDraw(PE.pages[o.p]);}
-function peLatin(s){return String(s).replace(/[^\x20-\x7E\xA0-\xFF]/g,'?');}
+function peLatin(s){return String(s).replace(/[^\x20-\x7E\xA0-\xFF‘’“”–—•]/g,'?');}
 function peDataBytes(u){var b=atob(u.split(',')[1]),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
 async function peSave(){
   if(!PE.doc){peSt('Open a PDF first.',1);return;}
@@ -1923,6 +1951,134 @@ async function pdOpen(f){
     }
     pdCount(doc.numPages);peSt('');
   }catch(e){peSt('Could not open that PDF: '+(e.message||e),1);}
+}
+/* ===== Timesheets ===== */
+var TSH={rows:[],inited:false,
+ L:[[115,'Meal Preparation'],[116,'Housework/Chore'],[117,'Managing Finances'],[118,'Managing Medications'],[119,'Shopping'],[120,'Transportation'],[122,'Personal Hygiene'],[123,'Dressing Upper'],[124,'Dressing Lower'],[125,'Locomotion'],[126,'Transfer'],[127,'Toilet Use'],[128,'Bed Mobility'],[129,'Eating']],
+ R:[[130,'Bladder Incontinence'],[131,'Bowel Incontinence'],[132,'Personal Care'],[134,'Bathing'],[137,'Lotion'],[138,'Laundry'],[139,'Reading Writing'],[140,'Supervision'],[141,'Incontinence Care'],[142,'Catheter Care'],[143,'Wound Care'],[144,'G Tube Feeding'],[145,'Stairs'],[203,'Other']],
+ DEF:[115,116,118,119,120,122,123,124,125,126,128,132,134,137,138,140,145,203]};
+function tshInit(){
+  if(TSH.inited)return;TSH.inited=true;var h='';
+  TSH.L.concat(TSH.R).forEach(function(d){h+='<label><input type="checkbox" class="ts-duty" value="'+d[0]+'"'+(TSH.DEF.indexOf(d[0])>-1?' checked':'')+'> '+d[0]+' '+d[1]+'</label>';});
+  document.getElementById('th-duties').innerHTML=h;
+}
+function tshCsv(t){var rows=[],r=[],c='',q=false;for(var i=0;i<t.length;i++){var ch=t[i];
+  if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++;}else q=false;}else c+=ch;}
+  else if(ch==='"')q=true;else if(ch===','){r.push(c);c='';}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[i+1]==='\n')i++;r.push(c);c='';rows.push(r);r=[];}else c+=ch;}
+  if(c!==''||r.length){r.push(c);rows.push(r);}return rows;}
+function tshLoadXlsx(){return new Promise(function(res,rej){if(window.XLSX)return res();var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('Excel reader could not load — save the sheet as CSV and upload that'));};document.head.appendChild(s);});}
+function tshNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+var TSH_COLS={dcw:['dcw','dcwname','caregiver','caregivername','worker','employee','aide'],ssn:['ssn','ssnlast4','last4','dcwlast4','dcwlast4digitsofssn'],client:['client','clientname','participant','participantname','consumer','patient'],mid:['medicaid','medicaidid','participantsmedicaidid','maid','recipientid'],date:['date','servicedate','visitdate','day'],start:['start','starttime','workstarttime','timein','in','clockin'],end:['end','endtime','workendtime','timeout','out','clockout'],hours:['hours','totalhours','hrs','totalhoursworked'],addr:['address','location','locationofservice','serviceaddress'],duties:['duties','dutycodes','codes','activities'],notes:['notes','note','comments']};
+function tshDate(v){v=String(v||'').trim();if(!v)return null;var m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);var y,mo,d;
+  if(m){mo=+m[1];d=+m[2];y=+m[3];if(y<100)y+=2000;}
+  else if((m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))){y=+m[1];mo=+m[2];d=+m[3];}
+  else{var dt=new Date(v);if(isNaN(dt))return null;y=dt.getFullYear();mo=dt.getMonth()+1;d=dt.getDate();}
+  if(mo<1||mo>12||d<1||d>31)return null;return String(mo).padStart(2,'0')+'/'+String(d).padStart(2,'0')+'/'+y;}
+function tshTime(v){v=String(v||'').trim().toLowerCase();if(!v)return null;var m=v.match(/^(\d{1,2}):?(\d{2})?(?::\d{2})?\s*([ap])?\.?m?\.?$/);if(!m)return null;
+  var h=+m[1],mi=+(m[2]||0);if(mi>59||h>24)return null;if(m[3]){if(h<1||h>12)return null;if(m[3]==='p'&&h<12)h+=12;if(m[3]==='a'&&h===12)h=0;}
+  return h*60+mi;}
+function tshFmtTime(min){min=((min%1440)+1440)%1440;var h=Math.floor(min/60),mi=min%60,ap=h>=12?'pm':'am';h=h%12;if(h===0)h=12;return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0')+' '+ap;}
+async function tshLoad(f){
+  if(!f)return;tshInit();
+  try{
+    var grid;
+    if(/\.csv$/i.test(f.name)){grid=tshCsv(new TextDecoder().decode(await peRead(f)).replace(/^﻿/,''));}
+    else{await tshLoadXlsx();var wb=XLSX.read(await peRead(f),{type:'array'});grid=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});}
+    grid=grid.filter(function(r){return r.some(function(c){return String(c).trim();});});
+    if(grid.length<2){peSt('That file has no data rows.',1);return;}
+    var hd=grid[0].map(tshNorm),idx={};
+    Object.keys(TSH_COLS).forEach(function(k){var i=-1;TSH_COLS[k].some(function(n){i=hd.indexOf(n);return i>-1;});idx[k]=i;});
+    if(idx.date<0||idx.start<0||idx.end<0){peSt('Could not find Date, Start and End columns. Found: '+grid[0].join(', '),1);return;}
+    var g=function(r,k){return idx[k]>-1?String(r[idx[k]]==null?'':r[idx[k]]).trim():'';};
+    var D=function(id){return document.getElementById(id).value.trim();};
+    TSH.rows=grid.slice(1).map(function(r,n){
+      var o={n:n+2,err:[],dcw:g(r,'dcw')||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:g(r,'client')||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
+      o.date=tshDate(g(r,'date'));if(!o.date)o.err.push('date');
+      var s=tshTime(g(r,'start')),e=tshTime(g(r,'end'));if(s==null)o.err.push('start');if(e==null)o.err.push('end');
+      if(s!=null&&e!=null){o.start=tshFmtTime(s);o.end=tshFmtTime(e);var mins=e-s;if(mins<=0)mins+=1440;o.hours=Math.round(mins/60*100)/100;}
+      else if(g(r,'hours')){o.hours=parseFloat(g(r,'hours'));}
+      if(o.hours==null||isNaN(o.hours))o.hours='';
+      return o;});
+    tshPreview();
+  }catch(e){peSt('Could not read that file: '+(e.message||e),1);}
+}
+function tshPreview(){
+  var bad=TSH.rows.filter(function(r){return r.err.length;}).length,h='<div class="pe-box"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="text-align:left;color:var(--text3)"><th>Row</th><th>DCW</th><th>Client</th><th>Date</th><th>Start</th><th>End</th><th>Hours</th><th></th></tr>';
+  TSH.rows.slice(0,200).forEach(function(r){var e=function(s){return String(s).replace(/</g,'&lt;');};
+    h+='<tr style="border-top:1px solid var(--border)"><td>'+r.n+'</td><td>'+e(r.dcw||'—')+'</td><td>'+e(r.client||'—')+'</td><td>'+(r.date||'—')+'</td><td>'+(r.start||'—')+'</td><td>'+(r.end||'—')+'</td><td>'+r.hours+'</td><td style="color:#e57373">'+(r.err.length?'bad '+r.err.join(', '):'')+'</td></tr>';});
+  document.getElementById('th-prev').innerHTML=h+'</table></div>';
+  document.getElementById('th-count').textContent=TSH.rows.length+' visit(s)'+(bad?' — '+bad+' with problems (they will be skipped)':'');
+  peSt(bad?'Fix the red rows in your file or they will be skipped.':'Ready. Click “Make timesheets PDF”.',!!bad);
+}
+function tshSample(){peDl('DCW,SSN last 4,Client,Medicaid ID,Date,Start,End,Address,Duties,Notes\nJane Doe,1234,John Smith,123456789,09/24/2026,9:00 am,1:00 pm,"123 Main St Pittsburgh PA 15201","115 116 132",\n','timesheet-sample.csv','text/csv');}
+function tshWrap(font,text,size,w){var out=[],cur='';text.split(' ').forEach(function(wd){var t=cur?cur+' '+wd:wd;if(font.widthOfTextAtSize(t,size)>w&&cur){out.push(cur);cur=wd;}else cur=t;});if(cur)out.push(cur);return out;}
+async function tshMake(){
+  var rows=TSH.rows.filter(function(r){return !r.err.length;});
+  if(!rows.length){peSt('Upload a file with valid rows first.',1);return;}
+  try{
+    peSt('Making '+rows.length+' timesheet(s)…');
+    var pdf=await PDFLib.PDFDocument.create(),H=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),HB=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold),T=await pdf.embedFont(PDFLib.StandardFonts.TimesRoman),TB=await pdf.embedFont(PDFLib.StandardFonts.TimesRomanBold),logo=null;
+    try{var lr=await fetch('assets/logo.png');if(lr.ok)logo=await pdf.embedPng(new Uint8Array(await lr.arrayBuffer()));}catch(e){}
+    var defs={};document.querySelectorAll('.ts-duty').forEach(function(c){if(c.checked)defs[c.value]=1;});
+    var rgb=PDFLib.rgb,blk=rgb(0,0,0),grey=rgb(.35,.35,.35);
+    var foot='Note: All sections of the time sheet must be completed and signed by the Direct Care Worker, Participant, and Agency Designee. By signing in the designated area(s) above, you are confirming that the hours shown and the services provided were performed by the Direct Care Worker whose name appears on the time sheet. Do not sign blank time and activity sheets.';
+    rows.forEach(function(r){
+      var pg=pdf.addPage([612,792]),Y=function(t){return 792-t;};
+      var ln=function(x1,t1,x2,t2,w){pg.drawLine({start:{x:x1,y:Y(t1)},end:{x:x2,y:Y(t2)},thickness:w||.8,color:blk});};
+      var tx=function(s,x,t,f,sz,col){pg.drawText(peLatin(s),{x:x,y:Y(t),size:sz,font:f,color:col||blk});};
+      if(logo)pg.drawImage(logo,{x:22,y:Y(78),width:70,height:70});
+      var t1='Time Sheet Documentation for Manual Electronic',t2='Visit Verification (EVV) Entries/Visits';
+      tx(t1,258-HB.widthOfTextAtSize(t1,11.5)/2,30,HB,11.5);tx(t2,258-HB.widthOfTextAtSize(t2,11.5)/2,49,HB,11.5);
+      [['Care Crafter Home Care, LLC',25,HB],['Ph: 412-308-5300',38,H],['Fax: 412-567-6252',52,H],['Agency TIN: 81-4884987',65,H],['Provider ID: 103374482',79,H]].forEach(function(a){tx(a[0],445,a[1],a[2],7.5);});
+      /* info grid */
+      var X0=22,X1=592,rt=[96,122,148,174,198];
+      pg.drawRectangle({x:X0,y:Y(198),width:X1-X0,height:102,borderColor:blk,borderWidth:.8});
+      [122,148,174].forEach(function(t){ln(X0,t,X1,t);});
+      ln(317,96,317,148);ln(175,148,175,174);ln(317,148,317,174);ln(440,148,440,174);
+      var lab=function(s,x,t){tx(s,x,t,TB,8);return x+TB.widthOfTextAtSize(s,8)+4;};
+      var val=function(s,x,t,maxW,sz){sz=sz||9.5;while(sz>5.5&&H.widthOfTextAtSize(peLatin(s),sz)>maxW)sz-=.5;tx(s,x,t,H,sz);};
+      var x;
+      x=lab('Direct Care Worker (DCW) Name:',28,108);val(r.dcw,x,108,310-x);
+      x=lab('DCW Last 4 digits of SSN:',323,108);val(r.ssn,x,108,590-x);
+      x=lab('Participant Name:',28,135);val(r.client,x,135,310-x);
+      x=lab('Participant’s Medicaid ID:',323,135);val(r.mid,x,135,590-x);
+      x=lab('Service Date:',28,163);val(r.date,x,163,170-x);
+      x=lab('Work Start Time:',181,163);val(r.start,x,163,314-x);
+      x=lab('Work End Time:',323,163);val(r.end,x,163,437-x);
+      x=lab('Total Hours Worked:',446,163);val(r.hours===''?'':r.hours+(r.hours===1?' hour':' hours'),x,163,590-x);
+      x=lab('Location of Service Provided:',28,189);val(r.addr,x,189,590-x);
+      /* duty tables */
+      var codes=r.duties?(r.duties.match(/\d{3}/g)||[]).reduce(function(o,c){o[c]=1;return o;},{}):defs;
+      var drawT=function(cols,list){
+        var x0=cols[0],x4=cols[4],top=210,hb=250,rh=19.77,bot=hb+rh*list.length;
+        pg.drawRectangle({x:x0,y:Y(bot),width:x4-x0,height:bot-top,borderColor:blk,borderWidth:.8});
+        ln(x0,hb,x4,hb);ln(cols[2],230,x4,230);[1,2,3].forEach(function(i){ln(cols[i],i===3?230:top,cols[i],bot);});
+        var c=function(s,a,b,t,f,sz){tx(s,(a+b)/2-f.widthOfTextAtSize(s,sz)/2,t,f,sz);};
+        c('Duty',cols[0],cols[1],225,HB,8.5);c('Code',cols[0],cols[1],242,HB,8.5);c('Activities',cols[1],cols[2],237,HB,8.5);
+        c('Performed',cols[2],x4,223,HB,8.5);c('Yes',cols[2],cols[3],243,HB,8.5);c('No',cols[3],x4,243,HB,8.5);
+        list.forEach(function(d,i){var t=hb+rh*i;if(i)ln(x0,t,x4,t,.5);
+          c(String(d[0]),cols[0],cols[1],t+13.5,H,9);tx(d[1],cols[1]+6,t+13.5,H,9);
+          if(codes[d[0]]){var cx=(cols[2]+cols[3])/2,cy=t+rh/2;
+            pg.drawRectangle({x:cx-5.5,y:Y(cy+5.5),width:11,height:11,borderColor:blk,borderWidth:.8});
+            pg.drawLine({start:{x:cx-3.5,y:Y(cy)},end:{x:cx-1,y:Y(cy+3)},thickness:1.2,color:blk});
+            pg.drawLine({start:{x:cx-1,y:Y(cy+3)},end:{x:cx+3.5,y:Y(cy-3.5)},thickness:1.2,color:blk});}});
+      };
+      drawT([22,79,227,271,305],TSH.L);drawT([321,378,505,549,592],TSH.R);
+      /* signature block (left blank for pen) */
+      pg.drawRectangle({x:X0,y:Y(692),width:X1-X0,height:692-548,borderColor:blk,borderWidth:.8});
+      [582,616,650].forEach(function(t){ln(X0,t,X1,t);});ln(317,548,317,616);ln(317,650,317,692);
+      lab('Participant’s Signature:',28,566);lab('Date:',323,566);
+      lab('Provider signature and',28,590);lab('Agency position:',28,604);lab('Date:',323,590);
+      tx('I, the undersigned Direct Care Worker, attest that I provided Personal Assistance Services, as describes above, to the',28,630,T,8.5);
+      tx('Participant listed on the time sheet above, and that the hours are true and correct.',28,643,T,8.5);
+      lab('Direct Care Worker signature:',28,672);lab('Date:',323,672);
+      tx('Note:',26,708,HB,8);ln(52,710,592,710,.5);if(r.notes)val(r.notes,56,707,534,8.5);
+      tshWrap(H,foot,7.5,548).forEach(function(l,i){tx(l,32,728+i*11,H,7.5,grey);});
+      tx('www.carecrafterhomecare.com',396,784,H,7.5,grey);
+    });
+    peDl(await pdf.save(),'timesheets-'+new Date().toISOString().slice(0,10)+'.pdf');
+    peSt('Done — '+rows.length+' timesheet page(s) downloaded. Signature and date areas are blank for pen.');
+  }catch(e){peSt('Failed: '+(e.message||e),1);}
 }
 function pdCount(t){document.getElementById('pd-count').textContent=Object.keys(PD.del).length+' of '+t+' selected for deletion';}
 async function pdSave(){
