@@ -1429,6 +1429,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
               <input type="file" id="th-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="tshLoad(this.files[0]); this.value=''">
               <button class="pe-btn" onclick="tshSample()">Download sample CSV</button>
               <button class="pe-btn pri" onclick="tshMake()">⬇ Make timesheets PDF</button>
+              <button class="pe-btn pri" onclick="tshMake('print')">🖨 Print now</button>
               <span id="th-count" style="font-size:12px;color:var(--text3)"></span>
             </div>
             <div class="pe-note2">One page per row (one visit). Columns it understands (any order, any capitalization): <b>DCW, SSN last 4, Client, Medicaid ID, Date, Start, End, Hours, Address, Duties, Notes</b>. Only Date, Start and End are required per row; DCW / Client / Address can come from the boxes below when a column is missing. Signature and date areas are printed blank for pen signing.</div>
@@ -2012,7 +2013,13 @@ function tshPreview(){
 }
 function tshSample(){peDl('DCW,SSN last 4,Client,Medicaid ID,Date,Start,End,Address,Duties,Notes\nJane Doe,1234,John Smith,123456789,09/24/2026,9:00 am,1:00 pm,"123 Main St Pittsburgh PA 15201","115 116 132",\n','timesheet-sample.csv','text/csv');}
 function tshWrap(font,text,size,w){var out=[],cur='';text.split(' ').forEach(function(wd){var t=cur?cur+' '+wd:wd;if(font.widthOfTextAtSize(t,size)>w&&cur){out.push(cur);cur=wd;}else cur=t;});if(cur)out.push(cur);return out;}
-async function tshMake(){
+function tshPrint(bytes){
+  var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})),f=document.createElement('iframe');
+  f.style.cssText='position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0';f.src=url;
+  f.onload=function(){setTimeout(function(){try{f.contentWindow.focus();f.contentWindow.print();}catch(e){window.open(url,'_blank');}},400);};
+  document.body.appendChild(f);setTimeout(function(){f.remove();URL.revokeObjectURL(url);},120000);
+}
+async function tshMake(mode){
   var rows=TSH.rows.filter(function(r){return !r.err.length;});
   if(!rows.length){peSt('Upload a file with valid rows first.',1);return;}
   try{
@@ -2076,8 +2083,9 @@ async function tshMake(){
       tshWrap(H,foot,7.5,548).forEach(function(l,i){tx(l,32,728+i*11,H,7.5,grey);});
       tx('www.carecrafterhomecare.com',396,784,H,7.5,grey);
     });
-    peDl(await pdf.save(),'timesheets-'+new Date().toISOString().slice(0,10)+'.pdf');
-    peSt('Done — '+rows.length+' timesheet page(s) downloaded. Signature and date areas are blank for pen.');
+    var out=await pdf.save();
+    if(mode==='print'){tshPrint(out);peSt('Print dialog opening for '+rows.length+' page(s)… (if nothing appears, allow pop-ups or use Make timesheets PDF)');}
+    else{peDl(out,'timesheets-'+new Date().toISOString().slice(0,10)+'.pdf');peSt('Done — '+rows.length+' timesheet page(s) downloaded. Signature and date areas are blank for pen.');}
   }catch(e){peSt('Failed: '+(e.message||e),1);}
 }
 function pdCount(t){document.getElementById('pd-count').textContent=Object.keys(PD.del).length+' of '+t+' selected for deletion';}
