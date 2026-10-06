@@ -2137,7 +2137,7 @@ async function tshLoad(f){
     var D=function(id){return document.getElementById(id).value.trim();};
     TSH.lastFile=f;var SV={cl:tshLsGet('cc_th_clients'),dw:tshLsGet('cc_th_dcws')},miss=0;
     TSH.rows=grid.slice(1).map(function(r,n){
-      var o={n:n+2,err:[],coord:tc(g(r,'coord')),dcw:tc(g(r,'dcw'))||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:tc(g(r,'client'))||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
+      var o={id:n,sel:false,dut:null,n:n+2,err:[],coord:tc(g(r,'coord')),dcw:tc(g(r,'dcw'))||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:tc(g(r,'client'))||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
       var code=g(r,'code').toUpperCase(),cf=(!o.addr||!o.mid)?tshFind(SV.cl,o.client):null,df=null;
       if(!o.ssn||!o.addr){if(code)df=SV.dw.filter(function(x){return x[3]&&String(x[3]).toUpperCase()===code;})[0]||null;if(!df)df=tshFind(SV.dw,o.dcw);}
       if(cf){if(!o.addr&&cf[1])o.addr=cf[1];if(!o.mid&&cf[2])o.mid=cf[2];}
@@ -2162,13 +2162,26 @@ function tshPreview(){
   var cs={};TSH.rows.forEach(function(r){var k=r.coord||'(none)';cs[k]=(cs[k]||0)+1;});var ck=Object.keys(cs).sort();
   var ch='';if(ck.length>1||(ck.length===1&&ck[0]!=='(none)')){ch='<div class="pe-box"><div style="font-weight:600;font-size:13px;margin-bottom:6px">Filter by Coordinator <button class="pe-btn" style="padding:3px 9px" onclick="tshCoordAll(true)">All</button> <button class="pe-btn" style="padding:3px 9px" onclick="tshCoordAll(false)">None</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 12px;font-size:12px;color:var(--text2)">';
     ck.forEach(function(k){ch+='<label><input type="checkbox"'+(TSH.off[k]?'':' checked')+' onchange="tshCoordToggle(decodeURIComponent(\''+encodeURIComponent(k).replace(/'/g,'%27')+'\'),this.checked)"> '+k.replace(/</g,'&lt;')+' ('+cs[k]+')</label>';});ch+='</div></div>';}
-  var vis=tshVis(),bad=vis.filter(function(r){return r.err.length;}).length,h='<div class="pe-box"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="text-align:left;color:var(--text3)"><th>Row</th><th>DCW</th><th>Client</th><th>Date</th><th>Start</th><th>End</th><th>Hours</th><th></th></tr>';
+  var vis=tshVis(),bad=vis.filter(function(r){return r.err.length;}).length,h=tshEditBox()+'<div class="pe-box"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="text-align:left;color:var(--text3)"><th><input type="checkbox" title="Select all shown" onchange="tshSelAll(this.checked)"></th><th>Row</th><th>DCW</th><th>Client</th><th>Date</th><th>Start</th><th>End</th><th>Hours</th><th>Duties</th><th></th></tr>';
   vis.slice(0,300).forEach(function(r){var e=function(s){return String(s).replace(/</g,'&lt;');};
-    h+='<tr style="border-top:1px solid var(--border)"><td>'+r.n+'</td><td>'+e(r.dcw||'—')+'</td><td>'+e(r.client||'—')+'</td><td>'+(r.date||'—')+'</td><td>'+(r.start||'—')+'</td><td>'+(r.end||'—')+'</td><td>'+r.hours+'</td><td style="color:#e57373">'+(r.err.length?'bad '+r.err.join(', '):'')+'</td></tr>';});
+    h+='<tr style="border-top:1px solid var(--border)"><td><input type="checkbox"'+(r.sel?' checked':'')+' onchange="tshSelRow('+r.id+',this.checked)"></td><td>'+r.n+'</td><td>'+e(r.dcw||'—')+'</td><td>'+e(r.client||'—')+'</td><td>'+(r.date||'—')+'</td><td>'+(r.start||'—')+'</td><td>'+(r.end||'—')+'</td><td>'+r.hours+'</td><td style="color:var(--text3)">'+(r.dut?'custom ('+r.dut.length+')':r.duties?'from file':'default')+'</td><td style="color:#e57373">'+(r.err.length?'bad '+r.err.join(', '):'')+'</td></tr>';});
   document.getElementById('th-prev').innerHTML=ch+h+'</table></div>';
   document.getElementById('th-count').textContent=vis.length+' of '+TSH.rows.length+' visit(s) selected'+(bad?' — '+bad+' with problems (they will be skipped)':'');
   thSt(bad?'Fix the red rows in your file or they will be skipped.':'Ready. Click “Make timesheets PDF”.',!!bad);
 }
+/* per-visit duty overrides */
+TSH.edit=null;
+function tshEditInit(){if(TSH.edit)return;TSH.edit={};document.querySelectorAll('.ts-duty').forEach(function(c){if(c.checked)TSH.edit[c.value]=1;});}
+function tshSelCount(){return tshVis().filter(function(r){return r.sel;}).length;}
+function tshEditBox(){
+  tshEditInit();var n=tshSelCount(),h='<div class="pe-box"><div style="font-weight:600;font-size:13px;margin-bottom:6px">Change duties for selected visits <span id="th-selct" style="font-weight:400;color:var(--text3)">— '+n+' selected (tick the boxes in the list below)</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:3px 12px;font-size:12px;color:var(--text2)">';
+  TSH.L.concat(TSH.R).forEach(function(d){h+='<label><input type="checkbox"'+(TSH.edit[d[0]]?' checked':'')+' onchange="tshEditToggle('+d[0]+',this.checked)"> '+d[0]+' '+d[1]+'</label>';});
+  return h+'</div><div class="pe-row" style="margin:8px 0 0"><button class="pe-btn pri" onclick="tshApplyDuties()">Apply these duties to selected</button><button class="pe-btn" onclick="tshResetDuties()">Use default duties for selected</button><label style="font-size:12px;color:var(--text2)"><input type="checkbox" id="th-onlysel"> Make only the selected visits</label></div></div>';}
+function tshEditToggle(c,on){if(on)TSH.edit[c]=1;else delete TSH.edit[c];}
+function tshSelRow(id,on){TSH.rows.forEach(function(r){if(r.id===id)r.sel=on;});var e=document.getElementById('th-selct');if(e)e.textContent='— '+tshSelCount()+' selected (tick the boxes in the list below)';}
+function tshSelAll(on){tshVis().forEach(function(r){r.sel=on;});var keep=document.getElementById('th-onlysel')&&document.getElementById('th-onlysel').checked;tshPreview();if(keep)document.getElementById('th-onlysel').checked=true;}
+function tshApplyDuties(){var codes=Object.keys(TSH.edit).map(Number),n=0;tshVis().forEach(function(r){if(r.sel){r.dut=codes.slice();n++;}});var keep=document.getElementById('th-onlysel').checked;tshPreview();document.getElementById('th-onlysel').checked=keep;thSt(n?'Applied '+codes.length+' duties to '+n+' visit(s).':'Tick at least one visit first.',!n);}
+function tshResetDuties(){var n=0;tshVis().forEach(function(r){if(r.sel){r.dut=null;n++;}});var keep=document.getElementById('th-onlysel').checked;tshPreview();document.getElementById('th-onlysel').checked=keep;thSt(n?'Selected visits use the default duties again.':'Tick at least one visit first.',!n);}
 function tshSample(){peDl('DCW,SSN last 4,Client,Medicaid ID,Date,Start,End,Address,Duties,Notes\nJane Doe,1234,John Smith,123456789,09/24/2026,9:00 am,1:00 pm,"123 Main St Pittsburgh PA 15201","115 116 132",\n','timesheet-sample.csv','text/csv');}
 function tshPrint(bytes){
   var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})),f=document.createElement('iframe');
@@ -2177,7 +2190,7 @@ function tshPrint(bytes){
   document.body.appendChild(f);setTimeout(function(){f.remove();URL.revokeObjectURL(url);},120000);
 }
 async function tshMake(mode){
-  var rows=tshVis().filter(function(r){return !r.err.length;});
+  var os=document.getElementById('th-onlysel'),rows=tshVis().filter(function(r){return !r.err.length&&(!(os&&os.checked)||r.sel);});
   if(!rows.length){thSt('Upload a file with valid rows first.',1);return;}
   try{
     thSt('Making '+rows.length+' timesheet(s)…');
@@ -2194,7 +2207,7 @@ async function tshMake(mode){
       val(r.date,94,165,82);val(r.start,262,167,56);val(r.end,400,164,38,8);
       val(r.hours===''?'':r.hours+(r.hours===1?' hour':' hours'),545,165,44);
       val(r.addr,165,191,425);
-      var codes=r.duties?(r.duties.match(/[0-9]{3}/g)||[]).reduce(function(o,c){o[c]=1;return o;},{}):defs;
+      var codes=r.dut?r.dut.reduce(function(o,c){o[c]=1;return o;},{}):r.duties?(r.duties.match(/[0-9]{3}/g)||[]).reduce(function(o,c){o[c]=1;return o;},{}):defs;
       [[TSH.L,247],[TSH.R,536]].forEach(function(t){t[0].forEach(function(d,i){
         if(!codes[d[0]])return;var cx=t[1],cy=263+19.77*i-4;
         pg.drawRectangle({x:cx-6,y:Y(cy+6),width:12,height:12,borderColor:blk,borderWidth:.9});
