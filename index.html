@@ -459,6 +459,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
         <button class="nav-btn" onclick="showView('osintfull')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="12" cy="12" r="2.5"/><path d="M8 7l2.5 3M16 7l-2.5 3M8 17l2.5-3M16 17l-2.5-3"/></svg></span>OSINT Framework (Full)</button>
         <button class="nav-btn" onclick="showView('paystub')"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>Paystub Cap Check</button>
         <button class="nav-btn" onclick="showView('publicapis')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg></span>Public APIs</button>
+        <button class="nav-btn" onclick="showView('pdfeditor')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 16l5-5 1.5 1.5-5 5H9z"/></svg></span>PDF Studio</button>
       </div>
       <div class="sidebar-footer">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -494,6 +495,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
           <button class="tool-card" onclick="showView('distance')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">📍</div><div class="tool-name">Distance Checker</div><div class="tool-desc">Upload HHAeXchange Visit Distance Report to detect GPS fraud, overlapping shifts, and out-of-range clock-ins.</div></button>
         <div class="view-sub">Generate Waiver &amp; Employment Verification letters for Care Crafter and RGS</div>
           <button class="tool-card" onclick="showView('pdftool')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">📑</div><div class="tool-name">PDF Tool</div><div class="tool-desc">Merge PDFs in any order, compress large files, and rotate pages — runs entirely in your browser.</div></button>
+          <button class="tool-card" onclick="showView('pdfeditor')"><span class="tool-badge badge-live">NEW</span><div class="tool-icon">🖊️</div><div class="tool-name">PDF Studio</div><div class="tool-desc">Edit text, sign, highlight, truly redact, watermark, turn photos into PDFs, and delete pages — all in your browser.</div></button>
           <button class="tool-card" onclick="showView('brainai')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">🧠</div><div class="tool-name">Brain AI</div><div class="tool-desc">Chat, generate images, edit photo text, and OCR documents — powered by Ram's Brain AI.</div></button>
         </div>
       </div>
@@ -1301,6 +1303,137 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
       </div>
 
       <!-- PUBLIC APIs VIEW -->
+      <div class="view" id="v-pdfeditor" style="max-width:none">
+        <style>
+          #v-pdfeditor .pe-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+          #v-pdfeditor .pe-tab,#v-pdfeditor .pe-btn,#v-pdfeditor .pe-tl{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-size:12.5px;color:var(--text2);cursor:pointer;font-weight:600}
+          #v-pdfeditor .pe-on{background:var(--blue)!important;color:#fff!important;border-color:var(--blue)!important}
+          #v-pdfeditor .pe-btn.pri{background:var(--blue);color:#fff;border-color:var(--blue)}
+          #v-pdfeditor .pe-btn.red,#v-pdfeditor .pe-tl.red.pe-on{background:#c62828!important;border-color:#c62828!important;color:#fff!important}
+          #v-pdfeditor .pe-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+          #v-pdfeditor .pe-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:.75rem}
+          #v-pdfeditor .pe-note2{font-size:11.5px;color:var(--text3);margin-top:6px}
+          #pe-pages{background:var(--bg3);padding:14px;border-radius:var(--radius);max-height:78vh;overflow:auto}
+          .pe-pg{position:relative;margin:0 auto 14px;box-shadow:0 2px 12px rgba(0,0,0,.35);background:#fff}
+          .pe-pg canvas{display:block}
+          .pe-ov{position:absolute;left:0;top:0;right:0;bottom:0}
+          #pe-pages[data-tool="text"] .pe-ov,#pe-pages[data-tool="white"] .pe-ov,#pe-pages[data-tool="hl"] .pe-ov,#pe-pages[data-tool="redact"] .pe-ov,#pe-pages[data-tool="sign"] .pe-ov{cursor:crosshair}
+          .pe-hit{position:absolute;display:none}
+          #pe-pages[data-tool="edit"] .pe-hit{display:block;cursor:text}
+          .pe-hit:hover{background:rgba(66,133,244,.22);outline:1px solid #4285f4}
+          .pe-op{position:absolute}
+          .pe-x{display:none;position:absolute;top:-9px;right:-9px;width:18px;height:18px;border-radius:50%;background:#c62828;color:#fff;font-size:12px;line-height:18px;text-align:center;cursor:pointer;z-index:3}
+          .pe-op:hover .pe-x{display:block}
+          .pe-prev{position:absolute;pointer-events:none}
+          .pe-prev.white{background:#fff;outline:1px dashed #888}
+          .pe-prev.hl{background:rgba(255,235,59,.45)}
+          .pe-prev.redact{background:rgba(0,0,0,.6)}
+          .pe-txt{width:100%;height:100%;border:1px dashed #4285f4;padding:0 1px;box-sizing:border-box;color:#000;outline:none}
+          .pe-note{position:absolute;top:6px;left:6px;background:#fff3cd;color:#664d03;font-size:11px;padding:3px 7px;border-radius:4px}
+          #pe-sigmodal{display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:3000;align-items:center;justify-content:center}
+          #pe-sigmodal .pe-sigbox{background:var(--bg2);border-radius:var(--radius-lg);padding:1.25rem;max-width:92vw}
+          #pe-sigcv{background:#fff;border:1px solid var(--border2);border-radius:6px;touch-action:none;cursor:crosshair;max-width:100%}
+          .pd-th{position:relative;cursor:pointer;border:2px solid transparent;border-radius:6px;padding:4px;background:var(--bg2);text-align:center;font-size:11px;color:var(--text2)}
+          .pd-th canvas{display:block;margin:0 auto 4px;max-width:100%}
+          .pd-th.del{border-color:#c62828;opacity:.55}
+          .pd-th.del::after{content:"✕";position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-size:34px;color:#c62828}
+        </style>
+        <div class="view-title">🖊️ PDF Studio</div>
+        <div class="view-sub">Edit text, sign, highlight, truly redact, watermark, turn photos into PDFs, and delete pages. Everything runs in your browser — your files never leave your computer.</div>
+        <div class="pe-tabs">
+          <button class="pe-tab pe-on" id="pe-tab-edit" onclick="peTab('edit')">✏️ Edit / Sign / Redact</button>
+          <button class="pe-tab" id="pe-tab-wm" onclick="peTab('wm')">💧 Watermark</button>
+          <button class="pe-tab" id="pe-tab-img" onclick="peTab('img')">📷 Photos → PDF</button>
+          <button class="pe-tab" id="pe-tab-del" onclick="peTab('del')">🗑 Delete Pages</button>
+        </div>
+        <div id="pe-status" style="font-size:13px;color:var(--text2);margin-bottom:.75rem;min-height:18px"></div>
+
+        <div id="pe-p-edit">
+          <div class="pe-box">
+            <div class="pe-row">
+              <label class="pe-btn pri" for="pe-file" style="cursor:pointer">📂 Open PDF</label>
+              <input type="file" id="pe-file" accept="application/pdf" style="display:none" onchange="peOpen(this.files[0]); this.value=''">
+              <span style="font-size:12px;color:var(--text3)">Then pick a tool and click or drag on the page.</span>
+            </div>
+          </div>
+          <div id="pe-work" style="display:none">
+            <div class="pe-box">
+              <div class="pe-row">
+                <button class="pe-tl pe-on" data-t="edit" onclick="peTool('edit')">✏️ Edit text</button>
+                <button class="pe-tl" data-t="text" onclick="peTool('text')">🔤 Add text</button>
+                <button class="pe-tl" data-t="white" onclick="peTool('white')">⬜ White-out</button>
+                <button class="pe-tl" data-t="hl" onclick="peTool('hl')">🖍 Highlight</button>
+                <button class="pe-tl" data-t="sign" onclick="peTool('sign')">✍️ Sign</button>
+                <button class="pe-tl red" data-t="redact" onclick="peTool('redact')">⬛ Redact (permanent)</button>
+                <label style="font-size:12px;color:var(--text2)">Text size <input type="number" id="pe-fs" value="12" min="6" max="72" style="width:56px"> pt</label>
+                <button class="pe-btn" onclick="peUndo()">↶ Undo</button>
+                <button class="pe-btn pri" onclick="peSave()">⬇ Download PDF</button>
+              </div>
+              <div class="pe-note2"><b>Edit text:</b> click existing text, type the replacement (replacement text uses Helvetica, not the original font). <b>White-out only covers</b> — the old text is still inside the file. For client names / SSNs / anything sensitive use <b>Redact</b>: it flattens that page to a picture so the text is gone for good (the page is no longer searchable).</div>
+            </div>
+            <div id="pe-pages" data-tool="edit"></div>
+          </div>
+        </div>
+
+        <div id="pe-p-wm" style="display:none">
+          <div class="pe-box">
+            <div class="pe-row"><input type="file" id="pw-file" accept="application/pdf"></div>
+            <div class="pe-row">
+              <label style="font-size:12px;color:var(--text2)">Text
+                <select id="pw-preset" onchange="if(this.value)document.getElementById('pw-text').value=this.value">
+                  <option value="CONFIDENTIAL">CONFIDENTIAL</option><option value="DRAFT">DRAFT</option><option value="COPY">COPY</option><option value="DO NOT DISTRIBUTE">DO NOT DISTRIBUTE</option><option value="">Custom…</option>
+                </select>
+              </label>
+              <input type="text" id="pw-text" value="CONFIDENTIAL" style="width:220px">
+              <label style="font-size:12px;color:var(--text2)">Size <input type="number" id="pw-size" value="64" min="12" max="200" style="width:64px"></label>
+              <label style="font-size:12px;color:var(--text2)">Opacity % <input type="number" id="pw-op" value="25" min="5" max="100" style="width:64px"></label>
+              <label style="font-size:12px;color:var(--text2)">Angle <input type="number" id="pw-ang" value="45" min="-90" max="90" style="width:64px">°</label>
+            </div>
+            <button class="pe-btn pri" onclick="pwRun()">⬇ Add watermark &amp; download</button>
+          </div>
+        </div>
+
+        <div id="pe-p-img" style="display:none">
+          <div class="pe-box">
+            <div class="pe-row">
+              <label class="pe-btn pri" for="pi-file" style="cursor:pointer">📷 Add photos / images</label>
+              <input type="file" id="pi-file" accept="image/*,.heic,.heif" multiple style="display:none" onchange="piAdd(this.files); this.value=''">
+              <label style="font-size:12px;color:var(--text2)">Page
+                <select id="pi-size"><option value="letter">US Letter (fit image)</option><option value="fit">Same size as image</option></select>
+              </label>
+              <button class="pe-btn pri" onclick="piMake()">⬇ Create PDF</button>
+            </div>
+            <div class="pe-note2">Works with JPG, PNG, WEBP, GIF and iPhone HEIC photos. Use ▲▼ to set the page order.</div>
+            <div id="pi-list" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div id="pe-p-del" style="display:none">
+          <div class="pe-box">
+            <div class="pe-row">
+              <label class="pe-btn pri" for="pd-file" style="cursor:pointer">📂 Open PDF</label>
+              <input type="file" id="pd-file" accept="application/pdf" style="display:none" onchange="pdOpen(this.files[0]); this.value=''">
+              <button class="pe-btn pri" onclick="pdSave()">⬇ Download without selected pages</button>
+              <span id="pd-count" style="font-size:12px;color:var(--text3)"></span>
+            </div>
+            <div class="pe-note2">Click a page to mark it for deletion (red ✕), click again to keep it.</div>
+            <div id="pd-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div id="pe-sigmodal">
+          <div class="pe-sigbox">
+            <div style="font-weight:600;margin-bottom:8px">Draw your signature</div>
+            <canvas id="pe-sigcv" width="440" height="160"></canvas>
+            <div class="pe-row" style="margin-top:10px;margin-bottom:0">
+              <button class="pe-btn" onclick="sigClear()">Clear</button>
+              <button class="pe-btn pri" onclick="sigUse()">Use signature</button>
+              <button class="pe-btn" onclick="sigCancel()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="view" id="v-publicapis">
         <div class="view-title">🔌 Public APIs</div>
         <div class="view-sub"><strong id="pa-total">1,586</strong> free public APIs across 51 categories. Data from <a href="https://github.com/public-apis/public-apis" target="_blank" rel="noopener" style="color:var(--blue)">public-apis</a> (MIT). <strong>Auth</strong> = key needed · <strong>CORS: yes</strong> = callable directly from the browser; <strong>no</strong> = needs a server proxy.</div>
@@ -1569,6 +1702,239 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
 <div class="toast" id="toast"></div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+/* ===== PDF Studio (client-side only) ===== */
+var PE={bytes:null,doc:null,pages:[],ops:[],tool:'edit',sig:null,S:1.3};
+function peSt(m,bad){var e=document.getElementById('pe-status');if(e){e.textContent=m||'';e.style.color=bad?'#e57373':'var(--text2)';}}
+function pePdfjs(){return new Promise(function(res,rej){try{psLoadPdfjs(function(){window.pdfjsLib?res(window.pdfjsLib):rej(new Error('pdf.js failed to load'));});}catch(e){rej(e);}});}
+function peDl(bytes,name,type){var b=new Blob([bytes],{type:type||'application/pdf'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
+function peRead(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(new Uint8Array(r.result));};r.onerror=function(){rej(r.error);};r.readAsArrayBuffer(f);});}
+function peBase(f){return (f&&f.name||'document').replace(/\.[^.]+$/,'');}
+function peTab(t){['edit','wm','img','del'].forEach(function(k){document.getElementById('pe-p-'+k).style.display=k===t?'':'none';document.getElementById('pe-tab-'+k).classList.toggle('pe-on',k===t);});peSt('');}
+function peTool(t){PE.tool=t;document.querySelectorAll('#v-pdfeditor .pe-tl').forEach(function(b){b.classList.toggle('pe-on',b.getAttribute('data-t')===t);});document.getElementById('pe-pages').setAttribute('data-tool',t);if(t==='sign'&&!PE.sig)sigOpen();}
+async function peOpen(f){
+  if(!f)return;
+  try{
+    peSt('Loading…');
+    var pj=await pePdfjs();
+    PE.bytes=await peRead(f);PE.name=peBase(f);PE.ops=[];PE.pages=[];
+    PE.doc=await pj.getDocument({data:PE.bytes.slice()}).promise;
+    var host=document.getElementById('pe-pages');host.innerHTML='';
+    document.getElementById('pe-work').style.display='';
+    for(var i=1;i<=PE.doc.numPages;i++){
+      var pg=await PE.doc.getPage(i),vp=pg.getViewport({scale:PE.S}),base=pg.getViewport({scale:1});
+      var div=document.createElement('div');div.className='pe-pg';div.style.width=vp.width+'px';div.style.height=vp.height+'px';
+      var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;div.appendChild(cv);
+      var ov=document.createElement('div');ov.className='pe-ov';div.appendChild(ov);
+      host.appendChild(div);
+      await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+      let P={n:i-1,w:base.width,h:base.height,div:div,ov:ov,page:pg,vp:vp};PE.pages.push(P);
+      var tc=await pg.getTextContent();
+      tc.items.forEach(function(it){
+        if(!it.str||!it.str.trim())return;
+        var tx=pdfjsLib.Util.transform(vp.transform,it.transform),fh=Math.hypot(tx[2],tx[3]);
+        var hit=document.createElement('div');hit.className='pe-hit';
+        hit.style.left=tx[4]+'px';hit.style.top=(tx[5]-fh)+'px';hit.style.width=Math.max(it.width*PE.S,6)+'px';hit.style.height=(fh*1.2)+'px';
+        hit.addEventListener('mousedown',function(e){e.stopPropagation();});
+        hit.addEventListener('click',function(e){e.stopPropagation();peEditItem(P,it.str,tx[4],tx[5],fh,Math.max(it.width*PE.S,40));});
+        ov.appendChild(hit);
+      });
+      peBindOv(P);
+    }
+    peSt(PE.doc.numPages+' page(s) loaded. Pick a tool.');
+    peTool('edit');
+  }catch(e){peSt('Could not open that PDF: '+(e.message||e)+' (password-protected PDFs are not supported)',1);}
+}
+function peEditor(P,x,y,w,h,init,fsPx,done){
+  var inp=document.createElement('input');inp.type='text';inp.value=init;inp.className='pe-txt';
+  var box=document.createElement('div');box.style.cssText='position:absolute;z-index:5;left:'+x+'px;top:'+y+'px;width:'+Math.max(w,120)+'px;height:'+h+'px;';
+  inp.style.fontSize=fsPx+'px';inp.style.fontFamily='Helvetica,Arial,sans-serif';inp.style.background='rgba(255,255,255,.95)';
+  box.appendChild(inp);P.ov.appendChild(box);inp.focus();inp.select();
+  var fin=false;function end(ok){if(fin)return;fin=true;box.remove();if(ok)done(inp.value);}
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter')end(true);else if(e.key==='Escape')end(false);});
+  inp.addEventListener('blur',function(){end(true);});
+}
+function peEditItem(P,str,x,base,fh,w){
+  var S=PE.S;
+  peEditor(P,x,base-fh,w+20,fh*1.25,str,fh,function(v){
+    if(v===str)return;
+    var pw=w/S+6;
+    PE.ops.push({t:'white',p:P.n,x:x/S-1,y:(base-fh)/S-1,w:pw+2,h:fh*1.3/S+1});
+    if(v.trim())PE.ops.push({t:'text',p:P.n,x:x/S,y:base/S,s:fh/S,text:v});
+    peDraw(P);
+  });
+}
+function peBindOv(P){
+  var drag=null,pv=null,S=PE.S;
+  function pos(e){var r=P.ov.getBoundingClientRect();return{x:(e.clientX-r.left)/S,y:(e.clientY-r.top)/S};}
+  P.ov.addEventListener('mousedown',function(e){
+    var t=PE.tool;if(t==='edit'||e.target!==P.ov)return;
+    if(t==='text'){var q=pos(e),fs=+document.getElementById('pe-fs').value||12;
+      peEditor(P,q.x*S,(q.y-fs)*S,220,fs*S*1.3,'',fs*S,function(v){if(v.trim()){PE.ops.push({t:'text',p:P.n,x:q.x,y:q.y,s:fs,text:v});peDraw(P);}});e.preventDefault();return;}
+    if(t==='sign'&&!PE.sig){sigOpen();return;}
+    drag=pos(e);pv=document.createElement('div');pv.className='pe-prev '+(t==='sign'?'white':t);P.ov.appendChild(pv);e.preventDefault();
+  });
+  window.addEventListener('mousemove',function(e){if(!drag)return;var q=pos(e);pv.style.left=Math.min(drag.x,q.x)*S+'px';pv.style.top=Math.min(drag.y,q.y)*S+'px';pv.style.width=Math.abs(q.x-drag.x)*S+'px';pv.style.height=Math.abs(q.y-drag.y)*S+'px';});
+  window.addEventListener('mouseup',function(e){
+    if(!drag)return;var q=pos(e),d=drag;drag=null;pv.remove();
+    var x=Math.min(d.x,q.x),y=Math.min(d.y,q.y),w=Math.abs(q.x-d.x),h=Math.abs(q.y-d.y),t=PE.tool;
+    if(t==='sign'){if(w<8)w=150;if(h<8)h=w*PE.sigAR;}
+    else if(w<3||h<3)return;
+    var op={t:t,p:P.n,x:x,y:y,w:w,h:h};
+    if(t==='sign'){op.t='sign';op.src=PE.sig;op.im=new Image();op.im.src=PE.sig;op.h=op.w*PE.sigAR;}
+    PE.ops.push(op);peDraw(P);
+  });
+}
+function peDraw(P){
+  var S=PE.S;Array.prototype.slice.call(P.ov.querySelectorAll('.pe-op')).forEach(function(n){n.remove();});
+  PE.ops.forEach(function(op,idx){
+    if(op.p!==P.n)return;
+    var d=document.createElement('div');d.className='pe-op';d.style.left=op.x*S+'px';
+    if(op.t==='text'){d.style.top=(op.y-op.s)*S+'px';d.style.fontSize=op.s*S+'px';d.style.fontFamily='Helvetica,Arial,sans-serif';d.style.color='#000';d.style.whiteSpace='pre';d.style.lineHeight='1';d.textContent=op.text;}
+    else{d.style.top=op.y*S+'px';d.style.width=op.w*S+'px';d.style.height=op.h*S+'px';
+      if(op.t==='white')d.style.background='#fff';
+      else if(op.t==='hl'){d.style.background='rgba(255,235,59,.45)';}
+      else if(op.t==='redact'){d.style.background='#000';}
+      else if(op.t==='sign'){var im=document.createElement('img');im.src=op.src;im.style.cssText='width:100%;height:100%;pointer-events:none';d.appendChild(im);}}
+    var x=document.createElement('div');x.className='pe-x';x.textContent='×';x.onclick=function(ev){ev.stopPropagation();PE.ops.splice(PE.ops.indexOf(op),1);peDraw(P);};d.appendChild(x);
+    P.ov.appendChild(d);
+  });
+}
+function peUndo(){var o=PE.ops.pop();if(o)peDraw(PE.pages[o.p]);}
+function peLatin(s){return String(s).replace(/[^\x20-\x7E\xA0-\xFF]/g,'?');}
+function peDataBytes(u){var b=atob(u.split(',')[1]),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+async function peSave(){
+  if(!PE.doc){peSt('Open a PDF first.',1);return;}
+  try{
+    peSt('Building PDF…');
+    var pdf=await PDFLib.PDFDocument.load(PE.bytes,{ignoreEncryption:true}),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),rgb=PDFLib.rgb;
+    var redPages={};PE.ops.forEach(function(o){if(o.t==='redact')redPages[o.p]=1;});
+    for(var n=0;n<PE.pages.length;n++){
+      var P=PE.pages[n],ops=PE.ops.filter(function(o){return o.p===n;});
+      if(!ops.length)continue;
+      if(redPages[n]){
+        var k=2,vp=P.page.getViewport({scale:k}),cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+        var cx=cv.getContext('2d');await P.page.render({canvasContext:cx,viewport:vp}).promise;
+        ops.forEach(function(o){
+          if(o.t==='white'){cx.fillStyle='#fff';cx.fillRect(o.x*k,o.y*k,o.w*k,o.h*k);}
+          else if(o.t==='redact'){cx.fillStyle='#000';cx.fillRect(o.x*k,o.y*k,o.w*k,o.h*k);}
+          else if(o.t==='hl'){cx.save();cx.globalCompositeOperation='multiply';cx.fillStyle='#ffeb3b';cx.fillRect(o.x*k,o.y*k,o.w*k,o.h*k);cx.restore();}
+          else if(o.t==='text'){cx.fillStyle='#000';cx.font=(o.s*k)+'px Helvetica,Arial,sans-serif';cx.textBaseline='alphabetic';cx.fillText(o.text,o.x*k,o.y*k);}
+          else if(o.t==='sign'&&o.im.complete){cx.drawImage(o.im,o.x*k,o.y*k,o.w*k,o.h*k);}
+        });
+        var jb=peDataBytes(cv.toDataURL('image/jpeg',.92)),img=await pdf.embedJpg(jb);
+        pdf.removePage(n);var np=pdf.insertPage(n,[P.w,P.h]);np.drawImage(img,{x:0,y:0,width:P.w,height:P.h});
+      }else{
+        var pg=pdf.getPage(n),H=pg.getHeight();
+        for(var j=0;j<ops.length;j++){var o=ops[j];
+          if(o.t==='white')pg.drawRectangle({x:o.x,y:H-o.y-o.h,width:o.w,height:o.h,color:rgb(1,1,1)});
+          else if(o.t==='hl')pg.drawRectangle({x:o.x,y:H-o.y-o.h,width:o.w,height:o.h,color:rgb(1,.92,.23),opacity:.4});
+          else if(o.t==='text')pg.drawText(peLatin(o.text),{x:o.x,y:H-o.y,size:o.s,font:font,color:rgb(0,0,0)});
+          else if(o.t==='sign'){var si=await pdf.embedPng(peDataBytes(o.src));pg.drawImage(si,{x:o.x,y:H-o.y-o.h,width:o.w,height:o.h});}
+        }
+      }
+    }
+    peDl(await pdf.save(),PE.name+'-edited.pdf');
+    peSt(Object.keys(redPages).length?'Downloaded. Redacted pages were flattened to pictures — the hidden text is gone.':'Downloaded.');
+  }catch(e){peSt('Save failed: '+(e.message||e),1);}
+}
+/* signature pad */
+var sigCtx,sigDown=false,sigInk=false;
+function sigOpen(){var m=document.getElementById('pe-sigmodal');m.style.display='flex';var c=document.getElementById('pe-sigcv');sigCtx=c.getContext('2d');sigClear();
+  if(!c._b){c._b=1;
+    function p(e){var r=c.getBoundingClientRect();return[(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height];}
+    c.addEventListener('pointerdown',function(e){sigDown=true;sigInk=true;var q=p(e);sigCtx.beginPath();sigCtx.moveTo(q[0],q[1]);c.setPointerCapture(e.pointerId);});
+    c.addEventListener('pointermove',function(e){if(!sigDown)return;var q=p(e);sigCtx.lineTo(q[0],q[1]);sigCtx.stroke();});
+    c.addEventListener('pointerup',function(){sigDown=false;});
+  }}
+function sigClear(){var c=document.getElementById('pe-sigcv');sigCtx.clearRect(0,0,c.width,c.height);sigCtx.lineWidth=3;sigCtx.lineCap='round';sigCtx.lineJoin='round';sigCtx.strokeStyle='#111';sigInk=false;}
+function sigCancel(){document.getElementById('pe-sigmodal').style.display='none';if(!PE.sig)peTool('edit');}
+function sigUse(){
+  if(!sigInk){sigCancel();return;}
+  var c=document.getElementById('pe-sigcv'),d=sigCtx.getImageData(0,0,c.width,c.height).data,x0=c.width,y0=c.height,x1=0,y1=0;
+  for(var y=0;y<c.height;y++)for(var x=0;x<c.width;x++)if(d[(y*c.width+x)*4+3]>10){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  var w=x1-x0+8,h=y1-y0+8,t=document.createElement('canvas');t.width=w;t.height=h;t.getContext('2d').drawImage(c,x0-4,y0-4,w,h,0,0,w,h);
+  PE.sig=t.toDataURL('image/png');PE.sigAR=h/w;document.getElementById('pe-sigmodal').style.display='none';peSt('Signature ready — drag a box on the page where it should go (or just click).');
+}
+/* watermark */
+async function pwRun(){
+  var f=document.getElementById('pw-file').files[0];if(!f){peSt('Choose a PDF first.',1);return;}
+  try{
+    peSt('Adding watermark…');
+    var pdf=await PDFLib.PDFDocument.load(await peRead(f),{ignoreEncryption:true}),font=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    var txt=peLatin(document.getElementById('pw-text').value||'CONFIDENTIAL'),sz=+document.getElementById('pw-size').value||64,op=(+document.getElementById('pw-op').value||25)/100,ang=+document.getElementById('pw-ang').value||0,th=ang*Math.PI/180;
+    var w=font.widthOfTextAtSize(txt,sz),hh=sz*.3;
+    pdf.getPages().forEach(function(pg){var cx=pg.getWidth()/2,cy=pg.getHeight()/2;
+      pg.drawText(txt,{x:cx-(w/2*Math.cos(th)-hh*Math.sin(th)),y:cy-(w/2*Math.sin(th)+hh*Math.cos(th)),size:sz,font:font,color:PDFLib.rgb(.5,.5,.5),opacity:op,rotate:PDFLib.degrees(ang)});});
+    peDl(await pdf.save(),peBase(f)+'-watermarked.pdf');peSt('Done — downloaded.');
+  }catch(e){peSt('Watermark failed: '+(e.message||e),1);}
+}
+/* images -> pdf */
+var PI=[];
+function piLoadHeic(){return new Promise(function(res,rej){if(window.heic2any)return res();var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('HEIC converter could not load — convert the photo to JPG first'));};document.head.appendChild(s);});}
+async function piAdd(files){
+  for(var i=0;i<files.length;i++){var f=files[i];
+    try{
+      var bytes,type=f.type,nm=f.name,heic=/\.hei[cf]$/i.test(nm)||/hei[cf]/i.test(type);
+      if(heic){peSt('Converting '+nm+'…');await piLoadHeic();var b=await heic2any({blob:f,toType:'image/jpeg',quality:.92});bytes=await peRead(Array.isArray(b)?b[0]:b);type='image/jpeg';}
+      else bytes=await peRead(f);
+      if(type!=='image/jpeg'&&type!=='image/png'){
+        var url=URL.createObjectURL(new Blob([bytes],{type:type})),im=new Image();
+        await new Promise(function(r,j){im.onload=r;im.onerror=function(){j(new Error('Unsupported image '+nm));};im.src=url;});
+        var c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);cx.drawImage(im,0,0);URL.revokeObjectURL(url);
+        bytes=peDataBytes(c.toDataURL('image/jpeg',.92));type='image/jpeg';
+      }
+      PI.push({name:nm,bytes:bytes,type:type,url:URL.createObjectURL(new Blob([bytes],{type:type}))});
+    }catch(e){peSt(e.message||String(e),1);}
+  }
+  piList();if(PI.length)peSt(PI.length+' image(s) ready.');
+}
+function piList(){
+  var h=document.getElementById('pi-list');h.innerHTML='';
+  PI.forEach(function(it,i){var r=document.createElement('div');r.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12px;color:var(--text2)';
+    r.innerHTML='<img src="'+it.url+'" style="height:44px;border-radius:4px"><span style="flex:1;overflow:hidden;text-overflow:ellipsis">'+(i+1)+'. '+it.name.replace(/</g,'&lt;')+'</span>';
+    [['▲',-1],['▼',1],['✕',0]].forEach(function(a){var b=document.createElement('button');b.className='pe-btn';b.textContent=a[0];b.onclick=function(){
+      if(a[1]===0)PI.splice(i,1);else{var j=i+a[1];if(j<0||j>=PI.length)return;var t=PI[i];PI[i]=PI[j];PI[j]=t;}piList();};r.appendChild(b);});
+    h.appendChild(r);});
+}
+async function piMake(){
+  if(!PI.length){peSt('Add at least one image.',1);return;}
+  try{
+    peSt('Creating PDF…');var pdf=await PDFLib.PDFDocument.create(),fit=document.getElementById('pi-size').value==='fit';
+    for(var i=0;i<PI.length;i++){var it=PI[i],im=it.type==='image/png'?await pdf.embedPng(it.bytes):await pdf.embedJpg(it.bytes);
+      if(fit){var p=pdf.addPage([im.width,im.height]);p.drawImage(im,{x:0,y:0,width:im.width,height:im.height});}
+      else{var p2=pdf.addPage([612,792]),s=Math.min(576/im.width,756/im.height,1e9),w=im.width*s,h=im.height*s;p2.drawImage(im,{x:(612-w)/2,y:(792-h)/2,width:w,height:h});}}
+    peDl(await pdf.save(),'images.pdf');peSt('Done — downloaded.');
+  }catch(e){peSt('Failed: '+(e.message||e),1);}
+}
+/* delete pages */
+var PD={bytes:null,del:{},name:''};
+async function pdOpen(f){
+  if(!f)return;
+  try{
+    peSt('Loading…');var pj=await pePdfjs();PD.bytes=await peRead(f);PD.name=peBase(f);PD.del={};
+    var doc=await pj.getDocument({data:PD.bytes.slice()}).promise,g=document.getElementById('pd-grid');g.innerHTML='';
+    for(var i=1;i<=doc.numPages;i++){
+      var pg=await doc.getPage(i),b=pg.getViewport({scale:1}),vp=pg.getViewport({scale:120/b.width});
+      var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      var d=document.createElement('div');d.className='pd-th';d.appendChild(c);d.appendChild(document.createTextNode('Page '+i));
+      (function(n,el){el.onclick=function(){if(PD.del[n])delete PD.del[n];else PD.del[n]=1;el.classList.toggle('del',!!PD.del[n]);pdCount(doc.numPages);};})(i-1,d);
+      g.appendChild(d);
+    }
+    pdCount(doc.numPages);peSt('');
+  }catch(e){peSt('Could not open that PDF: '+(e.message||e),1);}
+}
+function pdCount(t){document.getElementById('pd-count').textContent=Object.keys(PD.del).length+' of '+t+' selected for deletion';}
+async function pdSave(){
+  if(!PD.bytes){peSt('Open a PDF first.',1);return;}
+  var idx=Object.keys(PD.del).map(Number).sort(function(a,b){return b-a;});
+  if(!idx.length){peSt('Click the pages you want to delete first.',1);return;}
+  try{var pdf=await PDFLib.PDFDocument.load(PD.bytes,{ignoreEncryption:true});
+    if(idx.length>=pdf.getPageCount()){peSt('You cannot delete every page.',1);return;}
+    idx.forEach(function(i){pdf.removePage(i);});peDl(await pdf.save(),PD.name+'-trimmed.pdf');peSt('Done — downloaded.');
+  }catch(e){peSt('Failed: '+(e.message||e),1);}
+}
+</script>
 <script>
 
 // ─── CONFIG ───
@@ -2216,7 +2582,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,osintfull:19,paystub:20,publicapis:21};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,osintfull:19,paystub:20,publicapis:21,pdfeditor:22};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
