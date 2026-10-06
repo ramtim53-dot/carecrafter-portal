@@ -460,6 +460,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
         <button class="nav-btn" onclick="showView('paystub')"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>Paystub Cap Check</button>
         <button class="nav-btn" onclick="showView('publicapis')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg></span>Public APIs</button>
         <button class="nav-btn" onclick="showView('pdfeditor')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 16l5-5 1.5 1.5-5 5H9z"/></svg></span>PDF Studio</button>
+        <button class="nav-btn" onclick="showView('timesheetmaker')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Timesheet Maker</button>
       </div>
       <div class="sidebar-footer">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -496,6 +497,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
         <div class="view-sub">Generate Waiver &amp; Employment Verification letters for Care Crafter and RGS</div>
           <button class="tool-card" onclick="showView('pdftool')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">📑</div><div class="tool-name">PDF Tool</div><div class="tool-desc">Merge PDFs in any order, compress large files, and rotate pages — runs entirely in your browser.</div></button>
           <button class="tool-card" onclick="showView('pdfeditor')"><span class="tool-badge badge-live">NEW</span><div class="tool-icon">🖊️</div><div class="tool-name">PDF Studio</div><div class="tool-desc">Edit text, sign, highlight, truly redact, watermark, turn photos into PDFs, and delete pages — all in your browser.</div></button>
+          <button class="tool-card" onclick="showView('timesheetmaker')"><span class="tool-badge badge-live">NEW</span><div class="tool-icon">🕒</div><div class="tool-name">Timesheet Maker</div><div class="tool-desc">Fill the EVV time sheet for every visit from a spreadsheet — then print or save as PDF.</div></button>
           <button class="tool-card" onclick="showView('brainai')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">🧠</div><div class="tool-name">Brain AI</div><div class="tool-desc">Chat, generate images, edit photo text, and OCR documents — powered by Ram's Brain AI.</div></button>
         </div>
       </div>
@@ -1345,7 +1347,6 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
           <button class="pe-tab" id="pe-tab-wm" onclick="peTab('wm')">💧 Watermark</button>
           <button class="pe-tab" id="pe-tab-img" onclick="peTab('img')">📷 Photos → PDF</button>
           <button class="pe-tab" id="pe-tab-del" onclick="peTab('del')">🗑 Delete Pages</button>
-          <button class="pe-tab" id="pe-tab-ts" onclick="peTab('ts')">🕒 Timesheets</button>
         </div>
         <div id="pe-status" style="font-size:13px;color:var(--text2);margin-bottom:.75rem;min-height:18px"></div>
 
@@ -1422,7 +1423,34 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
           </div>
         </div>
 
-        <div id="pe-p-ts" style="display:none">
+        <div id="pe-sigmodal">
+          <div class="pe-sigbox">
+            <div style="font-weight:600;margin-bottom:8px">Draw your signature</div>
+            <canvas id="pe-sigcv" width="440" height="160"></canvas>
+            <div class="pe-row" style="margin-top:10px;margin-bottom:0">
+              <button class="pe-btn" onclick="sigClear()">Clear</button>
+              <button class="pe-btn pri" onclick="sigUse()">Use signature</button>
+              <button class="pe-btn" onclick="sigCancel()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="v-timesheetmaker" style="max-width:none">
+        <style>
+          #v-timesheetmaker .pe-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+          #v-timesheetmaker .pe-tab,#v-timesheetmaker .pe-btn,#v-timesheetmaker .pe-tl{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-size:12.5px;color:var(--text2);cursor:pointer;font-weight:600}
+          #v-timesheetmaker .pe-on{background:var(--blue)!important;color:#fff!important;border-color:var(--blue)!important}
+          #v-timesheetmaker .pe-btn.pri{background:var(--blue);color:#fff;border-color:var(--blue)}
+          #v-timesheetmaker .pe-btn.red,#v-timesheetmaker .pe-tl.red.pe-on{background:#c62828!important;border-color:#c62828!important;color:#fff!important}
+          #v-timesheetmaker .pe-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+          #v-timesheetmaker .pe-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:.75rem}
+          #v-timesheetmaker .pe-note2{font-size:11.5px;color:var(--text3);margin-top:6px}
+        </style>
+        <div class="view-title">🕒 Timesheet Maker</div>
+        <div class="view-sub">Fill the Care Crafter EVV time sheet for every visit from a CSV or Excel file. Signature and date areas are left blank for pen. Runs in your browser — nothing is uploaded.</div>
+        <div id="th-status" style="font-size:13px;color:var(--text2);margin-bottom:.75rem;min-height:18px"></div>
+        <div id="th-panel">
           <div class="pe-box">
             <div class="pe-row">
               <label class="pe-btn pri" for="th-file" style="cursor:pointer">📂 Upload CSV / Excel</label>
@@ -1448,18 +1476,6 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <div class="pe-note2">Pre-ticked to match your sample timesheet — review before printing. In a Duties column, list codes like <code>115 116 132</code>.</div>
           </div>
           <div id="th-prev"></div>
-        </div>
-
-        <div id="pe-sigmodal">
-          <div class="pe-sigbox">
-            <div style="font-weight:600;margin-bottom:8px">Draw your signature</div>
-            <canvas id="pe-sigcv" width="440" height="160"></canvas>
-            <div class="pe-row" style="margin-top:10px;margin-bottom:0">
-              <button class="pe-btn" onclick="sigClear()">Clear</button>
-              <button class="pe-btn pri" onclick="sigUse()">Use signature</button>
-              <button class="pe-btn" onclick="sigCancel()">Cancel</button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1739,7 +1755,7 @@ function pePdfjs(){return new Promise(function(res,rej){try{psLoadPdfjs(function
 function peDl(bytes,name,type){var b=new Blob([bytes],{type:type||'application/pdf'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
 function peRead(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(new Uint8Array(r.result));};r.onerror=function(){rej(r.error);};r.readAsArrayBuffer(f);});}
 function peBase(f){return (f&&f.name||'document').replace(/\.[^.]+$/,'');}
-function peTab(t){if(t==='ts')tshInit();['edit','wm','img','del','ts'].forEach(function(k){document.getElementById('pe-p-'+k).style.display=k===t?'':'none';document.getElementById('pe-tab-'+k).classList.toggle('pe-on',k===t);});peSt('');}
+function peTab(t){['edit','wm','img','del'].forEach(function(k){document.getElementById('pe-p-'+k).style.display=k===t?'':'none';document.getElementById('pe-tab-'+k).classList.toggle('pe-on',k===t);});peSt('');}
 function peTool(t){PE.tool=t;document.querySelectorAll('#v-pdfeditor .pe-tl').forEach(function(b){b.classList.toggle('pe-on',b.getAttribute('data-t')===t);});document.getElementById('pe-pages').setAttribute('data-tool',t);if(t==='sign'&&!PE.sig)sigOpen();}
 async function peOpen(f){
   if(!f)return;
@@ -1954,6 +1970,7 @@ async function pdOpen(f){
   }catch(e){peSt('Could not open that PDF: '+(e.message||e),1);}
 }
 /* ===== Timesheets ===== */
+function thSt(m,bad){var e=document.getElementById('th-status');if(e){e.textContent=m||'';e.style.color=bad?'#e57373':'var(--text2)';}}
 var TSH={rows:[],inited:false,
  L:[[115,'Meal Preparation'],[116,'Housework/Chore'],[117,'Managing Finances'],[118,'Managing Medications'],[119,'Shopping'],[120,'Transportation'],[122,'Personal Hygiene'],[123,'Dressing Upper'],[124,'Dressing Lower'],[125,'Locomotion'],[126,'Transfer'],[127,'Toilet Use'],[128,'Bed Mobility'],[129,'Eating']],
  R:[[130,'Bladder Incontinence'],[131,'Bowel Incontinence'],[132,'Personal Care'],[134,'Bathing'],[137,'Lotion'],[138,'Laundry'],[139,'Reading Writing'],[140,'Supervision'],[141,'Incontinence Care'],[142,'Catheter Care'],[143,'Wound Care'],[144,'G Tube Feeding'],[145,'Stairs'],[203,'Other']],
@@ -1986,10 +2003,10 @@ async function tshLoad(f){
     if(/\.csv$/i.test(f.name)){grid=tshCsv(new TextDecoder().decode(await peRead(f)).replace(/^﻿/,''));}
     else{await tshLoadXlsx();var wb=XLSX.read(await peRead(f),{type:'array'});grid=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});}
     grid=grid.filter(function(r){return r.some(function(c){return String(c).trim();});});
-    if(grid.length<2){peSt('That file has no data rows.',1);return;}
+    if(grid.length<2){thSt('That file has no data rows.',1);return;}
     var hd=grid[0].map(tshNorm),idx={};
     Object.keys(TSH_COLS).forEach(function(k){var i=-1;TSH_COLS[k].some(function(n){i=hd.indexOf(n);return i>-1;});idx[k]=i;});
-    if(idx.date<0||idx.start<0||idx.end<0){peSt('Could not find Date, Start and End columns. Found: '+grid[0].join(', '),1);return;}
+    if(idx.date<0||idx.start<0||idx.end<0){thSt('Could not find Date, Start and End columns. Found: '+grid[0].join(', '),1);return;}
     var g=function(r,k){return idx[k]>-1?String(r[idx[k]]==null?'':r[idx[k]]).trim():'';};
     var D=function(id){return document.getElementById(id).value.trim();};
     TSH.rows=grid.slice(1).map(function(r,n){
@@ -2001,7 +2018,7 @@ async function tshLoad(f){
       if(o.hours==null||isNaN(o.hours))o.hours='';
       return o;});
     tshPreview();
-  }catch(e){peSt('Could not read that file: '+(e.message||e),1);}
+  }catch(e){thSt('Could not read that file: '+(e.message||e),1);}
 }
 function tshPreview(){
   var bad=TSH.rows.filter(function(r){return r.err.length;}).length,h='<div class="pe-box"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="text-align:left;color:var(--text3)"><th>Row</th><th>DCW</th><th>Client</th><th>Date</th><th>Start</th><th>End</th><th>Hours</th><th></th></tr>';
@@ -2009,7 +2026,7 @@ function tshPreview(){
     h+='<tr style="border-top:1px solid var(--border)"><td>'+r.n+'</td><td>'+e(r.dcw||'—')+'</td><td>'+e(r.client||'—')+'</td><td>'+(r.date||'—')+'</td><td>'+(r.start||'—')+'</td><td>'+(r.end||'—')+'</td><td>'+r.hours+'</td><td style="color:#e57373">'+(r.err.length?'bad '+r.err.join(', '):'')+'</td></tr>';});
   document.getElementById('th-prev').innerHTML=h+'</table></div>';
   document.getElementById('th-count').textContent=TSH.rows.length+' visit(s)'+(bad?' — '+bad+' with problems (they will be skipped)':'');
-  peSt(bad?'Fix the red rows in your file or they will be skipped.':'Ready. Click “Make timesheets PDF”.',!!bad);
+  thSt(bad?'Fix the red rows in your file or they will be skipped.':'Ready. Click “Make timesheets PDF”.',!!bad);
 }
 function tshSample(){peDl('DCW,SSN last 4,Client,Medicaid ID,Date,Start,End,Address,Duties,Notes\nJane Doe,1234,John Smith,123456789,09/24/2026,9:00 am,1:00 pm,"123 Main St Pittsburgh PA 15201","115 116 132",\n','timesheet-sample.csv','text/csv');}
 function tshWrap(font,text,size,w){var out=[],cur='';text.split(' ').forEach(function(wd){var t=cur?cur+' '+wd:wd;if(font.widthOfTextAtSize(t,size)>w&&cur){out.push(cur);cur=wd;}else cur=t;});if(cur)out.push(cur);return out;}
@@ -2021,9 +2038,9 @@ function tshPrint(bytes){
 }
 async function tshMake(mode){
   var rows=TSH.rows.filter(function(r){return !r.err.length;});
-  if(!rows.length){peSt('Upload a file with valid rows first.',1);return;}
+  if(!rows.length){thSt('Upload a file with valid rows first.',1);return;}
   try{
-    peSt('Making '+rows.length+' timesheet(s)…');
+    thSt('Making '+rows.length+' timesheet(s)…');
     var pdf=await PDFLib.PDFDocument.create(),H=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),HB=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold),T=await pdf.embedFont(PDFLib.StandardFonts.TimesRoman),TB=await pdf.embedFont(PDFLib.StandardFonts.TimesRomanBold),logo=null;
     try{var lr=await fetch('assets/logo.png');if(lr.ok)logo=await pdf.embedPng(new Uint8Array(await lr.arrayBuffer()));}catch(e){}
     var defs={};document.querySelectorAll('.ts-duty').forEach(function(c){if(c.checked)defs[c.value]=1;});
@@ -2084,9 +2101,9 @@ async function tshMake(mode){
       tx('www.carecrafterhomecare.com',396,784,H,7.5,grey);
     });
     var out=await pdf.save();
-    if(mode==='print'){tshPrint(out);peSt('Print dialog opening for '+rows.length+' page(s)… (if nothing appears, allow pop-ups or use Make timesheets PDF)');}
-    else{peDl(out,'timesheets-'+new Date().toISOString().slice(0,10)+'.pdf');peSt('Done — '+rows.length+' timesheet page(s) downloaded. Signature and date areas are blank for pen.');}
-  }catch(e){peSt('Failed: '+(e.message||e),1);}
+    if(mode==='print'){tshPrint(out);thSt('Print dialog opening for '+rows.length+' page(s)… (if nothing appears, allow pop-ups or use Make timesheets PDF)');}
+    else{peDl(out,'timesheets-'+new Date().toISOString().slice(0,10)+'.pdf');thSt('Done — '+rows.length+' timesheet page(s) downloaded. Signature and date areas are blank for pen.');}
+  }catch(e){thSt('Failed: '+(e.message||e),1);}
 }
 function pdCount(t){document.getElementById('pd-count').textContent=Object.keys(PD.del).length+' of '+t+' selected for deletion';}
 async function pdSave(){
@@ -2743,10 +2760,11 @@ document.addEventListener('click', e => {
 });
 
 function showView(id) {
+  if(id==='timesheetmaker'&&typeof tshInit==='function')tshInit();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,osintfull:19,paystub:20,publicapis:21,pdfeditor:22};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,osintfull:19,paystub:20,publicapis:21,pdfeditor:22,timesheetmaker:23};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
