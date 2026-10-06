@@ -461,6 +461,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
         <button class="nav-btn" onclick="showView('publicapis')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg></span>Public APIs</button>
         <button class="nav-btn" onclick="showView('pdfeditor')"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 16l5-5 1.5 1.5-5 5H9z"/></svg></span>PDF Studio</button>
         <button class="nav-btn" onclick="showView('timesheetmaker')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Timesheet Maker</button>
+        <button class="nav-btn" onclick="showView('fmhy')"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>FMHY Link Hub</button>
       </div>
       <div class="sidebar-footer">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -497,6 +498,7 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
         <div class="view-sub">Generate Waiver &amp; Employment Verification letters for Care Crafter and RGS</div>
           <button class="tool-card" onclick="showView('pdftool')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">📑</div><div class="tool-name">PDF Tool</div><div class="tool-desc">Merge PDFs in any order, compress large files, and rotate pages — runs entirely in your browser.</div></button>
           <button class="tool-card" onclick="showView('pdfeditor')"><span class="tool-badge badge-live">NEW</span><div class="tool-icon">🖊️</div><div class="tool-name">PDF Studio</div><div class="tool-desc">Edit text, sign, highlight, truly redact, watermark, turn photos into PDFs, and delete pages — all in your browser.</div></button>
+          <button class="tool-card" onclick="showView('fmhy')"><span class="tool-badge badge-live">NEW</span><div class="tool-icon">🌐</div><div class="tool-name">FMHY Link Hub</div><div class="tool-desc">Open the FMHY guide of free tools and websites.</div></button>
           <button class="tool-card" onclick="showView('timesheetmaker')"><span class="tool-badge badge-live">NEW</span><div class="tool-icon">🕒</div><div class="tool-name">Timesheet Maker</div><div class="tool-desc">Fill the EVV time sheet for every visit from a spreadsheet — then print or save as PDF.</div></button>
           <button class="tool-card" onclick="showView('brainai')"><span class="tool-badge badge-live">LIVE</span><div class="tool-icon">🧠</div><div class="tool-name">Brain AI</div><div class="tool-desc">Chat, generate images, edit photo text, and OCR documents — powered by Ram's Brain AI.</div></button>
         </div>
@@ -1476,6 +1478,14 @@ try { if (localStorage.getItem('cc_theme2') === 'light') document.documentElemen
             <div class="pe-note2">Pre-ticked to match your sample timesheet — review before printing. In a Duties column, list codes like <code>115 116 132</code>.</div>
           </div>
           <div id="th-prev"></div>
+        </div>
+      </div>
+
+      <div class="view" id="v-fmhy">
+        <div class="view-title">🌐 FMHY Link Hub</div>
+        <div class="view-sub">FMHY is a large, community-maintained directory of free tools and websites. It updates constantly, so it opens live from the source instead of a stale copy.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin:1rem 0">
+          <a class="tool-card" href="https://fmhy.net/" target="_blank" rel="noopener noreferrer" style="text-decoration:none;max-width:320px"><div class="tool-icon">🌐</div><div class="tool-name">Open FMHY</div><div class="tool-desc">fmhy.net — opens in a new tab</div></a>
         </div>
       </div>
 
@@ -2734,7 +2744,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('v-' + id).classList.add('active');
-  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,osintfull:19,paystub:20,publicapis:21,pdfeditor:22,timesheetmaker:23};
+  const map = {dashboard:0,extension:1,codes:2,admin:3,distance:4,payroll:5,ratecalc:6,letters:7,pdftool:8,news:9,timesheets:10,quicktext:11,hours:12,overlaps:13,authanalysis:14,brainai:15,regularnews:16,countryinfo:17,osint:18,osintfull:19,paystub:20,publicapis:21,pdfeditor:22,timesheetmaker:23,fmhy:24};
   document.querySelectorAll('.nav-btn')[map[id]]?.classList.add('active');
   if (id === 'admin') loadAdmin();
   if (id === 'codes') renderCodes();
