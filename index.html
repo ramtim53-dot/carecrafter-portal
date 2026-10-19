@@ -2151,7 +2151,8 @@ async function tshLoad(f){
       if(o.hours==null||isNaN(o.hours))o.hours='';
       return o;});
     TSH.off={};tshPreview();
-    if(miss){var ms=document.getElementById('th-count');ms.textContent+=' — '+miss+' visit(s) still missing an address or SSN (add them under Saved clients & caregivers)';}
+    if(!SV.dw.length){thSt('No caregivers are saved in THIS browser yet, so SSN and address cannot fill in. Click “Import caregivers from Excel” in the Saved clients & caregivers box, pick your caregiver list, then re-upload the prebilling file.',true);}
+    else if(miss){var ms=document.getElementById('th-count');ms.textContent+=' — '+miss+' visit(s) still missing an address or SSN (add them under Saved clients & caregivers)';}
   }catch(e){thSt('Could not read that file: '+(e.message||e),1);}
 }
 TSH.off={};
