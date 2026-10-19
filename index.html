@@ -2074,7 +2074,7 @@ async function tshImportDcw(f){
     if(/\.csv$/i.test(f.name))grid=tshCsv(new TextDecoder().decode(await peRead(f)).replace(/^﻿/,''));
     else{await tshLoadXlsx();var wb=XLSX.read(await peRead(f),{type:'array'});var sn=wb.SheetNames.filter(function(n){return /detail/i.test(n);})[0]||wb.SheetNames[0];grid=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''});}
     var hi=-1,i;for(i=0;i<Math.min(grid.length,15);i++){var hn=grid[i].map(tshNorm);if(hn.indexOf('ssn')>-1&&(hn.indexOf('lastname')>-1||hn.indexOf('name')>-1)){hi=i;break;}}
-    if(hi<0){msg.textContent='Could not find Last Name / First Name / SSN columns in that file.';return;}
+    if(hi<0){var fh=grid.filter(function(r){return r.some(function(c){return String(c).trim();});})[0]||[];msg.textContent='Could not find Last Name / First Name / SSN columns in “'+f.name+'”. This is the caregiver LIST export (not the Prebilling report). The first row I see has: '+fh.map(function(c){return String(c).trim();}).filter(Boolean).slice(0,10).join(', ')+'.';return;}
     var hn=grid[hi].map(tshNorm),li=hn.indexOf('lastname'),fi=hn.indexOf('firstname'),ni=hn.indexOf('name'),si=hn.indexOf('ssn'),ci=hn.indexOf('caregivercode'),s1=hn.indexOf('street1'),s2=hn.indexOf('street2'),cy=hn.indexOf('city'),st=hn.indexOf('state'),zp=hn.indexOf('zipcode');
     var cur=tshLsGet('cc_th_dcws'),byKey={};cur.forEach(function(r){byKey[(r[3]?String(r[3]).toUpperCase():tshKey(r[0]).join(' '))]=r;});var added=0,skipped=0;
     grid.slice(hi+1).forEach(function(r){
@@ -2083,7 +2083,7 @@ async function tshImportDcw(f){
       name=name.replace(/\s+/g,' ').replace(/\w\S*/g,function(w){return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();});
       var cv=function(i){return i>-1?String(r[i]==null?'':r[i]).replace(/\s+/g,' ').trim():'';};
       var code=cv(ci).toUpperCase(),line2=[cv(cy),(cv(st)+' '+cv(zp)).trim()].filter(Boolean).join(', '),addr=[cv(s1),cv(s2),line2].filter(Boolean).join(', ');
-      var k=code||tshKey(name).join(' ');if(!byKey[k])added++;byKey[k]=[name,d.slice(-4),addr,code];});
+      var k=code||tshKey(name).join(' '),old=byKey[k];if(!old)added++;byKey[k]=[name,d.slice(-4),addr||(old&&old[2])||'',code||(old&&old[3])||''];});
     var out=Object.keys(byKey).map(function(k){return byKey[k];});
     tshLsSet('cc_th_dcws',out);document.getElementById('th-dcw-list').value=out.map(function(r){return r.join('\t');}).join('\n');
     tshSavedCount();msg.textContent='Imported '+added+' new caregiver(s) ('+out.length+' saved; only the last 4 digits of each SSN are kept)'+(skipped?', '+skipped+' row(s) skipped (no name or SSN)':'')+'.';
