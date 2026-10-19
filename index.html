@@ -2134,13 +2134,18 @@ async function tshLoad(f){
     if(idx.date<0||((idx.start<0||idx.end<0)&&idx.sched<0)){thSt('Could not find Date, Start and End columns. Found: '+grid[0].join(', '),1);return;}
     var tc=function(s){s=String(s||'').replace(/\s+/g,' ').trim();return s&&s===s.toUpperCase()?s.toLowerCase().replace(/(^|[ \-'])([a-z])/g,function(m,a,b){return a+b.toUpperCase();}):s;};
     var g=function(r,k){return idx[k]>-1?String(r[idx[k]]==null?'':r[idx[k]]).trim():'';};
+    /* HHAeXchange reports list names as "Last Middle First": print them First Last */
+    var cvC=idx.client>-1&&hd[idx.client]==='membername',cvD=idx.dcw>-1&&hd[idx.dcw]==='caregivername';
+    var fl=function(s,on){s=String(s||'').replace(/\s+/g,' ').trim();if(!on)return tc(s);var t=s.split(' ');if(t.length<2)return tc(s);
+      return (t[t.length-1]+' '+t[0]).toLowerCase().replace(/(^|[ \-'])([a-z])/g,function(m,a,b){return a+b.toUpperCase();});};
     var D=function(id){return document.getElementById(id).value.trim();};
     TSH.lastFile=f;var SV={cl:tshLsGet('cc_th_clients'),dw:tshLsGet('cc_th_dcws')},miss=0;
     TSH.rows=grid.slice(1).map(function(r,n){
-      var o={id:n,sel:true,dut:null,n:n+2,err:[],coord:tc(g(r,'coord')),dcw:tc(g(r,'dcw'))||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:tc(g(r,'client'))||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
+      var o={id:n,sel:true,dut:null,n:n+2,err:[],coord:tc(g(r,'coord')),dcw:fl(g(r,'dcw'),cvD)||D('th-d-dcw'),ssn:(g(r,'ssn')||D('th-d-ssn')).replace(/\D/g,'').slice(-4),client:fl(g(r,'client'),cvC)||D('th-d-cl'),mid:g(r,'mid')||D('th-d-mid'),addr:g(r,'addr')||D('th-d-addr'),notes:g(r,'notes'),duties:g(r,'duties')};
       var code=g(r,'code').toUpperCase(),cf=(!o.addr||!o.mid)?tshFind(SV.cl,o.client):null,df=null;
       if(!o.ssn||!o.addr){if(code)df=SV.dw.filter(function(x){return x[3]&&String(x[3]).toUpperCase()===code;})[0]||null;if(!df)df=tshFind(SV.dw,o.dcw);}
       if(cf){if(!o.addr&&cf[1])o.addr=cf[1];if(!o.mid&&cf[2])o.mid=cf[2];}
+      if(df&&df[0])o.dcw=String(df[0]);
       if(df){if(!o.ssn&&df[1])o.ssn=String(df[1]).replace(/\D/g,'').slice(-4);if(!o.addr&&df[2])o.addr=df[2];}
       if(!o.addr||!o.ssn)miss++;
       o.date=tshDate(g(r,'date'));if(!o.date)o.err.push('date');
